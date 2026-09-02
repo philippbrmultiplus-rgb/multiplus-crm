@@ -8,82 +8,65 @@ O usuário é coordenador comercial de uma recicladora de gesso da construção 
 2. **Comprovar a presença** do vendedor em cada visita (foto + confirmação de localização via GPS).
 3. **Registrar o resultado** da visita: o que foi realizado e o que será feito na próxima visita ao mesmo cliente.
 
-A base de clientes vem da planilha anexada, aba **CARTEIRA POA** (~250 clientes do RS + alguns de SC atendidos pela carteira, com endereço, cidade, segmento, status ativo e volumes mensais 2025/2026).
+A base de clientes vem da planilha anexada, aba **CARTEIRA POA** (249 clientes do RS + alguns de SC, com endereço, cidade, segmento, status ativo e volumes mensais 2025/2026).
 
 ### Decisões acordadas com o usuário
 - **Carteira:** apenas a do RS (aba CARTEIRA POA) — foco no vendedor externo.
 - **Frequência:** automática por faixa de volume mensal (com ajuste manual).
-- **Acesso:** login com papéis (coordenador e vendedor).
+- **Acesso:** login com papéis (coordenador e vendedor). *(Sem backend — versão local com seleção de perfil.)*
 - **Rota:** geração automática (proximidade + prioridade de volume, respeitando 07h–17h) com ajuste manual (arrastar/reordenar/mover clientes entre dias).
 
 ---
 
-## Arquitetura
+## Arquitetura (versão local, sem backend)
 
-Backend **Enter Cloud** (banco, auth, storage, funções de backend) + frontend React/Vite/Tailwind/shadcn.
+- Dados persistidos em **localStorage** (estado único `rs-app-state.v1`) com **exportação/importação de backup em JSON** para transferência entre aparelhos.
+- **Perfis** por seleção (Coordenador / Vendedor), sem senha.
+- **Geocodificação** dos endereços via Nominatim (OpenStreetMap) em lote com 1,1 s entre chamadas; falhas recebem pin manual no mapa.
+- **Mapa** Leaflet + OpenStreetMap; **drag & drop** com @dnd-kit.
 
-### Banco de dados (tabelas)
-- `profiles` — id (ref auth.users), full_name, role (`coordenador` | `vendedor`), created_at.
-- `settings` — linha única: home_lat/home_lng (POA), work_start `07:00`, work_end `17:00`, visit_time_min (30), travel_speed_kmh (60), working_days [1..6], tier_a_threshold (100 t/mês), tier_b_threshold (20 t/mês), visit_radius_m (300).
-- `clients` — name, segment, address, city, state, active, total_2025, total_2026, avg_monthly_2026 (= Total 2 / 5), tier (A/B/C), freq_month (2 / 1 / 0.5), lat, lng, geocode_status (`pendente`|`ok`|`falha`), obs.
-- `weekly_routes` — week_start (segunda-feira), salesperson_id, status (`rascunho`|`publicada`|`encerrada`), created_by, notes.
-- `route_visits` — route_id, client_id, day_of_week (1–6), position (ordem do dia), est_travel_min, est_visit_min, status (`pendente`|`concluida`|`nao_realizada`), coordinator_note. Unique (route_id, client_id).
-- `visits` — route_visit_id (nullable), client_id, salesperson_id, visited_at (server), status (`realizada`|`nao_encontrado`|`recusada`), result_comments ("o que foi realizado"), next_actions ("próxima visita"), gps_lat, gps_lng, gps_accuracy_m, distance_from_client_m, within_radius, photo_url.
-
-RLS: vendedor lê/grava apenas as próprias visitas e a rota atribuída a ele; coordenador lê/grava tudo. Bucket de storage público `visitas` para as fotos.
-
-### Funções de backend (Enter Cloud / edge functions)
-- `seed_clients` — upsert da carteira (payload = dados extraídos da planilha) e cálculo de média/tier/frequência; marca geocode como pendente.
-- `geocode_batch` — processa em lotes (8/cliente por chamada, Nominatim, countrycodes=br) os clientes com geocode pendente; atualiza lat/lng/status; falhas ficam `falha` para ajuste manual no mapa.
-- `generate_weekly_route` — gera a rota da semana (algoritmo abaixo) e grava `weekly_routes` + `route_visits`.
+### Arquivos criados
+- `src/data/clientsRS.ts` — 249 clientes extraídos da planilha (seed).
+- `src/lib/types.ts` — modelos (Client, Settings, RouteVisit, Visit, …).
+- `src/lib/geo.ts` — Haversine, distâncias, horários, datas.
+- `src/lib/route.ts` — gerador da rota semanal + schedule.
+- `src/lib/DataContext.tsx` — estado global + persistência + geocodificação + CRUD.
+- `src/lib/image.ts` — compressão de foto (base64 JPEG).
+- `src/components/map/LeafletMap.tsx` — mapa com marcadores/polilinhas por dia.
+- `src/components/layout/AppShell.tsx` — sidebar por papel.
+- `src/components/visitas/VisitForm.tsx` — comprovação (GPS + foto + comentários).
+- `src/pages/RoleSelect.tsx`, `Dashboard.tsx`, `Clientes.tsx`, `RotaSemanal.tsx`, `MinhaRota.tsx`, `Visitas.tsx`, `Backup.tsx`.
+- `src/router.tsx`, `src/App.tsx`, `src/index.css` (design tokens verde-esmeralda).
+- Dependências: `leaflet`, `react-leaflet`, `@dnd-kit/*`.
 
 ### Algoritmo da rota semanal
-1. Candidatos da semana: clientes ativos conforme rotação da frequência (A = 2x/mês → semanas alternadas; B = 1x/mês → 1 semana por mês; C = 1x a cada 2 meses), usando determinismo por id para distribuir.
-2. Agrupamento por proximidade (Haversine): clusters por cidade/região (POA-metrô, Serra, Litoral, Sul/Pelotas, Oeste/Santa Maria, SC).
-3. Cada dia começa e termina em POA (base). Clusters ordenados por distância da base; cidades próximas compartilham o dia.
-4. Dentro do cluster: ordenação vizinho-mais-próximo a partir de POA. Tempo = distância (linha reta × 1,3) / velocidade + tempo de visita. Se estourar 07h–17h, transborda para o próximo dia; avisa se faltarem dias.
-5. Resultado: dia por dia com ordem, horários estimados e resumo (distância total, nº de visitas/dia).
+1. Candidatos da semana pela rotação de frequência (A=2x/mês semanas alternadas, B=1x/mês, C=1x a cada 2 meses; determinístico por id).
+2. Clientes sem coordenadas e clientes muito distantes para dia único (> raio de ½ expediente) ficam de fora com aviso claro.
+3. Processamento distante-primeiro, inserindo cada cliente no dia cujo último ponto é o mais próximo, desde que o custo (ida + visita + volta à base) caiba em 07h–17h.
+4. Cada dia é reordenado por vizinho-mais-próximo a partir de POA; horários de chegada/saída calculados.
 
 ---
 
-## Frontend — páginas e componentes
-
-- `src/lib/supabase.ts` (cliente), `src/lib/auth.tsx` (AuthProvider + useAuth), `src/lib/geo.ts` (haversine, formatação, validação de raio), `src/lib/types.ts`.
-- `src/data/clientsRS.ts` — dados extraídos da aba CARTEIRA POA (seed).
-- `src/components/map/LeafletMap.tsx` — mapa Leaflet + OSM (polilinhas da rota, marcadores por tier); `MapPin.tsx` — pin manual para geocode falho.
-- `src/components/layout/AppShell.tsx` — sidebar shadcn + navegação.
-- `src/components/rota/` — `DayColumn.tsx`, `RouteClientCard.tsx`, `RouteBoard.tsx` (drag & drop com @dnd-kit).
-- `src/components/visitas/VisitForm.tsx` — fluxo do vendedor: captura GPS + foto + comentários + validação de raio.
-- Páginas: `Login`, `Dashboard` (coordenador: resumo da semana, cobertura, alertas de raio), `Clientes` (busca/filtros, mapa, pin manual, frequência/tier editáveis, botão geocodificar), `RotaSemanal` (seletor de semana → gerar → quadro de dias com ajuste manual → publicar → mapa), `MinhaRota` (vendedor: visitas de hoje em ordem, "Navegar" p/ Google Maps, fluxo de confirmação), `Visitas` (histórico com fotos, GPS, distância, comentários), `Equipe` (coordenador cria contas de vendedor).
-- Rotas no `src/router.tsx`; proteção por papel.
-
-### Design
-Tokens no `index.css`/`tailwind.config.ts` com paleta verde-esmeralda (reciclagem) + neutros, tema claro/escuro; layout responsivo (vendedor usa celular). Novas dependências: `leaflet`, `react-leaflet`, `@types/leaflet`, `@dnd-kit/core`, `@dnd-kit/sortable`, `@dnd-kit/utilities`.
-
----
-
-## Implementação (ordem de execução)
+## Status de implementação
 
 ### Checklist de implementação
-- [ ] Habilitar Enter Cloud (`supabase_enable`) e carregar skill `enter_cloud`.
-- [ ] Criar SQL: tabelas (`profiles`, `settings`, `clients`, `weekly_routes`, `route_visits`, `visits`) + triggers de perfil no signup + RLS + bucket `visitas`.
-- [ ] Extrair a aba CARTEIRA POA da planilha para `src/data/clientsRS.ts` (campos: nome, segmento, endereço, cidade, estado, ativo, total 2025, total 2026; média 2026 = Total2/5).
-- [ ] Criar funções de backend `seed_clients`, `geocode_batch` (Nominatim em lotes) e `generate_weekly_route` (algoritmo acima).
-- [ ] Base frontend: cliente Supabase, AuthProvider, página de Login, AppShell/sidebar, rotas protegidas.
-- [ ] Página Clientes: lista com busca/filtros (cidade, tier, ativo), edição de frequência/tier, botão "Geocodificar", pin manual no mapa para falhas.
-- [ ] Página RotaSemanal: seletor de semana, "Gerar rota", quadro dia a dia (seg–sáb) com drag & drop, validação 07h–17h, publicar, visualização em mapa.
-- [ ] Página MinhaRota (vendedor): visitas de hoje em ordem com link de navegação e fluxo de confirmação (GPS + raio ≤ 300 m + foto obrigatória + comentários + próxima ação), com fallback "fora do raio" justificado.
-- [ ] Página Visitas: histórico filtrado com fotos, distância GPS e comentários.
-- [ ] Dashboard do coordenador: resumo semanal, cobertura, alertas de raio; página Equipe (criar vendedor).
-- [ ] Design system (tokens/cores), revisão dark/light, responsividade.
-
-## Verificação
+- [x] Extração da carteira (aba CARTEIRA POA) → `src/data/clientsRS.ts` (249 clientes).
+- [x] Tipos, geolocalização e algoritmo de rota (`types.ts`, `geo.ts`, `route.ts`).
+- [x] Estado global com localStorage, seed, backup export/import e geocodificação (Nominatim) (`DataContext.tsx`).
+- [x] Mapa Leaflet com marcadores por dia e polilinhas (`LeafletMap.tsx`).
+- [x] Layout com sidebar por papel e troca de perfil (`AppShell.tsx`).
+- [x] Página Clientes: busca/filtros, frequência por cliente, geocodificar com progresso, edição com pin manual no mapa.
+- [x] Página Rota Semanal: seletor de semana, gerar, quadro dia a dia com drag & drop, adicionar/remover visitas, publicar, mapa.
+- [x] Página Minha Rota (vendedor): visitas do dia com horário, navegação (Google Maps) e fluxo de registro (GPS + foto + comentários + próxima ação), com alerta de "fora do raio".
+- [x] Página Visitas: histórico com filtros (fora do raio / realizadas), foto, distância GPS e comentários.
+- [x] Dashboard do coordenador: resumo semanal, cobertura, alertas.
+- [x] Dados & backup: exportar/importar JSON, configurações da rota (horário, velocidade, prioridades, raio, dias úteis), reset.
+- [x] Design system (tokens verde-esmeralda, claro/escuro) e responsividade.
 
 ### Checklist de verificação
-- [ ] `pnpm lint` e `pnpm exec tsc --noEmit` e `pnpm build` passam sem erros.
-- [ ] Fluxo: signup do coordenador → seed da carteira → geocodificar (clientes com coordenadas ok; falhas recebem pin manual) → gerar rota da semana → rota respeita 07h–17h e ordena por proximidade.
-- [ ] Ajuste manual: mover/reordenar clientes entre dias persiste e a publicar atualiza o vendedor.
-- [ ] Vendedor: vê a rota do dia, confirma presença com GPS + foto; visita salva com distância calculada e raio validado.
-- [ ] Alertas: visita fora do raio (distância > 300 m) registrada como "fora do raio" e destacada no dashboard.
-- [ ] Papéis: vendedor não acessa páginas de coordenador; rotas protegidas por auth.
-- [ ] Responsividade: fluxo do vendedor verificado em `mobile_390` e coordenador em `desktop_1280` (screenshot).
+- [x] `pnpm lint` e `pnpm exec tsc --noEmit` e `pnpm build` passam sem erros.
+- [x] Algoritmo testado com a carteira real (simulando coordenadas por cidade): dias balanceados, todos terminam antes de 17h, clientes distantes isolados com aviso.
+- [x] Tela de entrada, dashboard, clientes, rota, backup e visitas verificados por screenshot (desktop).
+- [x] Fluxo mobile do vendedor verificado em `mobile_390` (sem problemas de layout).
+- [ ] Verificação final pelo usuário: clicar "Geocodificar" (uma vez, ~4–5 min) e depois "Gerar rota da semana".
+- [ ] Comprovação completa de visita (foto + GPS) requer dispositivo físico com câmera/localização (não testável por screenshot).

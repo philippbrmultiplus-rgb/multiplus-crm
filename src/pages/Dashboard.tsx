@@ -1,0 +1,239 @@
+import { useMemo } from "react";
+import { Link } from "react-router-dom";
+import {
+  AlertTriangle,
+  ArrowRight,
+  CalendarCheck2,
+  MapPinOff,
+  Route as RouteIcon,
+  Users,
+} from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { useData } from "@/lib/DataContext";
+import { addDays, mondayOf, todayKey } from "@/lib/geo";
+
+export default function Dashboard() {
+  const { state } = useData();
+  const { clients, visits, routes, routeVisits, settings } = state;
+
+  const activeClients = useMemo(() => clients.filter((c) => c.active), [clients]);
+  const weekStart = mondayOf(todayKey());
+  const publishedRoute = routes.find((r) => r.weekStart === weekStart && r.status === "publicada");
+  const plannedCount = useMemo(
+    () => routeVisits.filter((rv) => rv.routeId === publishedRoute?.id).length,
+    [routeVisits, publishedRoute],
+  );
+  const doneCount = useMemo(
+    () => routeVisits.filter((rv) => rv.routeId === publishedRoute?.id && rv.status === "concluida").length,
+    [routeVisits, publishedRoute],
+  );
+  const visitsThisWeek = useMemo(
+    () =>
+      visits.filter((v) => {
+        const k = v.visitedAt.slice(0, 10);
+        return k >= weekStart && k < addDays(weekStart, 7);
+      }),
+    [visits, weekStart],
+  );
+  const outOfRadius = useMemo(() => visits.filter((v) => !v.withinRadius), [visits]);
+  const noCoords = useMemo(() => activeClients.filter((c) => c.lat == null), [activeClients]);
+  const drafts = useMemo(() => routes.filter((r) => r.status === "rascunho"), [routes]);
+
+  const tierCount = useMemo(() => {
+    const counts = { A: 0, B: 0, C: 0 };
+    activeClients.forEach((c) => {
+      if (c.freqMonth > 0) counts[c.tier]++;
+    });
+    return counts;
+  }, [activeClients]);
+
+  const stats = [
+    {
+      label: "Clientes ativos",
+      value: activeClients.length,
+      icon: Users,
+      sub: `${tierCount.A} prioritários (2x/mês)`,
+      href: "/clientes",
+    },
+    {
+      label: "Rota da semana",
+      value: publishedRoute ? `${doneCount}/${plannedCount}` : "—",
+      icon: RouteIcon,
+      sub: publishedRoute
+        ? doneCount === plannedCount && plannedCount > 0
+          ? "Rota concluída"
+          : `${plannedCount - doneCount} pendentes`
+        : "Nenhuma rota publicada",
+      href: "/rota",
+    },
+    {
+      label: "Visitas na semana",
+      value: visitsThisWeek.length,
+      icon: CalendarCheck2,
+      sub: `${visits.length} no total`,
+      href: "/visitas",
+    },
+    {
+      label: "Alertas",
+      value: outOfRadius.length + noCoords.length,
+      icon: MapPinOff,
+      sub: `${outOfRadius.length} fora do raio · ${noCoords.length} sem coordenadas`,
+      href: outOfRadius.length > 0 ? "/visitas?alerta=raio" : "/clientes",
+    },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Visão geral</h1>
+        <p className="text-sm text-muted-foreground">
+          Acompanhe a cobertura de visitas da região Sul.
+        </p>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {stats.map((s) => (
+          <Card key={s.label} className="card-soft">
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardDescription className="font-medium">{s.label}</CardDescription>
+                <s.icon className="h-4 w-4 text-primary" />
+              </div>
+              <CardTitle className="text-3xl">{s.value}</CardTitle>
+            </CardHeader>
+            <CardContent className="pb-3">
+              <p className="text-xs text-muted-foreground">{s.sub}</p>
+              <Button asChild variant="link" size="sm" className="mt-1 h-auto p-0">
+                <Link to={s.href}>
+                  Abrir <ArrowRight className="ml-1 h-3 w-3" />
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Card className="card-soft lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="text-base">Cobertura da semana</CardTitle>
+            <CardDescription>
+              Rota publicada de {weekStart.split("-").reverse().join("/")}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {publishedRoute ? (
+              <div className="flex flex-col gap-3">
+                <div className="flex items-end gap-2">
+                  <div className="relative h-3 flex-1 overflow-hidden rounded-full bg-secondary">
+                    <div
+                      className="absolute inset-y-0 left-0 rounded-full bg-primary transition-all"
+                      style={{ width: plannedCount ? `${(doneCount / plannedCount) * 100}%` : "0%" }}
+                    />
+                  </div>
+                  <span className="text-sm font-semibold">
+                    {plannedCount ? Math.round((doneCount / plannedCount) * 100) : 0}%
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-6">
+                  {[1, 2, 3, 4, 5, 6].map((d) => {
+                    const total = routeVisits.filter((rv) => rv.routeId === publishedRoute.id && rv.day === d).length;
+                    const done = routeVisits.filter(
+                      (rv) => rv.routeId === publishedRoute.id && rv.day === d && rv.status === "concluida",
+                    ).length;
+                    return (
+                      <div key={d} className="rounded-lg border p-2 text-center">
+                        <div className="text-[11px] text-muted-foreground">Dia {d}</div>
+                        <div className="text-sm font-semibold">
+                          {done}/{total}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 rounded-lg bg-secondary/60 p-3 text-sm text-muted-foreground">
+                <RouteIcon className="h-4 w-4" />
+                Nenhuma rota publicada para esta semana.
+                <Button asChild variant="link" size="sm" className="ml-auto h-auto p-0">
+                  <Link to="/rota">Gerar rota</Link>
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="card-soft">
+          <CardHeader>
+            <CardTitle className="text-base">Carteira por prioridade</CardTitle>
+            <CardDescription>Frequência sugerida por volume</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {(["A", "B", "C"] as const).map((t) => {
+              const n = tierCount[t];
+              const total = activeClients.length || 1;
+              return (
+                <div key={t} className="flex items-center gap-3">
+                  <Badge className={t === "A" ? "tier-badge-a" : t === "B" ? "tier-badge-b" : "tier-badge-c"}>
+                    Prioridade {t}
+                  </Badge>
+                  <div className="h-2 flex-1 overflow-hidden rounded-full bg-secondary">
+                    <div
+                      className="h-full rounded-full bg-primary"
+                      style={{ width: `${(n / total) * 100}%` }}
+                    />
+                  </div>
+                  <span className="w-8 text-right text-sm font-medium">{n}</span>
+                </div>
+              );
+            })}
+            <p className="pt-1 text-xs text-muted-foreground">
+              A = {settings.tierAThreshold}+ t/mês · B = {settings.tierBThreshold}+ · C = abaixo. Ajuste em
+              "Clientes".
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {(drafts.length > 0 || outOfRadius.length > 0 || noCoords.length > 0) && (
+        <Card className="card-soft border-destructive/30">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <AlertTriangle className="h-4 w-4 text-destructive" /> Atenção
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            {drafts.length > 0 && (
+              <p>
+                Existem {drafts.length} rota(s) em rascunho sem publicação.
+                <Button asChild variant="link" size="sm" className="ml-1 h-auto p-0">
+                  <Link to="/rota">Revisar</Link>
+                </Button>
+              </p>
+            )}
+            {outOfRadius.length > 0 && (
+              <p>
+                {outOfRadius.length} visita(s) registrada(s) com localização distante do endereço cadastrado
+                (possível fraude ou endereço desatualizado).
+                <Button asChild variant="link" size="sm" className="ml-1 h-auto p-0">
+                  <Link to="/visitas?alerta=raio">Ver</Link>
+                </Button>
+              </p>
+            )}
+            {noCoords.length > 0 && (
+              <p>
+                {noCoords.length} cliente(s) ativo(s) sem coordenadas — não entram na rota automática.
+                <Button asChild variant="link" size="sm" className="ml-1 h-auto p-0">
+                  <Link to="/clientes">Geocodificar</Link>
+                </Button>
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
