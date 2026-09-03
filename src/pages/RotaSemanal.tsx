@@ -39,6 +39,17 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -79,6 +90,7 @@ export default function RotaSemanal() {
   const [warnings, setWarnings] = useState<string[]>([]);
   const [addDay, setAddDay] = useState<number | null>(null);
   const [finalize, setFinalize] = useState<ScheduledVisit | null>(null);
+  const [askPublishEmpty, setAskPublishEmpty] = useState(false);
   const [, setNow] = useState(0);
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 60_000);
@@ -125,6 +137,12 @@ export default function RotaSemanal() {
     saveRoutePlan(result.route, result.routeVisits);
     setSelectedId(result.route.id);
     setWarnings(result.warnings);
+    if (result.routeVisits.length === 0) {
+      toast.warning("A rota ficou vazia.", {
+        description:
+          "Nenhum cliente entrou na semana. Se houver aviso de clientes sem coordenadas, execute “Geocodificar” na tela Clientes e gere novamente.",
+      });
+    }
   };
 
   const mapPoints = useMemo(
@@ -190,7 +208,13 @@ export default function RotaSemanal() {
         {route && (
           <>
             {route.status === "rascunho" ? (
-              <Button variant="default" onClick={() => publishRoute(route.id)}>
+              <Button
+                variant="default"
+                onClick={() => {
+                  if (visits.length === 0) setAskPublishEmpty(true);
+                  else publishRoute(route.id);
+                }}
+              >
                 Publicar para o vendedor
               </Button>
             ) : (
@@ -272,6 +296,30 @@ export default function RotaSemanal() {
         routeClients={visits.map((rv) => rv.clientId)}
         clients={clients}
       />
+
+      <AlertDialog open={askPublishEmpty} onOpenChange={setAskPublishEmpty}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Publicar rota sem visitas?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta rota está vazia — provavelmente porque os clientes ainda não têm coordenadas no mapa
+              (clique em <b>Geocodificar</b> na tela Clientes) ou nenhum cliente caiu nesta semana pela
+              cadência. Se publicar, o vendedor verá uma semana sem visitas.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Voltar e ajustar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (route) publishRoute(route.id);
+                setAskPublishEmpty(false);
+              }}
+            >
+              Publicar mesmo assim
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {finalize && (
         <VisitForm

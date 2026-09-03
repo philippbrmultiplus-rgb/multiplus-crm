@@ -624,18 +624,33 @@ export function DataProvider({ children }: { children: ReactNode }) {
       const others = prev.routes.filter((r) => r.weekStart !== route.weekStart || r.status !== "rascunho");
       const routes = [route, ...others];
       const routeVisitsAll = [...prev.routeVisits.filter((rv) => rv.routeId !== route.id), ...routeVisits];
-      if (canWriteClientData()) {
-        void (async () => {
-          const { error: rErr } = await supabase.from("weekly_routes").upsert(routeToRow(route));
-          if (rErr) return;
-          await supabase.from("route_visits").delete().eq("route_id", route.id);
-          if (routeVisits.length > 0) {
-            await supabase.from("route_visits").insert(routeVisits.map((rv) => rvToRow(rv)));
-          }
-        })();
-      }
       return { ...prev, routes, routeVisits: routeVisitsAll };
     });
+    if (!canWriteClientData()) {
+      toast.error("Sem permissão para salvar a rota. Entre como coordenador.");
+      return;
+    }
+    void (async () => {
+      const { error: rErr } = await supabase.from("weekly_routes").upsert(routeToRow(route));
+      if (rErr) {
+        console.error("salvar rota:", rErr.message);
+        toast.error("Não foi possível salvar a rota", { description: rErr.message });
+        return;
+      }
+      const { error: dErr } = await supabase.from("route_visits").delete().eq("route_id", route.id);
+      if (dErr) {
+        console.error("limpar visitas:", dErr.message);
+        toast.error("Não foi possível atualizar as visitas da rota", { description: dErr.message });
+        return;
+      }
+      if (routeVisits.length > 0) {
+        const { error: iErr } = await supabase.from("route_visits").insert(routeVisits.map((rv) => rvToRow(rv)));
+        if (iErr) {
+          console.error("salvar visitas:", iErr.message);
+          toast.error("Não foi possível salvar as visitas da rota", { description: iErr.message });
+        }
+      }
+    })();
   }, [setAppState]);
 
   const upsertRv = useCallback((rv: RouteVisit) => {
@@ -714,30 +729,45 @@ export function DataProvider({ children }: { children: ReactNode }) {
   );
 
   const deleteRoute = useCallback((routeId: string) => {
-    setAppState((prev) => {
-      if (canWriteClientData()) {
-        void (async () => {
-          await supabase.from("route_visits").delete().eq("route_id", routeId);
-          await supabase.from("weekly_routes").delete().eq("id", routeId);
-        })();
+    setAppState((prev) => ({
+      ...prev,
+      routes: prev.routes.filter((r) => r.id !== routeId),
+      routeVisits: prev.routeVisits.filter((r) => r.routeId !== routeId),
+    }));
+    if (!canWriteClientData()) return;
+    void (async () => {
+      const { error: dErr } = await supabase.from("route_visits").delete().eq("route_id", routeId);
+      const { error: rErr } = await supabase.from("weekly_routes").delete().eq("id", routeId);
+      if (dErr || rErr) {
+        console.error("excluir rota:", dErr?.message ?? rErr?.message);
+        toast.error("Não foi possível excluir a rota", {
+          description: (dErr ?? rErr)?.message,
+        });
       }
-      return {
-        ...prev,
-        routes: prev.routes.filter((r) => r.id !== routeId),
-        routeVisits: prev.routeVisits.filter((r) => r.routeId !== routeId),
-      };
-    });
+    })();
   }, [setAppState]);
 
   const publishRoute = useCallback((routeId: string) => {
-    setAppState((prev) => {
-      const routes = prev.routes.map((r) => (r.id === routeId ? { ...r, status: "publicada" as const } : r));
-      const changed = routes.find((r) => r.id === routeId);
-      if (changed && canWriteClientData()) {
-        void supabase.from("weekly_routes").update({ status: "publicada" }).eq("id", routeId);
-      }
-      return { ...prev, routes };
-    });
+    if (!canWriteClientData()) {
+      toast.error("Sem permissão para publicar. Entre como coordenador.");
+      return;
+    }
+    void supabase
+      .from("weekly_routes")
+      .update({ status: "publicada" })
+      .eq("id", routeId)
+      .then(({ error }) => {
+        if (error) {
+          console.error("publicar rota:", error.message);
+          toast.error("Não foi possível publicar a rota", { description: error.message });
+          return;
+        }
+        setAppState((prev) => ({
+          ...prev,
+          routes: prev.routes.map((r) => (r.id === routeId ? { ...r, status: "publicada" as const } : r)),
+        }));
+        toast.success("Rota publicada para o vendedor.");
+      });
   }, [setAppState]);
 
   const uploadVisitPhoto = useCallback(
