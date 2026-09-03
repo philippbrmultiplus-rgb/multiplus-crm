@@ -79,7 +79,7 @@ export function LeafletMap({
 }: LeafletMapProps) {
   const fitPoints = fit ? points : [];
   return (
-    <div style={{ height, width: "100%" }} className="z-0">
+    <div style={{ height, width: "100%" }} className="relative z-0 isolate">
       <MapContainer
         center={center}
         zoom={zoom}
