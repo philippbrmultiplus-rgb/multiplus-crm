@@ -139,7 +139,7 @@ export default function RotaSemanal() {
 
   const mapPolylines = useMemo(
     () =>
-      [1, 2, 3, 4, 5, 6]
+      [...settings.workingDays].sort((a, b) => a - b)
         .map((day) => {
           const pts = visits
             .filter((rv) => rv.day === day)
@@ -252,7 +252,7 @@ export default function RotaSemanal() {
               fit
             />
             <div className="flex flex-wrap gap-3 p-2 text-xs text-muted-foreground">
-              {[1, 2, 3, 4, 5, 6].map((d) => (
+              {[...settings.workingDays].sort((a, b) => a - b).map((d) => (
                 <span key={d} className="flex items-center gap-1.5">
                   <span className="h-2.5 w-2.5 rounded-full" style={{ background: DAY_COLORS[d] }} />
                   {DAY_NAMES[d]}

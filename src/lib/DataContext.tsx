@@ -36,7 +36,7 @@ export const defaultSettings: Settings = {
   workEnd: "17:00",
   visitTimeMin: 30,
   travelSpeedKmh: 75,
-  workingDays: [1, 2, 3, 4, 5, 6],
+  workingDays: [1, 2, 3, 4, 5],
   tierAThreshold: 100,
   tierBThreshold: 20,
   visitRadiusM: 300,
@@ -170,7 +170,9 @@ function settingsFromRow(r: Record<string, any>): Settings {
     workEnd: r.work_end ?? "17:00",
     visitTimeMin: Number(r.visit_time_min ?? 30),
     travelSpeedKmh: Number(r.travel_speed_kmh ?? 75),
-    workingDays: Array.isArray(r.working_days) ? (r.working_days as number[]) : [1, 2, 3, 4, 5, 6],
+    workingDays: Array.isArray(r.working_days)
+      ? (r.working_days as number[]).filter((d) => d !== 6) // sábado fora da rota
+      : [1, 2, 3, 4, 5],
     tierAThreshold: Number(r.tier_a_threshold ?? 100),
     tierBThreshold: Number(r.tier_b_threshold ?? 20),
     visitRadiusM: Number(r.visit_radius_m ?? 300),
@@ -376,6 +378,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const settings = settingsRes.data
       ? settingsFromRow(settingsRes.data as unknown as Record<string, any>)
       : { ...defaultSettings };
+    // remove o sábado dos dias de rota também no banco (apenas uma vez, quando ainda estiver salvo)
+    if (roleName === "coordenador") {
+      const rawDays = (settingsRes.data as Record<string, any> | null)?.working_days;
+      if (Array.isArray(rawDays) && rawDays.includes(6)) {
+        await supabase.from("settings").update({ working_days: settings.workingDays }).eq("id", 1);
+      }
+    }
     const routes = (routesRes.data ?? []).map((r) => routeFromRow(r as unknown as Record<string, any>));
     const routeVisits = (rvsRes.data ?? []).map((r) => rvFromRow(r as unknown as Record<string, any>));
     const visits = (visitsRes.data ?? []).map((r) => visitFromRow(r as unknown as Record<string, any>));

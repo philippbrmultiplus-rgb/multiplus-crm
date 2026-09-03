@@ -137,8 +137,8 @@ export default function Dashboard() {
                     {plannedCount ? Math.round((doneCount / plannedCount) * 100) : 0}%
                   </span>
                 </div>
-                <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-6">
-                  {[1, 2, 3, 4, 5, 6].map((d) => {
+                <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-5">
+                  {[1, 2, 3, 4, 5].map((d) => {
                     const total = routeVisits.filter((rv) => rv.routeId === publishedRoute.id && rv.day === d).length;
                     const done = routeVisits.filter(
                       (rv) => rv.routeId === publishedRoute.id && rv.day === d && rv.status === "concluida",

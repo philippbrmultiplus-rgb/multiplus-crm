@@ -203,7 +203,7 @@ export default function Backup() {
           <div className="space-y-2 sm:col-span-2 lg:col-span-3">
             <Label>Dias úteis na rota</Label>
             <div className="flex flex-wrap gap-4">
-              {[1, 2, 3, 4, 5, 6].map((d) => (
+              {[1, 2, 3, 4, 5].map((d) => (
                 <label key={d} className="flex items-center gap-2 text-sm">
                   <Checkbox
                     checked={s.workingDays.includes(d)}
