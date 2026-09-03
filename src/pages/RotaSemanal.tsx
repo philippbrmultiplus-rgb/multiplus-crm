@@ -523,7 +523,6 @@ function AddClientDialog({
                     {c.segment ? ` · ${c.segment}` : ""}
                   </span>
                   <span>{cadenceLabel(c.freqMonth)}</span>
-                  <span>média {c.avgMonthly || 0} t/mês</span>
                   {c.lastCollectAt && <span>últ. troca {formatDateBR(c.lastCollectAt)}</span>}
                 </span>
               </span>
