@@ -5,6 +5,8 @@ import Dashboard from "./pages/Dashboard";
 import Clientes from "./pages/Clientes";
 import RotaSemanal from "./pages/RotaSemanal";
 import MinhaRota from "./pages/MinhaRota";
+import MinhaRotaSemana from "./pages/MinhaRotaSemana";
+import MinhaRotaMes from "./pages/MinhaRotaMes";
 import Visitas from "./pages/Visitas";
 import Backup from "./pages/Backup";
 import NotFound from "./pages/NotFound";
@@ -48,6 +50,24 @@ export const routers = [
     element: (
       <AppShell>
         <MinhaRota />
+      </AppShell>
+    ),
+  },
+  {
+    path: "/minha-semana",
+    name: "minha-semana",
+    element: (
+      <AppShell>
+        <MinhaRotaSemana />
+      </AppShell>
+    ),
+  },
+  {
+    path: "/meu-mes",
+    name: "meu-mes",
+    element: (
+      <AppShell>
+        <MinhaRotaMes />
       </AppShell>
     ),
   },

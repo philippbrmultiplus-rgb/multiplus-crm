@@ -1,7 +1,8 @@
 import { type ReactNode } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, Navigate, useLocation } from "react-router-dom";
 import {
   CalendarDays,
+  CalendarRange,
   Database,
   LayoutDashboard,
   Loader2,
@@ -44,9 +45,16 @@ const NAV_ITEMS: NavItem[] = [
   { to: "/clientes", label: "Clientes", icon: Users, roles: ["coordenador"] },
   { to: "/rota", label: "Rota semanal", icon: RouteIcon, roles: ["coordenador"] },
   { to: "/hoje", label: "Minha rota de hoje", icon: CalendarDays, roles: ["vendedor"] },
+  { to: "/minha-semana", label: "Minha rota da semana", icon: CalendarDays, roles: ["vendedor"] },
+  { to: "/meu-mes", label: "Minha rota do mês", icon: CalendarRange, roles: ["vendedor"] },
   { to: "/visitas", label: "Visitas", icon: MapPin, roles: ["coordenador", "vendedor"] },
   { to: "/backup", label: "Dados & backup", icon: Database, roles: ["coordenador"] },
 ];
+
+const HOME_BY_ROLE: Record<string, string> = {
+  coordenador: "/dashboard",
+  vendedor: "/hoje",
+};
 
 function Brand() {
   return (
@@ -79,8 +87,14 @@ export function AppShell({ children }: { children: ReactNode }) {
     return <AuthScreen />;
   }
 
-  const items = NAV_ITEMS.filter((i) => i.roles.includes(role ?? "vendedor"));
-  const roleLabel = role === "coordenador" ? "Coordenador" : "Vendedor";
+  const currentRole = role ?? "vendedor";
+  const items = NAV_ITEMS.filter((i) => i.roles.includes(currentRole));
+  const roleLabel = currentRole === "coordenador" ? "Coordenador" : "Vendedor";
+
+  // bloqueia telas de outro papel mesmo acessando o endereço direto
+  if (!items.some((i) => i.to === location.pathname)) {
+    return <Navigate to={HOME_BY_ROLE[currentRole]} replace />;
+  }
 
   return (
     <SidebarProvider>

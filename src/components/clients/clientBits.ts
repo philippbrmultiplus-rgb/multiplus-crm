@@ -68,6 +68,13 @@ export function isColetaOverdue(c: Client): boolean {
   return coletaStatus(c) === "late";
 }
 
+/** cor de "bolinha" para status de visita em calendários/listas */
+export function rotaStatusDot(status: string): string {
+  if (status === "concluida") return "bg-emerald-500";
+  if (status === "nao_realizada") return "bg-slate-400";
+  return "bg-amber-400";
+}
+
 export type ClientSort = "grupo" | "atraso" | "volume" | "nome";
 
 function daysRank(c: Client): number {
