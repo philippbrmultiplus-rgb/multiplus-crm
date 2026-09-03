@@ -46,10 +46,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useData } from "@/lib/DataContext";
-import { addDays, DAY_NAMES, daysSinceToday, formatDateBR, formatKm, mondayOf, timeToMinutes, todayKey } from "@/lib/geo";
+import { addDays, DAY_NAMES, formatDateBR, formatKm, mondayOf, timeToMinutes, todayKey } from "@/lib/geo";
 import { computeSchedule } from "@/lib/route";
-import { cadenceLabel, intervalDays } from "@/lib/cadence";
+import { cadenceLabel } from "@/lib/cadence";
 import {
+  COLETA_TEXT_TONE,
+  coletaDays,
+  coletaStatus,
   compareClients,
   isColetaOverdue,
 } from "@/components/clients/clientBits";
@@ -349,8 +352,8 @@ function RouteCard({ scheduled, onFinalize }: { scheduled: ScheduledVisit; onFin
   const style = { transform: CSS.Transform.toString(transform), transition };
   const done = scheduled.routeVisit.status === "concluida";
   const missed = scheduled.routeVisit.status === "nao_realizada";
-  const days = daysSinceToday(scheduled.client.lastCollectAt);
-  const overdue = days != null && days >= intervalDays(scheduled.client.freqMonth);
+  const days = coletaDays(scheduled.client);
+  const status = coletaStatus(scheduled.client);
 
   return (
     <div
@@ -380,12 +383,12 @@ function RouteCard({ scheduled, onFinalize }: { scheduled: ScheduledVisit; onFin
         </div>
         {days != null && (
           <div
-            className={`mt-0.5 text-[11px] ${
-              overdue ? "font-medium text-destructive" : "text-muted-foreground"
+            className={`mt-0.5 text-[11px] ${COLETA_TEXT_TONE[status]} ${
+              status === "late" ? "font-medium" : ""
             }`}
           >
             última troca há {days} {days === 1 ? "dia" : "dias"}
-            {overdue ? " (atrasada)" : ""}
+            {status === "late" ? " (atrasada)" : ""}
           </div>
         )}
         {scheduled.client.tier === "A" && <Badge className="tier-badge-a mt-1">Grupo A</Badge>}

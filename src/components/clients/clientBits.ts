@@ -1,4 +1,3 @@
-import { intervalDays } from "@/lib/cadence";
 import { daysSinceToday } from "@/lib/geo";
 import type { Client, Tier } from "@/lib/types";
 
@@ -26,11 +25,47 @@ export function coletaDays(c: Client): number | null {
   return daysSinceToday(c.lastCollectAt);
 }
 
-/** Cliente está com a coleta atrasada (dias desde a última troca >= intervalo da cadência). */
+export type ColetaStatus = "sem" | "ok" | "warn" | "late";
+
+/**
+ * Faixa de cor por dias sem coleta (regra definida pelo coordenador):
+ * até 20 dias = verde (ok), 21 a 30 = laranja (warn), acima de 30 = vermelho (late).
+ */
+export function coletaStatus(c: Client): ColetaStatus {
+  const d = coletaDays(c);
+  if (d == null) return "sem";
+  if (d > 30) return "late";
+  if (d > 20) return "warn";
+  return "ok";
+}
+
+/** chip colorido (badge) para a situação da coleta */
+export const COLETA_BADGE_TONE: Record<ColetaStatus, string> = {
+  ok: "bg-emerald-500/15 text-emerald-700 ring-1 ring-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-300 dark:ring-emerald-500/30",
+  warn: "bg-amber-500/15 text-amber-700 ring-1 ring-amber-500/30 dark:bg-amber-500/15 dark:text-amber-300 dark:ring-amber-500/30",
+  late: "bg-destructive/15 text-destructive ring-1 ring-destructive/30",
+  sem: "",
+};
+
+/** badge outline (borda + texto coloridos) */
+export const COLETA_OUTLINE_TONE: Record<ColetaStatus, string> = {
+  ok: "border-emerald-500/40 text-emerald-700 dark:text-emerald-300",
+  warn: "border-amber-500/40 text-amber-700 dark:text-amber-300",
+  late: "border-destructive/40 text-destructive",
+  sem: "",
+};
+
+/** texto simples colorido (ex.: linha de detalhe do cartão) */
+export const COLETA_TEXT_TONE: Record<ColetaStatus, string> = {
+  ok: "text-emerald-700 dark:text-emerald-300",
+  warn: "text-amber-600 dark:text-amber-400",
+  late: "text-destructive",
+  sem: "text-muted-foreground",
+};
+
+/** atrasada = acima de 30 dias sem coleta */
 export function isColetaOverdue(c: Client): boolean {
-  if (c.freqMonth <= 0) return false;
-  const days = coletaDays(c);
-  return days != null && days >= intervalDays(c.freqMonth);
+  return coletaStatus(c) === "late";
 }
 
 export type ClientSort = "grupo" | "atraso" | "volume" | "nome";

@@ -40,14 +40,13 @@ import {
 } from "@/components/ui/table";
 import { useData } from "@/lib/DataContext";
 import { LeafletMap } from "@/components/map/LeafletMap";
-import { cadenceLabel, intervalDays, tierOfFreq } from "@/lib/cadence";
-import { daysSinceToday } from "@/lib/geo";
+import { cadenceLabel, tierOfFreq } from "@/lib/cadence";
 import {
   compareClients,
   isColetaOverdue,
   type ClientSort,
 } from "@/components/clients/clientBits";
-import { TierBadge } from "@/components/clients/clientBadges";
+import { ColetaBadge, TierBadge } from "@/components/clients/clientBadges";
 import type { Client } from "@/lib/types";
 
 const FREQ_OPTIONS: Array<{ value: string; label: string }> = [
@@ -61,8 +60,6 @@ const FREQ_OPTIONS: Array<{ value: string; label: string }> = [
 ];
 
 function ColetaCell({ c, onDate }: { c: Client; onDate: (v: string | null) => void }) {
-  const days = daysSinceToday(c.lastCollectAt);
-  const overdue = isColetaOverdue(c);
   return (
     <div className="flex items-center gap-1.5 whitespace-nowrap">
       <input
@@ -72,19 +69,7 @@ function ColetaCell({ c, onDate }: { c: Client; onDate: (v: string | null) => vo
         value={c.lastCollectAt ?? ""}
         onChange={(e) => onDate(e.target.value || null)}
       />
-      {days != null && days > 0 && (
-        <Badge
-          className={
-            overdue
-              ? "bg-destructive/15 text-destructive ring-1 ring-destructive/30"
-              : days >= Math.max(3, Math.floor((intervalDays(c.freqMonth) || 30) / 2))
-                ? "bg-amber-500/15 text-amber-700 ring-1 ring-amber-500/30 dark:text-amber-300"
-                : "bg-primary/10 text-primary"
-          }
-        >
-          há {days} {days === 1 ? "dia" : "dias"}
-        </Badge>
-      )}
+      {c.lastCollectAt && <ColetaBadge c={c} />}
     </div>
   );
 }
