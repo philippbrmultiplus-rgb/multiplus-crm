@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Camera, Crosshair, Loader2, MapPin, Navigation, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -33,11 +33,11 @@ interface GeoFix {
 function geoErrorMessage(code: number): string {
   switch (code) {
     case 1:
-      return "Permissão de localização negada. Habilite o GPS para o navegador.";
+      return "Permissão de localização negada. Você pode finalizar sem o GPS.";
     case 2:
-      return "GPS indisponível no momento. Tente novamente em local aberto.";
+      return "GPS indisponível no momento. Você pode finalizar sem o GPS.";
     default:
-      return "Não foi possível obter a localização. Tente novamente.";
+      return "Não foi possível obter a localização. Você pode finalizar sem o GPS.";
   }
 }
 
@@ -57,21 +57,38 @@ export function VisitForm({
   const [comments, setComments] = useState("");
   const [nextActions, setNextActions] = useState("");
   const [photo, setPhoto] = useState<string | null>(null);
-  const [photoKb, setPhotoKb] = useState<number>(0);
+  const [photoKb, setPhotoKb] = useState(0);
   const [geo, setGeo] = useState<GeoFix | null>(null);
   const [geoError, setGeoError] = useState<string | null>(null);
   const [locating, setLocating] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const watchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Trava de segurança: nunca deixa a tela "presa" esperando o GPS.
+  const stopLocating = (message: string | null = null) => {
+    setLocating(false);
+    if (watchdogRef.current) {
+      clearTimeout(watchdogRef.current);
+      watchdogRef.current = null;
+    }
+    if (message) setGeoError(message);
+  };
 
   const locate = () => {
     if (!navigator.geolocation) {
-      setGeoError("Este navegador não oferece geolocalização.");
-      setLocating(false);
+      setGeo(null);
+      stopLocating("Este navegador não oferece geolocalização.");
       return;
     }
     setLocating(true);
     setGeoError(null);
+    if (watchdogRef.current) clearTimeout(watchdogRef.current);
+    watchdogRef.current = setTimeout(() => {
+      setGeo(null);
+      stopLocating("GPS demorou a responder — você pode finalizar sem confirmar localização.");
+    }, 8000);
+
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setGeo({
@@ -79,18 +96,22 @@ export function VisitForm({
           lng: pos.coords.longitude,
           acc: pos.coords.accuracy,
         });
-        setLocating(false);
+        stopLocating();
       },
       (err) => {
-        setGeoError(geoErrorMessage(err.code));
-        setLocating(false);
+        setGeo(null);
+        stopLocating(geoErrorMessage(err.code));
       },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
+      { enableHighAccuracy: true, timeout: 7000, maximumAge: 0 },
     );
   };
 
   useEffect(() => {
     locate();
+    return () => {
+      if (watchdogRef.current) clearTimeout(watchdogRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const distance = useMemo(() => {
@@ -100,8 +121,7 @@ export function VisitForm({
     return null;
   }, [geo, client]);
 
-  const withinRadius =
-    distance != null ? distance <= settings.visitRadiusM : null;
+  const withinRadius = distance != null ? distance <= settings.visitRadiusM : null;
 
   const handlePhoto = async (file: File | null) => {
     if (!file) return;
@@ -109,22 +129,17 @@ export function VisitForm({
       const dataUrl = await compressImage(file);
       setPhoto(dataUrl);
       setPhotoKb(estimateKb(dataUrl));
+      setError(null);
     } catch {
-      setError("Não foi possível processar a foto.");
+      setError("Não foi possível processar a foto. Você pode finalizar sem ela.");
     }
   };
 
   const submit = async () => {
-    if (!photo) {
-      setError("Fotografe o local para comprovar a visita.");
-      return;
-    }
-    if (!geo) {
-      setError("Confirme a localização (GPS) antes de registrar.");
-      return;
-    }
     setError(null);
     setSaving(true);
+    // guarda uma pequena pausa para o botão aparecer "Salvando…"
+    await new Promise((r) => setTimeout(r, 50));
     const visit: Visit = {
       id: `v-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       routeVisitId,
@@ -133,12 +148,12 @@ export function VisitForm({
       status,
       resultComments: comments.trim(),
       nextActions: nextActions.trim(),
-      gpsLat: geo.lat,
-      gpsLng: geo.lng,
-      gpsAccuracyM: Math.round(geo.acc),
+      gpsLat: geo?.lat ?? null,
+      gpsLng: geo?.lng ?? null,
+      gpsAccuracyM: geo ? Math.round(geo.acc) : null,
       distanceFromClientM: distance != null ? Math.round(distance) : null,
       withinRadius: withinRadius ?? true,
-      photoData: photo,
+      photoData: photo ?? undefined,
     };
     addVisit(visit);
     if (routeVisitId) markRouteVisitStatus(routeVisitId, "concluida");
@@ -157,9 +172,11 @@ export function VisitForm({
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Foto */}
+          {/* Foto (opcional) */}
           <div className="space-y-2">
-            <Label>Foto de comprovação (obrigatória)</Label>
+            <Label>
+              Foto de comprovação <span className="font-normal text-muted-foreground">(opcional)</span>
+            </Label>
             {photo ? (
               <div className="relative">
                 <img
@@ -181,9 +198,9 @@ export function VisitForm({
                 </Button>
               </div>
             ) : (
-              <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-6 text-center text-sm text-muted-foreground hover:border-primary hover:text-primary">
+              <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-5 text-center text-sm text-muted-foreground hover:border-primary hover:text-primary">
                 <Camera className="h-6 w-6" />
-                Tirar foto do local
+                Tirar foto do local (câmera)
                 <input
                   type="file"
                   accept="image/*"
@@ -195,18 +212,18 @@ export function VisitForm({
             )}
           </div>
 
-          {/* GPS */}
+          {/* GPS (opcional) */}
           <div className="space-y-2">
-            <Label>Localização GPS</Label>
-            <div className="flex items-center justify-between rounded-lg border p-3">
+            <Label>
+              Localização GPS <span className="font-normal text-muted-foreground">(opcional)</span>
+            </Label>
+            <div className="flex items-center justify-between gap-2 rounded-lg border p-3">
               {geo ? (
-                <div className="flex items-center gap-2 text-sm">
-                  <MapPin className={`h-4 w-4 ${withinRadius ? "text-primary" : "text-destructive"}`} />
-                  <span>
+                <div className="flex min-w-0 items-center gap-2 text-sm">
+                  <MapPin className={`h-4 w-4 shrink-0 ${withinRadius ? "text-primary" : "text-destructive"}`} />
+                  <span className="truncate">
                     {geo.lat.toFixed(5)}, {geo.lng.toFixed(5)}
-                    <span className="ml-2 text-xs text-muted-foreground">
-                      precisão ~{Math.round(geo.acc)} m
-                    </span>
+                    <span className="ml-2 text-xs text-muted-foreground">precisão ~{Math.round(geo.acc)} m</span>
                   </span>
                 </div>
               ) : (
@@ -217,12 +234,13 @@ export function VisitForm({
                     </>
                   ) : (
                     <>
-                      <Crosshair className="h-4 w-4" /> {geoError ?? "Sem localização"}
+                      <Crosshair className="h-4 w-4 shrink-0" />
+                      <span>{geoError ?? "Sem localização"}</span>
                     </>
                   )}
                 </div>
               )}
-              <Button variant="ghost" size="sm" onClick={locate} disabled={locating}>
+              <Button variant="ghost" size="sm" onClick={locate} disabled={locating} className="shrink-0">
                 <Navigation className="mr-1 h-3.5 w-3.5" /> Obter GPS
               </Button>
             </div>
@@ -237,9 +255,10 @@ export function VisitForm({
                   : `Atenção: você está a ${formatDistanceM(distance)} do endereço cadastrado.`}
               </p>
             )}
-            {client.lat == null && (
+            {geo == null && !locating && (
               <p className="text-xs text-muted-foreground">
-                Cliente sem coordenadas cadastradas — validação de raio indisponível.
+                Sem GPS, a visita é finalizada normalmente — fica registrado que a localização não foi
+                confirmada.
               </p>
             )}
           </div>
@@ -298,7 +317,7 @@ export function VisitForm({
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Salvando…
               </>
             ) : (
-              "Confirmar visita"
+              "Finalizar visita"
             )}
           </Button>
         </DialogFooter>

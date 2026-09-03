@@ -35,7 +35,7 @@ export default function RoleSelect() {
               <div>
                 <CardTitle className="text-base">Entrar como Coordenador</CardTitle>
                 <CardDescription>
-                  Planeja rotas, acompanha visitas e monitora a equipe
+                  Planeja rotas e acompanha visitas · acesso com senha criada por você
                 </CardDescription>
               </div>
             </CardHeader>

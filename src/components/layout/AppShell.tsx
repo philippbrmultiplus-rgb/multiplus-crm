@@ -1,5 +1,5 @@
 import { type ReactNode } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   CalendarDays,
   Database,
@@ -29,6 +29,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { useData } from "@/lib/DataContext";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { CoordGate } from "./CoordGate";
 
 interface NavItem {
   to: string;
@@ -61,11 +62,21 @@ function Brand() {
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const { state, setRole } = useData();
+  const { state, setRole, coordAuthed, logoutCoordinator } = useData();
   const location = useLocation();
+  const navigate = useNavigate();
   const isMobile = useIsMobile();
   const role = state.sessionRole;
   const items = NAV_ITEMS.filter((i) => i.roles.includes(role));
+
+  if (role === "coordenador" && !coordAuthed) {
+    return <CoordGate />;
+  }
+
+  const leaveToProfileSelect = () => {
+    if (role === "coordenador") logoutCoordinator();
+    navigate("/entrar");
+  };
 
   return (
     <SidebarProvider>
@@ -100,7 +111,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <SidebarFooter>
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton asChild tooltip="Trocar de perfil">
+              <SidebarMenuButton asChild tooltip="Trocar de perfil" onClick={leaveToProfileSelect}>
                 <Link to="/entrar">
                   <LogOut />
                   <span>

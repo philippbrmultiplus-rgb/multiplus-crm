@@ -10,7 +10,7 @@ import { VisitForm } from "@/components/visitas/VisitForm";
 import type { Client, RouteVisit } from "@/lib/types";
 
 export default function MinhaRota() {
-  const { state } = useData();
+  const { state, markRouteVisitStatus } = useData();
   const { routes, routeVisits, clients, visits } = state;
   const [formClient, setFormClient] = useState<{ client: Client; routeVisitId: string | null } | null>(null);
 
@@ -75,13 +75,21 @@ export default function MinhaRota() {
           {scheduled.map((s) => {
             const recorded = visitByRouteVisit(s.routeVisit.id);
             const done = s.routeVisit.status === "concluida";
+            const missed = s.routeVisit.status === "nao_realizada";
+            const statusPill = done ? (
+              <Badge className="bg-primary/10 text-primary">Concluída</Badge>
+            ) : missed ? (
+              <Badge className="bg-slate-500/10 text-slate-600 dark:text-slate-300">Não realizada</Badge>
+            ) : (
+              <Badge variant="outline">Pendente</Badge>
+            );
             return (
-              <Card key={s.routeVisit.id} className={`card-soft ${done ? "opacity-80" : ""}`}>
+              <Card key={s.routeVisit.id} className={`card-soft ${done || missed ? "opacity-80" : ""}`}>
                 <CardHeader className="flex-row items-start justify-between gap-3 space-y-0 pb-2">
                   <div className="flex items-start gap-3">
                     <div
                       className={`flex h-12 w-12 flex-col items-center justify-center rounded-xl text-center ${
-                        done ? "bg-primary/10 text-primary" : "bg-secondary text-foreground"
+                        done ? "bg-primary/10 text-primary" : missed ? "bg-slate-500/10" : "bg-secondary text-foreground"
                       }`}
                     >
                       <span className="text-[10px] uppercase">chegada</span>
@@ -101,7 +109,7 @@ export default function MinhaRota() {
                       </div>
                     </div>
                   </div>
-                  {done && <Badge className="bg-primary/10 text-primary">Concluída</Badge>}
+                  {statusPill}
                 </CardHeader>
                 <CardContent className="flex flex-wrap items-center gap-2 pb-3">
                   <Button variant="outline" size="sm" asChild>
@@ -113,9 +121,27 @@ export default function MinhaRota() {
                       <Navigation className="mr-1.5 h-4 w-4" /> Navegar até o cliente
                     </a>
                   </Button>
-                  {!done && (
-                    <Button size="sm" onClick={() => setFormClient({ client: s.client, routeVisitId: s.routeVisit.id })}>
-                      <MapPin className="mr-1.5 h-4 w-4" /> Registrar visita
+                  {!done && !missed && (
+                    <>
+                      <Button size="sm" onClick={() => setFormClient({ client: s.client, routeVisitId: s.routeVisit.id })}>
+                        <MapPin className="mr-1.5 h-4 w-4" /> Registrar visita
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => markRouteVisitStatus(s.routeVisit.id, "nao_realizada")}
+                      >
+                        Não deu para visitar
+                      </Button>
+                    </>
+                  )}
+                  {missed && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => markRouteVisitStatus(s.routeVisit.id, "pendente")}
+                    >
+                      Reabrir
                     </Button>
                   )}
                   {recorded && (
@@ -125,7 +151,9 @@ export default function MinhaRota() {
                         : recorded.status === "nao_encontrado"
                           ? "Não encontrado"
                           : "Recusado"}
-                      {recorded.distanceFromClientM != null && ` · ${Math.round(recorded.distanceFromClientM)} m do endereço`}
+                      {recorded.gpsLat == null
+                        ? " · sem confirmação de GPS"
+                        : recorded.distanceFromClientM != null && ` · ${Math.round(recorded.distanceFromClientM)} m do endereço`}
                     </span>
                   )}
                 </CardContent>

@@ -20,6 +20,14 @@ import type {
   WeeklyRoute,
 } from "./types";
 import { generateWeekRoute } from "./route";
+import { applySegmentData } from "./segmentMerge";
+import {
+  isCoordAuthed,
+  isPasswordSet,
+  setCoordAuthed,
+  setPassword,
+  verifyPassword,
+} from "./authLocal";
 
 const STORAGE_KEY = "rs-app-state.v1";
 
@@ -75,7 +83,7 @@ function seedState(): AppState {
   return {
     version: 1,
     sessionRole: "coordenador",
-    clients,
+    clients: applySegmentData(clients),
     settings: { ...defaultSettings },
     routes: [],
     routeVisits: [],
@@ -89,7 +97,13 @@ function loadState(): AppState {
     if (raw) {
       const parsed = JSON.parse(raw) as AppState;
       if (parsed && parsed.version === 1 && Array.isArray(parsed.clients)) {
-        return { ...seedState(), ...parsed, settings: { ...defaultSettings, ...parsed.settings } };
+        // mantém rotas/visitas salvos, mas sempre sincroniza clientes + segmentos
+        return {
+          ...seedState(),
+          ...parsed,
+          clients: applySegmentData(parsed.clients),
+          settings: { ...defaultSettings, ...parsed.settings },
+        };
       }
     }
   } catch {
@@ -101,6 +115,11 @@ function loadState(): AppState {
 interface DataContextValue {
   state: AppState;
   setRole: (role: Role) => void;
+  coordAuthed: boolean;
+  coordPasswordSet: boolean;
+  loginCoordinator: (pw: string) => Promise<boolean>;
+  setupCoordinatorPassword: (pw: string) => Promise<boolean>;
+  logoutCoordinator: () => void;
   resetData: () => void;
   exportData: () => string;
   importData: (json: string) => string | null;
@@ -127,6 +146,7 @@ const DataContext = createContext<DataContextValue | null>(null);
 
 export function DataProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AppState>(loadState);
+  const [coordAuthed, setCoordAuthedState] = useState<boolean>(isCoordAuthed());
 
   useEffect(() => {
     try {
@@ -139,6 +159,33 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const setRole = useCallback((role: Role) => {
     setState((s) => ({ ...s, sessionRole: role }));
+    // sair do perfil de coordenador encerra a sessão autenticada
+    if (role !== "coordenador" && isCoordAuthed()) {
+      setCoordAuthed(false);
+      setCoordAuthedState(false);
+    }
+  }, []);
+
+  const loginCoordinator = useCallback(async (pw: string): Promise<boolean> => {
+    const ok = await verifyPassword(pw);
+    if (ok) {
+      setCoordAuthed(true);
+      setCoordAuthedState(true);
+    }
+    return ok;
+  }, []);
+
+  const setupCoordinatorPassword = useCallback(async (pw: string): Promise<boolean> => {
+    if (pw.length < 4) return false;
+    await setPassword(pw);
+    setCoordAuthed(true);
+    setCoordAuthedState(true);
+    return true;
+  }, []);
+
+  const logoutCoordinator = useCallback(() => {
+    setCoordAuthed(false);
+    setCoordAuthedState(false);
   }, []);
 
   const resetData = useCallback(() => {
@@ -357,6 +404,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const value: DataContextValue = {
     state,
     setRole,
+    coordAuthed,
+    coordPasswordSet: isPasswordSet(),
+    loginCoordinator,
+    setupCoordinatorPassword,
+    logoutCoordinator,
     resetData,
     exportData,
     importData,

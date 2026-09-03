@@ -193,6 +193,7 @@ export default function Clientes() {
             <TableRow>
               <TableHead>Cliente</TableHead>
               <TableHead>Cidade</TableHead>
+              <TableHead>Segmento</TableHead>
               <TableHead className="text-right">Média mês (t)</TableHead>
               <TableHead>Prior.</TableHead>
               <TableHead>Frequência</TableHead>
@@ -210,6 +211,9 @@ export default function Clientes() {
                   </div>
                 </TableCell>
                 <TableCell className="whitespace-nowrap text-sm">{c.city}</TableCell>
+                <TableCell className="whitespace-nowrap">
+                  {c.segment ? <Badge variant="outline">{c.segment}</Badge> : "—"}
+                </TableCell>
                 <TableCell className="text-right font-medium">
                   {c.avgMonthly > 0 ? c.avgMonthly : "—"}
                 </TableCell>
@@ -250,7 +254,7 @@ export default function Clientes() {
             ))}
             {filtered.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
+                <TableCell colSpan={8} className="py-8 text-center text-muted-foreground">
                   Nenhum cliente encontrado.
                 </TableCell>
               </TableRow>
