@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   CheckCircle2,
   Loader2,
@@ -39,20 +39,68 @@ import {
 } from "@/components/ui/table";
 import { useData } from "@/lib/DataContext";
 import { LeafletMap } from "@/components/map/LeafletMap";
+import { cadenceLabel, intervalDays, tierOfFreq } from "@/lib/cadence";
+import { daysSinceToday } from "@/lib/geo";
 import type { Client, Tier } from "@/lib/types";
 
 const FREQ_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "0", label: "Fora da rota" },
-  { value: "0.5", label: "1x a cada 2 meses" },
-  { value: "1", label: "1x por mês" },
-  { value: "2", label: "2x por mês" },
+  { value: "0.33", label: cadenceLabel(0.33) },
+  { value: "0.5", label: cadenceLabel(0.5) },
+  { value: "1", label: cadenceLabel(1) },
+  { value: "2", label: cadenceLabel(2) },
+  { value: "3", label: cadenceLabel(3) },
+  { value: "4", label: cadenceLabel(4) },
 ];
 
+const TIER_LABEL: Record<Tier, string> = {
+  A: "Grupo A · 4x/mês",
+  B: "Grupo B · 3x/mês",
+  C: "Grupo C · 2x/mês",
+  D: "Grupo D · <2x/mês",
+};
+// usado como título de tooltip dos grupos
+const TIER_ORDER: Record<Tier, number> = { A: 4, B: 3, C: 2, D: 1 };
+
 function tierBadge(t: Tier) {
+  const cls =
+    t === "A" ? "tier-badge-a" : t === "B" ? "tier-badge-b" : t === "C" ? "tier-badge-c" : "tier-badge-d";
   return (
-    <Badge className={t === "A" ? "tier-badge-a" : t === "B" ? "tier-badge-b" : "tier-badge-c"}>
-      {t}
-    </Badge>
+    <span className="inline-flex items-center gap-1" title={TIER_LABEL[t]}>
+      <Badge className={cls}>{t}</Badge>
+      <span className="text-[10px] text-muted-foreground">
+        {t === "A" ? "4x" : t === "B" ? "3x" : t === "C" ? "2x" : "<2x"}
+      </span>
+    </span>
+  );
+}
+
+function ColetaCell({ c, onDate }: { c: Client; onDate: (v: string | null) => void }) {
+  const days = daysSinceToday(c.lastCollectAt);
+  const overdue = days != null && days >= intervalDays(c.freqMonth);
+  return (
+    <div className="flex items-center gap-1.5 whitespace-nowrap">
+      <input
+        type="date"
+        aria-label="Data da última troca"
+        className="h-8 w-32 rounded-md border bg-transparent px-1.5 text-xs text-foreground"
+        value={c.lastCollectAt ?? ""}
+        onChange={(e) => onDate(e.target.value || null)}
+      />
+      {days != null && days > 0 && (
+        <Badge
+          className={
+            overdue
+              ? "bg-destructive/15 text-destructive ring-1 ring-destructive/30"
+              : days >= Math.max(3, Math.floor((intervalDays(c.freqMonth) || 30) / 2))
+                ? "bg-amber-500/15 text-amber-700 ring-1 ring-amber-500/30 dark:text-amber-300"
+                : "bg-primary/10 text-primary"
+          }
+        >
+          há {days} {days === 1 ? "dia" : "dias"}
+        </Badge>
+      )}
+    </div>
   );
 }
 
@@ -76,6 +124,12 @@ export default function Clientes() {
   const [onlyActive, setOnlyActive] = useState(true);
   const [editing, setEditing] = useState<Client | null>(null);
   const [geocoding, setGeocoding] = useState<{ done: number; total: number; current: string } | null>(null);
+  // atualiza o contador "há X dias" automaticamente
+  const [, setNow] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(t);
+  }, []);
 
   const cities = useMemo(() => {
     const map = new Map<string, number>();
@@ -92,7 +146,7 @@ export default function Clientes() {
       .filter((c) =>
         q ? `${c.name} ${c.address} ${c.city}`.toLowerCase().includes(q) : true,
       )
-      .sort((a, b) => b.avgMonthly - a.avgMonthly);
+      .sort((a, b) => TIER_ORDER[b.tier] - TIER_ORDER[a.tier] || b.freqMonth - a.freqMonth || b.avgMonthly - a.avgMonthly);
   }, [clients, search, city, tier, onlyActive]);
 
   const pendingGeocode = clients.filter((c) => c.lat == null || c.geocodeStatus !== "ok").length;
@@ -176,9 +230,10 @@ export default function Clientes() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todas</SelectItem>
-            <SelectItem value="A">Prioridade A</SelectItem>
-            <SelectItem value="B">Prioridade B</SelectItem>
-            <SelectItem value="C">Prioridade C</SelectItem>
+            <SelectItem value="A">Grupo A (4x/mês)</SelectItem>
+            <SelectItem value="B">Grupo B (3x/mês)</SelectItem>
+            <SelectItem value="C">Grupo C (2x/mês)</SelectItem>
+            <SelectItem value="D">Grupo D (&lt;2x/mês)</SelectItem>
           </SelectContent>
         </Select>
         <label className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -194,9 +249,9 @@ export default function Clientes() {
               <TableHead>Cliente</TableHead>
               <TableHead>Cidade</TableHead>
               <TableHead>Segmento</TableHead>
-              <TableHead className="text-right">Média mês (t)</TableHead>
-              <TableHead>Prior.</TableHead>
-              <TableHead>Frequência</TableHead>
+              <TableHead>Grupo</TableHead>
+              <TableHead>Cadência</TableHead>
+              <TableHead>Últ. troca / dias</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Ações</TableHead>
             </TableRow>
@@ -214,16 +269,16 @@ export default function Clientes() {
                 <TableCell className="whitespace-nowrap">
                   {c.segment ? <Badge variant="outline">{c.segment}</Badge> : "—"}
                 </TableCell>
-                <TableCell className="text-right font-medium">
-                  {c.avgMonthly > 0 ? c.avgMonthly : "—"}
-                </TableCell>
                 <TableCell>{tierBadge(c.tier)}</TableCell>
                 <TableCell>
                   <Select
                     value={String(c.freqMonth)}
-                    onValueChange={(v) => updateClient(c.id, { freqMonth: parseFloat(v) })}
+                    onValueChange={(v) => {
+                      const f = parseFloat(v);
+                      updateClient(c.id, { freqMonth: f, tier: tierOfFreq(f) });
+                    }}
                   >
-                    <SelectTrigger className="h-8 w-40 text-xs">
+                    <SelectTrigger className="h-8 w-36 text-xs">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -234,6 +289,9 @@ export default function Clientes() {
                       ))}
                     </SelectContent>
                   </Select>
+                </TableCell>
+                <TableCell>
+                  <ColetaCell c={c} onDate={(v) => updateClient(c.id, { lastCollectAt: v })} />
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-1.5">

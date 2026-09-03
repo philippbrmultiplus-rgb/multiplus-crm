@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   closestCorners,
   DndContext,
@@ -38,8 +38,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useData } from "@/lib/DataContext";
-import { addDays, DAY_NAMES, formatKm, mondayOf, timeToMinutes, todayKey } from "@/lib/geo";
+import { addDays, DAY_NAMES, daysSinceToday, formatKm, mondayOf, timeToMinutes, todayKey } from "@/lib/geo";
 import { computeSchedule } from "@/lib/route";
+import { intervalDays } from "@/lib/cadence";
 import { LeafletMap } from "@/components/map/LeafletMap";
 import { VisitForm } from "@/components/visitas/VisitForm";
 import type { Client, RouteVisit, ScheduledVisit, Settings, WeeklyRoute } from "@/lib/types";
@@ -62,6 +63,11 @@ export default function RotaSemanal() {
   const [warnings, setWarnings] = useState<string[]>([]);
   const [addDay, setAddDay] = useState<number | null>(null);
   const [finalize, setFinalize] = useState<ScheduledVisit | null>(null);
+  const [, setNow] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(t);
+  }, []);
 
   const route = useMemo<WeeklyRoute | null>(() => {
     if (selectedId) return routes.find((r) => r.id === selectedId) ?? null;
@@ -330,6 +336,8 @@ function RouteCard({ scheduled, onFinalize }: { scheduled: ScheduledVisit; onFin
   const style = { transform: CSS.Transform.toString(transform), transition };
   const done = scheduled.routeVisit.status === "concluida";
   const missed = scheduled.routeVisit.status === "nao_realizada";
+  const days = daysSinceToday(scheduled.client.lastCollectAt);
+  const overdue = days != null && days >= intervalDays(scheduled.client.freqMonth);
 
   return (
     <div
@@ -357,7 +365,17 @@ function RouteCard({ scheduled, onFinalize }: { scheduled: ScheduledVisit; onFin
         <div className="truncate text-xs text-muted-foreground">
           {scheduled.client.city} · ~{scheduled.travelMin} min de deslocamento
         </div>
-        {scheduled.client.tier === "A" && <Badge className="tier-badge-a mt-1">Prioridade A</Badge>}
+        {days != null && (
+          <div
+            className={`mt-0.5 text-[11px] ${
+              overdue ? "font-medium text-destructive" : "text-muted-foreground"
+            }`}
+          >
+            última troca há {days} {days === 1 ? "dia" : "dias"}
+            {overdue ? " (atrasada)" : ""}
+          </div>
+        )}
+        {scheduled.client.tier === "A" && <Badge className="tier-badge-a mt-1">Grupo A</Badge>}
       </div>
       {!done && !missed && (
         <button

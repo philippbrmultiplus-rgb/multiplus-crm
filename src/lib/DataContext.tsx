@@ -24,6 +24,7 @@ import type {
 } from "./types";
 import { generateWeekRoute } from "./route";
 import { applySegmentData } from "./segmentMerge";
+import { applyCadenceData, tierOfFreq } from "./cadence";
 
 const STORAGE_KEY = "rs-app-state.v1";
 
@@ -77,7 +78,8 @@ export function seedClients(): Client[] {
       geocodeStatus: "pendente",
     };
   });
-  return applySegmentData(mapped);
+  const withSegments = applySegmentData(mapped);
+  return applyCadenceData(withSegments);
 }
 
 function emptyState(): AppState {
@@ -127,8 +129,9 @@ function clientFromRow(r: Record<string, any>): Client {
     total2025: Number(r.total_2025 ?? 0),
     total2026: Number(r.total_2026 ?? 0),
     avgMonthly: Number(r.avg_monthly ?? 0),
-    tier: (r.tier ?? "C") as Tier,
+    tier: (r.tier ?? "D") as Tier,
     freqMonth: Number(r.freq_month ?? 0.5),
+    lastCollectAt: r.last_collect_at ?? null,
     lat: r.lat,
     lng: r.lng,
     geocodeStatus: r.geocode_status ?? "pendente",
@@ -150,6 +153,7 @@ function clientToRow(c: Client): Record<string, any> {
     avg_monthly: c.avgMonthly,
     tier: c.tier,
     freq_month: c.freqMonth,
+    last_collect_at: c.lastCollectAt ?? null,
     lat: c.lat,
     lng: c.lng,
     geocode_status: c.geocodeStatus,
@@ -376,10 +380,23 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const routeVisits = (rvsRes.data ?? []).map((r) => rvFromRow(r as unknown as Record<string, any>));
     const visits = (visitsRes.data ?? []).map((r) => visitFromRow(r as unknown as Record<string, any>));
 
+    // coordenaador: aplica cadência/frequência e última troca da planilha uma única vez
+    let finalClients = clients;
+    if (roleName === "coordenador" && clients.length > 0) {
+      const ver = Number((settingsRes.data as Record<string, any> | null)?.cadence_version ?? 0);
+      if (ver < 1) {
+        finalClients = applyCadenceData(clients);
+        await supabase.from("clients").upsert(finalClients.map((c) => clientToRow(c)));
+        await supabase
+          .from("settings")
+          .upsert({ ...(settingsToRow(settings) as Record<string, any>), cadence_version: 1 });
+      }
+    }
+
     setAppState((prev) => ({
       ...prev,
       sessionRole: roleName,
-      clients: clients.length > 0 ? clients : prev.clients,
+      clients: finalClients.length > 0 ? finalClients : prev.clients,
       settings,
       routes,
       routeVisits,
@@ -390,12 +407,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
     // primeira execução do coordenador: sobe a carteira + configurações se o banco estiver vazio
     if (clients.length === 0 && roleName === "coordenador") {
-      const seed = prevClientsRef.current.length > 0 ? prevClientsRef.current : seedClients();
+      const seed = prevClientsRef.current.length > 0 ? applyCadenceData(prevClientsRef.current) : seedClients();
       const { error } = await supabase
         .from("clients")
         .upsert(seed.map((c) => clientToRow(c)));
       if (!error) {
-        await supabase.from("settings").upsert(settingsToRow(settings));
+        await supabase
+          .from("settings")
+          .upsert({ ...(settingsToRow(settings) as Record<string, any>), cadence_version: 1 });
         setAppState((p) => ({ ...p, clients: seed, sessionRole: "coordenador" }));
       }
     }
@@ -566,10 +585,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const recomputeTiers = useCallback(() => {
     setAppState((prev) => {
-      const clients = prev.clients.map((c) => {
-        const tier = computeTier(c.avgMonthly, prev.settings);
-        return { ...c, tier, freqMonth: freqOfTier(tier, c.active) };
-      });
+      // prioridade (A–D) segue a cadência de visitas informada
+      const clients = prev.clients.map((c) => ({
+        ...c,
+        tier: tierOfFreq(c.freqMonth),
+      }));
       persistClientsBatch(clients);
       return { ...prev, clients };
     });

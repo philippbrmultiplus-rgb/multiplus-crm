@@ -9,6 +9,7 @@ import type {
 } from "./types";
 import {
   DAY_NAMES,
+  daysSinceToday,
   formatMinutes,
   hashStr,
   minutesToClock,
@@ -16,6 +17,7 @@ import {
   timeToMinutes,
   travelMinutes,
 } from "./geo";
+import { intervalDays } from "./cadence";
 
 interface Candidate {
   client: Client;
@@ -30,14 +32,24 @@ interface DayState {
   usedMin: number;
 }
 
-/** Deve o cliente ser visitado nesta semana? (rotação determinística por frequência) */
+/** Cliente deve ser visitado nesta semana pela rotação da cadência? */
 export function shouldVisit(client: Client, weekIndex: number, monthIndex: number, monthWeek: number): boolean {
   if (!client.active || client.freqMonth <= 0) return false;
   const h = hashStr(client.id);
-  if (client.freqMonth >= 2) return (h + weekIndex) % 2 === 0;
-  if (client.freqMonth >= 1) return monthWeek === (h % 4) + 1;
-  // 0.5 -> a cada 2 meses (meses pares de 2026)
-  return monthIndex % 2 === 0 && monthWeek === (h % 4) + 1;
+  const f = client.freqMonth;
+  if (f >= 4) return true; // ~semanal
+  if (f >= 3) return (h + weekIndex) % 4 < 3; // 3 de cada 4 semanas
+  if (f >= 2) return (h + weekIndex) % 2 === 0; // a cada 2 semanas
+  if (f >= 1) return monthWeek === (h % 4) + 1; // 1x por mês
+  return monthIndex % 2 === 0 && monthWeek === (h % 4) + 1; // 1x a cada 2 meses
+}
+
+/** Atrasado se o tempo desde a última troca já passou do intervalo ideal. */
+export function isOverdue(client: Client): boolean {
+  const days = daysSinceToday(client.lastCollectAt);
+  const interval = intervalDays(client.freqMonth);
+  if (days == null || interval <= 0) return false;
+  return days >= interval;
 }
 
 export function weekMeta(weekStartIso: string) {
@@ -71,13 +83,16 @@ export function generateWeekRoute(
   const days = [...settings.workingDays].sort((a, b) => a - b);
 
   const candidates: Candidate[] = [];
+  const overduePool: Candidate[] = [];
   const noCoord: string[] = [];
   const farClients: string[] = [];
   // raio máximo para "dia único" (ida+visita+volta dentro do expediente)
   const oneWayBudgetMin = budgetMin / 2;
   const maxDayTripKm = (oneWayBudgetMin / 60) * settings.travelSpeedKmh / 1.3;
   for (const c of clients) {
-    if (!shouldVisit(c, weekIndex, monthIndex, monthWeek)) continue;
+    const due = shouldVisit(c, weekIndex, monthIndex, monthWeek);
+    const overdue = isOverdue(c);
+    if (!due && !overdue) continue;
     if (c.lat == null || c.lng == null) {
       noCoord.push(c.name);
       continue;
@@ -87,8 +102,19 @@ export function generateWeekRoute(
       farClients.push(c.name);
       continue;
     }
-    candidates.push({ client: c, distHomeKm: dist });
+    const cand = { client: c, distHomeKm: dist };
+    // atrasados que ainda não estão na rotação entram primeiro os mais urgentes
+    if (overdue && !due) overduePool.push(cand);
+    else candidates.push(cand);
   }
+  // inclui os atrasados mais urgentes desta semana (limita para não lotar a rota)
+  const OVERDUE_CAP_PER_WEEK = 10;
+  overduePool.sort((a, b) => {
+    const ea = (daysSinceToday(a.client.lastCollectAt) ?? 0) - intervalDays(a.client.freqMonth);
+    const eb = (daysSinceToday(b.client.lastCollectAt) ?? 0) - intervalDays(b.client.freqMonth);
+    return eb - ea;
+  });
+  candidates.push(...overduePool.slice(0, OVERDUE_CAP_PER_WEEK));
   if (noCoord.length > 0) {
     warnings.push(
       `${noCoord.length} cliente(s) sem coordenadas ficaram de fora: ${noCoord.slice(0, 4).join(", ")}${noCoord.length > 4 ? "…" : ""}. Marque no mapa ou ajuste a frequência.`,

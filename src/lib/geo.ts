@@ -73,6 +73,17 @@ export function todayKey(): string {
   return `${d.getFullYear()}-${m}-${day}`;
 }
 
+/** dias inteiros entre uma data (yyyy-mm-dd) e hoje (0 = hoje; cresce sozinho dia a dia) */
+export function daysSinceToday(iso: string | null | undefined): number | null {
+  if (!iso) return null;
+  const [y, m, d] = iso.slice(0, 10).split("-").map(Number);
+  if (!y || !m || !d) return null;
+  const from = new Date(y, m - 1, d).getTime();
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  return Math.max(0, Math.floor((today - from) / 86400000));
+}
+
 /** Segunda-feira da semana de uma data ISO. */
 export function mondayOf(iso: string): string {
   const d = new Date(`${iso}T12:00:00`);

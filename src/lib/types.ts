@@ -1,6 +1,6 @@
 export type Role = "coordenador" | "vendedor";
 
-export type Tier = "A" | "B" | "C";
+export type Tier = "A" | "B" | "C" | "D";
 
 export type GeocodeStatus = "pendente" | "ok" | "falha";
 
@@ -16,8 +16,10 @@ export interface Client {
   total2026: number;
   avgMonthly: number;
   tier: Tier;
-  /** visitas por mês: 2 = alta, 1 = média, 0.5 = a cada 2 meses, 0 = fora da rota */
+  /** cadência de visitas por mês (ex.: 4 = 4x/mês, 1 = mensal, 0.5 = a cada 2 meses, 0 = fora da rota) */
   freqMonth: number;
+  /** data (yyyy-mm-dd) da última troca/coleta de material informada */
+  lastCollectAt?: string | null;
   lat: number | null;
   lng: number | null;
   geocodeStatus: GeocodeStatus;

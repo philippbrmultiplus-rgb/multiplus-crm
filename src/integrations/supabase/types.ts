@@ -3370,6 +3370,7 @@ export type Database = {
           freq_month: number | null
           geocode_status: string | null
           id: string
+          last_collect_at: string | null
           lat: number | null
           lng: number | null
           name: string
@@ -3390,6 +3391,7 @@ export type Database = {
           freq_month?: number | null
           geocode_status?: string | null
           id: string
+          last_collect_at?: string | null
           lat?: number | null
           lng?: number | null
           name: string
@@ -3410,6 +3412,7 @@ export type Database = {
           freq_month?: number | null
           geocode_status?: string | null
           id?: string
+          last_collect_at?: string | null
           lat?: number | null
           lng?: number | null
           name?: string
@@ -3492,6 +3495,7 @@ export type Database = {
       }
       settings: {
         Row: {
+          cadence_version: number
           home_lat: number | null
           home_lng: number | null
           id: number
@@ -3506,6 +3510,7 @@ export type Database = {
           working_days: number[] | null
         }
         Insert: {
+          cadence_version?: number
           home_lat?: number | null
           home_lng?: number | null
           id?: number
@@ -3520,6 +3525,7 @@ export type Database = {
           working_days?: number[] | null
         }
         Update: {
+          cadence_version?: number
           home_lat?: number | null
           home_lng?: number | null
           id?: number

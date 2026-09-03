@@ -1,0 +1,2 @@
+alter table public.clients add column if not exists last_collect_at date;
+alter table public.settings add column if not exists cadence_version int not null default 0;

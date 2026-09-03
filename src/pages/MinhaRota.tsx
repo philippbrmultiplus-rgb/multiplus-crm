@@ -4,8 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useData } from "@/lib/DataContext";
-import { addDays, DAY_NAMES, formatDateBR, mondayOf, todayKey } from "@/lib/geo";
+import { addDays, DAY_NAMES, daysSinceToday, formatDateBR, mondayOf, todayKey } from "@/lib/geo";
 import { computeSchedule } from "@/lib/route";
+import { intervalDays } from "@/lib/cadence";
 import { VisitForm } from "@/components/visitas/VisitForm";
 import type { Client, RouteVisit } from "@/lib/types";
 
@@ -104,8 +105,20 @@ export default function MinhaRota() {
                         {s.client.city} · {s.client.address || "sem endereço"}
                       </CardDescription>
                       <div className="mt-1 flex flex-wrap gap-1.5">
-                        {s.client.tier === "A" && <Badge className="tier-badge-a">Prioridade A</Badge>}
+                        {s.client.tier === "A" && <Badge className="tier-badge-a">Grupo A</Badge>}
                         <Badge variant="outline">~{s.travelMin} min de deslocamento</Badge>
+                        {daysSinceToday(s.client.lastCollectAt) != null && (
+                          <Badge
+                            variant="outline"
+                            className={
+                              (daysSinceToday(s.client.lastCollectAt) ?? 0) >= intervalDays(s.client.freqMonth)
+                                ? "border-destructive/40 text-destructive"
+                                : ""
+                            }
+                          >
+                            coleta há {daysSinceToday(s.client.lastCollectAt)} dias
+                          </Badge>
+                        )}
                       </div>
                     </div>
                   </div>

@@ -16,7 +16,7 @@ import { addDays, mondayOf, todayKey } from "@/lib/geo";
 
 export default function Dashboard() {
   const { state } = useData();
-  const { clients, visits, routes, routeVisits, settings } = state;
+  const { clients, visits, routes, routeVisits } = state;
 
   const activeClients = useMemo(() => clients.filter((c) => c.active), [clients]);
   const weekStart = mondayOf(todayKey());
@@ -42,7 +42,7 @@ export default function Dashboard() {
   const drafts = useMemo(() => routes.filter((r) => r.status === "rascunho"), [routes]);
 
   const tierCount = useMemo(() => {
-    const counts = { A: 0, B: 0, C: 0 };
+    const counts = { A: 0, B: 0, C: 0, D: 0 };
     activeClients.forEach((c) => {
       if (c.freqMonth > 0) counts[c.tier]++;
     });
@@ -54,7 +54,7 @@ export default function Dashboard() {
       label: "Clientes ativos",
       value: activeClients.length,
       icon: Users,
-      sub: `${tierCount.A} prioritários (2x/mês)`,
+      sub: `${tierCount.A} no grupo A (4x/mês)`,
       href: "/clientes",
     },
     {
@@ -168,17 +168,24 @@ export default function Dashboard() {
 
         <Card className="card-soft">
           <CardHeader>
-            <CardTitle className="text-base">Carteira por prioridade</CardTitle>
-            <CardDescription>Frequência sugerida por volume</CardDescription>
+            <CardTitle className="text-base">Carteira por grupo de cadência</CardTitle>
+            <CardDescription>Visitas necessárias por mês (planilha de cadência)</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            {(["A", "B", "C"] as const).map((t) => {
+            {(
+              [
+                ["A", "4x/mês", "tier-badge-a"],
+                ["B", "3x/mês", "tier-badge-b"],
+                ["C", "2x/mês", "tier-badge-c"],
+                ["D", "<2x/mês", "tier-badge-d"],
+              ] as const
+            ).map(([t, label, cls]) => {
               const n = tierCount[t];
               const total = activeClients.length || 1;
               return (
                 <div key={t} className="flex items-center gap-3">
-                  <Badge className={t === "A" ? "tier-badge-a" : t === "B" ? "tier-badge-b" : "tier-badge-c"}>
-                    Prioridade {t}
+                  <Badge className={cls}>
+                    {label}
                   </Badge>
                   <div className="h-2 flex-1 overflow-hidden rounded-full bg-secondary">
                     <div
@@ -191,8 +198,8 @@ export default function Dashboard() {
               );
             })}
             <p className="pt-1 text-xs text-muted-foreground">
-              A = {settings.tierAThreshold}+ t/mês · B = {settings.tierBThreshold}+ · C = abaixo. Ajuste em
-              "Clientes".
+              Clientes sem data de última troca também só entram na rota quando a cadência indicar.
+              Ajuste em "Clientes".
             </p>
           </CardContent>
         </Card>
