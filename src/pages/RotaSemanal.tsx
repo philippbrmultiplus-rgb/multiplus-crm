@@ -23,6 +23,7 @@ import {
   GripVertical,
   Plus,
   Rocket,
+  Search,
   Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -37,10 +38,22 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useData } from "@/lib/DataContext";
-import { addDays, DAY_NAMES, daysSinceToday, formatKm, mondayOf, timeToMinutes, todayKey } from "@/lib/geo";
+import { addDays, DAY_NAMES, daysSinceToday, formatDateBR, formatKm, mondayOf, timeToMinutes, todayKey } from "@/lib/geo";
 import { computeSchedule } from "@/lib/route";
-import { intervalDays } from "@/lib/cadence";
+import { cadenceLabel, intervalDays } from "@/lib/cadence";
+import {
+  compareClients,
+  isColetaOverdue,
+} from "@/components/clients/clientBits";
+import { ColetaBadge, TierBadge } from "@/components/clients/clientBadges";
 import { LeafletMap } from "@/components/map/LeafletMap";
 import { VisitForm } from "@/components/visitas/VisitForm";
 import type { Client, RouteVisit, ScheduledVisit, Settings, WeeklyRoute } from "@/lib/types";
@@ -411,46 +424,117 @@ function AddClientDialog({
 }) {
   const { addRouteVisit } = useData();
   const [q, setQ] = useState("");
-  const options = useMemo(
-    () =>
-      clients
-        .filter((c) => !routeClients.includes(c.id))
-        .filter((c) => (q ? `${c.name} ${c.city}`.toLowerCase().includes(q.toLowerCase()) : true))
-        .sort((a, b) => b.avgMonthly - a.avgMonthly)
-        .slice(0, 30),
-    [clients, routeClients, q],
+  const [grupo, setGrupo] = useState("all");
+  const [situ, setSitu] = useState("todas");
+
+  const available = useMemo(
+    () => clients.filter((c) => !routeClients.includes(c.id)),
+    [clients, routeClients],
   );
+
+  const options = useMemo(() => {
+    const term = q.trim().toLowerCase();
+    return available
+      .filter((c) => (grupo === "all" ? true : c.tier === grupo))
+      .filter((c) => {
+        if (situ === "todas") return true;
+        if (situ === "sem_data") return c.lastCollectAt == null;
+        if (situ === "em_dia") return c.lastCollectAt != null && !isColetaOverdue(c);
+        return isColetaOverdue(c);
+      })
+      .filter((c) =>
+        term
+          ? `${c.name} ${c.city} ${c.segment} ${c.address}`.toLowerCase().includes(term)
+          : true,
+      )
+      .sort((a, b) => compareClients(a, b, "grupo"));
+  }, [available, q, grupo, situ]);
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent>
+      <DialogContent className="max-w-xl">
         <DialogHeader>
           <DialogTitle>Adicionar visita — {DAY_NAMES[day]}</DialogTitle>
-          <DialogDescription>Escolha um cliente para incluir manualmente na rota.</DialogDescription>
+          <DialogDescription>
+            Escolha um cliente para incluir manualmente na rota. Prioridade A e coletas atrasadas vêm
+            primeiro e ficam destacadas em vermelho.
+          </DialogDescription>
         </DialogHeader>
-        <Input placeholder="Buscar cliente…" value={q} onChange={(e) => setQ(e.target.value)} />
-        <div className="max-h-80 space-y-1 overflow-y-auto">
+        <div className="flex flex-wrap gap-2">
+          <div className="relative min-w-52 flex-1">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              className="pl-8"
+              placeholder="Buscar cliente…"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+            />
+          </div>
+          <Select value={grupo} onValueChange={setGrupo}>
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="Grupo" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os grupos</SelectItem>
+              <SelectItem value="A">Grupo A (4x/mês)</SelectItem>
+              <SelectItem value="B">Grupo B (3x/mês)</SelectItem>
+              <SelectItem value="C">Grupo C (2x/mês)</SelectItem>
+              <SelectItem value="D">Grupo D (&lt;2x/mês)</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={situ} onValueChange={setSitu}>
+            <SelectTrigger className="w-44">
+              <SelectValue placeholder="Situação da coleta" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todas">Todas as situações</SelectItem>
+              <SelectItem value="atrasada">Coleta atrasada</SelectItem>
+              <SelectItem value="em_dia">Em dia</SelectItem>
+              <SelectItem value="sem_data">Sem data de coleta</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          {available.length > 0
+            ? `${options.length} de ${available.length} clientes disponíveis`
+            : "Todos os clientes da semana já estão na rota."}
+        </p>
+        <div className="max-h-96 space-y-1 overflow-y-auto">
           {options.map((c) => (
             <button
               key={c.id}
-              className="flex w-full items-center justify-between rounded-lg border p-2 text-left text-sm hover:bg-secondary"
+              className={`flex w-full items-center justify-between gap-2 rounded-lg border p-2 text-left text-sm hover:bg-secondary ${
+                isColetaOverdue(c) ? "opt-overdue" : ""
+              }`}
               onClick={() => {
                 if (routeId) addRouteVisit(routeId, c.id, day);
                 onClose();
               }}
             >
-              <span className="min-w-0">
-                <span className="block truncate font-medium">{c.name}</span>
-                <span className="block truncate text-xs text-muted-foreground">
-                  {c.city} · média {c.avgMonthly || 0} t/mês
+              <span className="min-w-0 flex-1">
+                <span className="flex items-center gap-1.5">
+                  <span className="truncate font-medium">{c.name}</span>
+                  <TierBadge tier={c.tier} />
+                  {!c.active && <Badge variant="secondary">inativo</Badge>}
+                </span>
+                <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+                  <span className="truncate">
+                    {c.city}
+                    {c.segment ? ` · ${c.segment}` : ""}
+                  </span>
+                  <span>{cadenceLabel(c.freqMonth)}</span>
+                  <span>média {c.avgMonthly || 0} t/mês</span>
+                  {c.lastCollectAt && <span>últ. troca {formatDateBR(c.lastCollectAt)}</span>}
                 </span>
               </span>
-              {c.tier === "A" && <Badge className="tier-badge-a shrink-0">A</Badge>}
+              <span className="shrink-0">
+                <ColetaBadge c={c} withLabel />
+              </span>
             </button>
           ))}
-          {options.length === 0 && (
+          {options.length === 0 && available.length > 0 && (
             <p className="py-4 text-center text-sm text-muted-foreground">
-              Nenhum cliente disponível (todos já estão na rota).
+              Nenhum cliente corresponde aos filtros atuais.
             </p>
           )}
         </div>

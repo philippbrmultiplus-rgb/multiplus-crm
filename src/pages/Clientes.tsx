@@ -5,6 +5,7 @@ import {
   MapPin,
   MapPinOff,
   Pencil,
+  RotateCcw,
   Search,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -41,10 +42,16 @@ import { useData } from "@/lib/DataContext";
 import { LeafletMap } from "@/components/map/LeafletMap";
 import { cadenceLabel, intervalDays, tierOfFreq } from "@/lib/cadence";
 import { daysSinceToday } from "@/lib/geo";
-import type { Client, Tier } from "@/lib/types";
+import {
+  compareClients,
+  isColetaOverdue,
+  type ClientSort,
+} from "@/components/clients/clientBits";
+import { TierBadge } from "@/components/clients/clientBadges";
+import type { Client } from "@/lib/types";
 
 const FREQ_OPTIONS: Array<{ value: string; label: string }> = [
-  { value: "0", label: "Fora da rota" },
+  { value: "0", label: cadenceLabel(0) },
   { value: "0.33", label: cadenceLabel(0.33) },
   { value: "0.5", label: cadenceLabel(0.5) },
   { value: "1", label: cadenceLabel(1) },
@@ -53,31 +60,9 @@ const FREQ_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "4", label: cadenceLabel(4) },
 ];
 
-const TIER_LABEL: Record<Tier, string> = {
-  A: "Grupo A · 4x/mês",
-  B: "Grupo B · 3x/mês",
-  C: "Grupo C · 2x/mês",
-  D: "Grupo D · <2x/mês",
-};
-// usado como título de tooltip dos grupos
-const TIER_ORDER: Record<Tier, number> = { A: 4, B: 3, C: 2, D: 1 };
-
-function tierBadge(t: Tier) {
-  const cls =
-    t === "A" ? "tier-badge-a" : t === "B" ? "tier-badge-b" : t === "C" ? "tier-badge-c" : "tier-badge-d";
-  return (
-    <span className="inline-flex items-center gap-1" title={TIER_LABEL[t]}>
-      <Badge className={cls}>{t}</Badge>
-      <span className="text-[10px] text-muted-foreground">
-        {t === "A" ? "4x" : t === "B" ? "3x" : t === "C" ? "2x" : "<2x"}
-      </span>
-    </span>
-  );
-}
-
 function ColetaCell({ c, onDate }: { c: Client; onDate: (v: string | null) => void }) {
   const days = daysSinceToday(c.lastCollectAt);
-  const overdue = days != null && days >= intervalDays(c.freqMonth);
+  const overdue = isColetaOverdue(c);
   return (
     <div className="flex items-center gap-1.5 whitespace-nowrap">
       <input
@@ -121,6 +106,10 @@ export default function Clientes() {
   const [search, setSearch] = useState("");
   const [city, setCity] = useState("all");
   const [tier, setTier] = useState("all");
+  const [segment, setSegment] = useState("all");
+  const [freqF, setFreqF] = useState("all");
+  const [situ, setSitu] = useState("todas");
+  const [sortBy, setSortBy] = useState<ClientSort>("grupo");
   const [onlyActive, setOnlyActive] = useState(true);
   const [editing, setEditing] = useState<Client | null>(null);
   const [geocoding, setGeocoding] = useState<{ done: number; total: number; current: string } | null>(null);
@@ -137,17 +126,49 @@ export default function Clientes() {
     return [...map.entries()].sort((a, b) => b[1] - a[1]);
   }, [clients]);
 
+  const segments = useMemo(() => {
+    const map = new Map<string, number>();
+    clients.forEach((c) => map.set(c.segment || "(sem segmento)", (map.get(c.segment || "(sem segmento)") ?? 0) + 1));
+    return [...map.entries()].sort((a, b) => b[1] - a[1]);
+  }, [clients]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return clients
       .filter((c) => (onlyActive ? c.active : true))
       .filter((c) => (tier === "all" ? true : c.tier === tier))
       .filter((c) => (city === "all" ? true : c.city === city))
+      .filter((c) => (segment === "all" ? true : (c.segment || "(sem segmento)") === segment))
+      .filter((c) => (freqF === "all" ? true : String(c.freqMonth) === freqF))
+      .filter((c) => {
+        if (situ === "todas") return true;
+        if (situ === "sem_data") return c.lastCollectAt == null;
+        if (situ === "em_dia") return c.lastCollectAt != null && !isColetaOverdue(c);
+        return isColetaOverdue(c);
+      })
       .filter((c) =>
-        q ? `${c.name} ${c.address} ${c.city}`.toLowerCase().includes(q) : true,
+        q ? `${c.name} ${c.address} ${c.city} ${c.segment}`.toLowerCase().includes(q) : true,
       )
-      .sort((a, b) => TIER_ORDER[b.tier] - TIER_ORDER[a.tier] || b.freqMonth - a.freqMonth || b.avgMonthly - a.avgMonthly);
-  }, [clients, search, city, tier, onlyActive]);
+      .sort((a, b) => compareClients(a, b, sortBy))
+      .slice(0, 300);
+  }, [clients, search, city, tier, segment, freqF, situ, sortBy, onlyActive]);
+
+  const anyFilter =
+    search.trim() !== "" ||
+    city !== "all" ||
+    tier !== "all" ||
+    segment !== "all" ||
+    freqF !== "all" ||
+    situ !== "todas";
+
+  const resetFilters = () => {
+    setSearch("");
+    setCity("all");
+    setTier("all");
+    setSegment("all");
+    setFreqF("all");
+    setSitu("todas");
+  };
 
   const pendingGeocode = clients.filter((c) => c.lat == null || c.geocodeStatus !== "ok").length;
 
@@ -201,12 +222,12 @@ export default function Clientes() {
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative min-w-52 flex-1">
+      <div className="card-soft flex flex-wrap items-end gap-2 p-3">
+        <div className="relative min-w-56 flex-1">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             className="pl-8"
-            placeholder="Buscar por nome, endereço ou cidade…"
+            placeholder="Buscar por nome, endereço, cidade ou segmento…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -224,22 +245,75 @@ export default function Clientes() {
             ))}
           </SelectContent>
         </Select>
-        <Select value={tier} onValueChange={setTier}>
-          <SelectTrigger className="w-40">
-            <SelectValue placeholder="Prioridade" />
+        <Select value={segment} onValueChange={setSegment}>
+          <SelectTrigger className="w-44">
+            <SelectValue placeholder="Segmento" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Todas</SelectItem>
+            <SelectItem value="all">Todos os segmentos</SelectItem>
+            {segments.map(([name, n]) => (
+              <SelectItem key={name} value={name}>
+                {name} ({n})
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={tier} onValueChange={setTier}>
+          <SelectTrigger className="w-40">
+            <SelectValue placeholder="Grupo" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os grupos</SelectItem>
             <SelectItem value="A">Grupo A (4x/mês)</SelectItem>
             <SelectItem value="B">Grupo B (3x/mês)</SelectItem>
             <SelectItem value="C">Grupo C (2x/mês)</SelectItem>
             <SelectItem value="D">Grupo D (&lt;2x/mês)</SelectItem>
           </SelectContent>
         </Select>
-        <label className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Select value={freqF} onValueChange={setFreqF}>
+          <SelectTrigger className="w-44">
+            <SelectValue placeholder="Cadência" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas as cadências</SelectItem>
+            {FREQ_OPTIONS.map((o) => (
+              <SelectItem key={o.value} value={o.value}>
+                {o.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={situ} onValueChange={setSitu}>
+          <SelectTrigger className="w-44">
+            <SelectValue placeholder="Situação da coleta" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todas">Todas as situações</SelectItem>
+            <SelectItem value="atrasada">Coleta atrasada</SelectItem>
+            <SelectItem value="em_dia">Em dia</SelectItem>
+            <SelectItem value="sem_data">Sem data de coleta</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={sortBy} onValueChange={(v) => setSortBy(v as ClientSort)}>
+          <SelectTrigger className="w-56">
+            <SelectValue placeholder="Ordem" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="grupo">Grupo + mais tempo sem coleta</SelectItem>
+            <SelectItem value="atraso">Mais tempo sem coleta</SelectItem>
+            <SelectItem value="volume">Maior volume (t/mês)</SelectItem>
+            <SelectItem value="nome">Nome A–Z</SelectItem>
+          </SelectContent>
+        </Select>
+        <label className="flex h-9 items-center gap-2 text-sm text-muted-foreground">
           <Checkbox checked={onlyActive} onCheckedChange={(v) => setOnlyActive(!!v)} />
           Só ativos
         </label>
+        {anyFilter && (
+          <Button variant="ghost" size="sm" onClick={resetFilters}>
+            <RotateCcw className="mr-1 h-3.5 w-3.5" /> Limpar filtros
+          </Button>
+        )}
       </div>
 
       <div className="card-soft overflow-x-auto">
@@ -257,8 +331,8 @@ export default function Clientes() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filtered.slice(0, 200).map((c) => (
-              <TableRow key={c.id}>
+            {filtered.map((c) => (
+              <TableRow key={c.id} className={isColetaOverdue(c) ? "row-overdue" : undefined}>
                 <TableCell>
                   <div className="font-medium">{c.name}</div>
                   <div className="max-w-64 truncate text-xs text-muted-foreground">
@@ -269,7 +343,9 @@ export default function Clientes() {
                 <TableCell className="whitespace-nowrap">
                   {c.segment ? <Badge variant="outline">{c.segment}</Badge> : "—"}
                 </TableCell>
-                <TableCell>{tierBadge(c.tier)}</TableCell>
+                <TableCell>
+                  <TierBadge tier={c.tier} showFreq />
+                </TableCell>
                 <TableCell>
                   <Select
                     value={String(c.freqMonth)}
@@ -313,15 +389,15 @@ export default function Clientes() {
             {filtered.length === 0 && (
               <TableRow>
                 <TableCell colSpan={8} className="py-8 text-center text-muted-foreground">
-                  Nenhum cliente encontrado.
+                  Nenhum cliente encontrado com os filtros atuais.
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
-        {filtered.length > 200 && (
+        {filtered.length >= 300 && (
           <p className="border-t p-2 text-xs text-muted-foreground">
-            Mostrando 200 de {filtered.length} — refine a busca para ver mais.
+            Mostrando os 300 primeiros — use a busca ou os filtros para refinar.
           </p>
         )}
       </div>

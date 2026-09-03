@@ -114,6 +114,18 @@
   .map-wrap {
     @apply relative overflow-hidden rounded-xl border;
   }
+  /* destaque de coleta atrasada em listas/linhas */
+  tr.row-overdue {
+    background: hsl(var(--destructive) / 0.05);
+  }
+  tr.row-overdue td:first-child {
+    box-shadow: inset 3px 0 0 hsl(var(--destructive) / 0.55);
+  }
+  .opt-overdue {
+    border-color: hsl(var(--destructive) / 0.45) !important;
+    background: hsl(var(--destructive) / 0.045) !important;
+    box-shadow: inset 3px 0 0 hsl(var(--destructive) / 0.55);
+  }
 }
 
 html,
