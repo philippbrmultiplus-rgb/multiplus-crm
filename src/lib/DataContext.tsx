@@ -384,12 +384,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
     let finalClients = clients;
     if (roleName === "coordenador" && clients.length > 0) {
       const ver = Number((settingsRes.data as Record<string, any> | null)?.cadence_version ?? 0);
-      if (ver < 1) {
+      if (ver < 2) {
         finalClients = applyCadenceData(clients);
         await supabase.from("clients").upsert(finalClients.map((c) => clientToRow(c)));
         await supabase
           .from("settings")
-          .upsert({ ...(settingsToRow(settings) as Record<string, any>), cadence_version: 1 });
+          .upsert({ ...(settingsToRow(settings) as Record<string, any>), cadence_version: 2 });
       }
     }
 
@@ -414,7 +414,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       if (!error) {
         await supabase
           .from("settings")
-          .upsert({ ...(settingsToRow(settings) as Record<string, any>), cadence_version: 1 });
+          .upsert({ ...(settingsToRow(settings) as Record<string, any>), cadence_version: 2 });
         setAppState((p) => ({ ...p, clients: seed, sessionRole: "coordenador" }));
       }
     }
