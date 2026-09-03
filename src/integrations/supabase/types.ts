@@ -3360,13 +3360,301 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      clients: {
+        Row: {
+          active: boolean | null
+          address: string | null
+          avg_monthly: number | null
+          city: string | null
+          created_at: string
+          freq_month: number | null
+          geocode_status: string | null
+          id: string
+          lat: number | null
+          lng: number | null
+          name: string
+          obs: string | null
+          segment: string | null
+          state: string | null
+          tier: string | null
+          total_2025: number | null
+          total_2026: number | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean | null
+          address?: string | null
+          avg_monthly?: number | null
+          city?: string | null
+          created_at?: string
+          freq_month?: number | null
+          geocode_status?: string | null
+          id: string
+          lat?: number | null
+          lng?: number | null
+          name: string
+          obs?: string | null
+          segment?: string | null
+          state?: string | null
+          tier?: string | null
+          total_2025?: number | null
+          total_2026?: number | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean | null
+          address?: string | null
+          avg_monthly?: number | null
+          city?: string | null
+          created_at?: string
+          freq_month?: number | null
+          geocode_status?: string | null
+          id?: string
+          lat?: number | null
+          lng?: number | null
+          name?: string
+          obs?: string | null
+          segment?: string | null
+          state?: string | null
+          tier?: string | null
+          total_2025?: number | null
+          total_2026?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          full_name: string | null
+          id: string
+          role: string
+        }
+        Insert: {
+          created_at?: string
+          full_name?: string | null
+          id: string
+          role?: string
+        }
+        Update: {
+          created_at?: string
+          full_name?: string | null
+          id?: string
+          role?: string
+        }
+        Relationships: []
+      }
+      route_visits: {
+        Row: {
+          client_id: string | null
+          day: number | null
+          est_travel_min: number | null
+          est_visit_min: number | null
+          id: string
+          position: number | null
+          route_id: string | null
+          status: string | null
+        }
+        Insert: {
+          client_id?: string | null
+          day?: number | null
+          est_travel_min?: number | null
+          est_visit_min?: number | null
+          id: string
+          position?: number | null
+          route_id?: string | null
+          status?: string | null
+        }
+        Update: {
+          client_id?: string | null
+          day?: number | null
+          est_travel_min?: number | null
+          est_visit_min?: number | null
+          id?: string
+          position?: number | null
+          route_id?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "route_visits_client_id_fkey"
+            columns: ["client_id"]
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "route_visits_route_id_fkey"
+            columns: ["route_id"]
+            referencedRelation: "weekly_routes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      settings: {
+        Row: {
+          home_lat: number | null
+          home_lng: number | null
+          id: number
+          tier_a_threshold: number | null
+          tier_b_threshold: number | null
+          travel_speed_kmh: number | null
+          updated_at: string
+          visit_radius_m: number | null
+          visit_time_min: number | null
+          work_end: string | null
+          work_start: string | null
+          working_days: number[] | null
+        }
+        Insert: {
+          home_lat?: number | null
+          home_lng?: number | null
+          id?: number
+          tier_a_threshold?: number | null
+          tier_b_threshold?: number | null
+          travel_speed_kmh?: number | null
+          updated_at?: string
+          visit_radius_m?: number | null
+          visit_time_min?: number | null
+          work_end?: string | null
+          work_start?: string | null
+          working_days?: number[] | null
+        }
+        Update: {
+          home_lat?: number | null
+          home_lng?: number | null
+          id?: number
+          tier_a_threshold?: number | null
+          tier_b_threshold?: number | null
+          travel_speed_kmh?: number | null
+          updated_at?: string
+          visit_radius_m?: number | null
+          visit_time_min?: number | null
+          work_end?: string | null
+          work_start?: string | null
+          working_days?: number[] | null
+        }
+        Relationships: []
+      }
+      visits: {
+        Row: {
+          client_id: string | null
+          created_at: string
+          created_by: string | null
+          distance_from_client_m: number | null
+          gps_accuracy_m: number | null
+          gps_lat: number | null
+          gps_lng: number | null
+          id: string
+          next_actions: string | null
+          photo_url: string | null
+          result_comments: string | null
+          route_visit_id: string | null
+          status: string | null
+          visited_at: string
+          within_radius: boolean | null
+        }
+        Insert: {
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          distance_from_client_m?: number | null
+          gps_accuracy_m?: number | null
+          gps_lat?: number | null
+          gps_lng?: number | null
+          id: string
+          next_actions?: string | null
+          photo_url?: string | null
+          result_comments?: string | null
+          route_visit_id?: string | null
+          status?: string | null
+          visited_at?: string
+          within_radius?: boolean | null
+        }
+        Update: {
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          distance_from_client_m?: number | null
+          gps_accuracy_m?: number | null
+          gps_lat?: number | null
+          gps_lng?: number | null
+          id?: string
+          next_actions?: string | null
+          photo_url?: string | null
+          result_comments?: string | null
+          route_visit_id?: string | null
+          status?: string | null
+          visited_at?: string
+          within_radius?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visits_client_id_fkey"
+            columns: ["client_id"]
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visits_created_by_fkey"
+            columns: ["created_by"]
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visits_route_visit_id_fkey"
+            columns: ["route_visit_id"]
+            referencedRelation: "route_visits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      weekly_routes: {
+        Row: {
+          created_by: string | null
+          generated_at: string
+          id: string
+          notes: string | null
+          status: string | null
+          week_start: string
+        }
+        Insert: {
+          created_by?: string | null
+          generated_at?: string
+          id: string
+          notes?: string | null
+          status?: string | null
+          week_start: string
+        }
+        Update: {
+          created_by?: string | null
+          generated_at?: string
+          id?: string
+          notes?: string | null
+          status?: string | null
+          week_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weekly_routes_created_by_fkey"
+            columns: ["created_by"]
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      current_role: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
+      is_coordenador: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never

@@ -1,6 +1,6 @@
 import { Navigate } from "react-router-dom";
 import { AppShell } from "@/components/layout/AppShell";
-import RoleSelect from "./pages/RoleSelect";
+import { AuthScreen } from "@/components/layout/AuthScreen";
 import Dashboard from "./pages/Dashboard";
 import Clientes from "./pages/Clientes";
 import RotaSemanal from "./pages/RotaSemanal";
@@ -13,7 +13,7 @@ export const routers = [
   {
     path: "/entrar",
     name: "entrar",
-    element: <RoleSelect />,
+    element: <AuthScreen />,
   },
   {
     path: "/dashboard",

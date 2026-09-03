@@ -104,7 +104,7 @@ export default function Visitas() {
                       src={v.photoData}
                       alt="Comprovante"
                       className="h-24 w-32 rounded-lg object-cover"
-                      crossOrigin="anonymous"
+                     
                     />
                   </button>
                 ) : (
@@ -182,7 +182,7 @@ export default function Visitas() {
               src={viewing.photoData}
               alt="Comprovante"
               className="w-full rounded-lg"
-              crossOrigin="anonymous"
+             
             />
           )}
         </DialogContent>

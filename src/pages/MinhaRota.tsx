@@ -176,7 +176,7 @@ export default function MinhaRota() {
                         src={recorded.photoData}
                         alt="Comprovante"
                         className="h-28 w-40 rounded-lg object-cover"
-                        crossOrigin="anonymous"
+                       
                       />
                       <span className="mt-1 flex items-center gap-1 text-xs text-primary">
                         <ExternalLink className="h-3 w-3" /> Ver comprovante

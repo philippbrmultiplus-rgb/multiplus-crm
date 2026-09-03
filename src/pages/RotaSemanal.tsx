@@ -41,6 +41,7 @@ import { useData } from "@/lib/DataContext";
 import { addDays, DAY_NAMES, formatKm, mondayOf, timeToMinutes, todayKey } from "@/lib/geo";
 import { computeSchedule } from "@/lib/route";
 import { LeafletMap } from "@/components/map/LeafletMap";
+import { VisitForm } from "@/components/visitas/VisitForm";
 import type { Client, RouteVisit, ScheduledVisit, Settings, WeeklyRoute } from "@/lib/types";
 
 const DAY_COLORS: Record<number, string> = {
@@ -60,6 +61,7 @@ export default function RotaSemanal() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [addDay, setAddDay] = useState<number | null>(null);
+  const [finalize, setFinalize] = useState<ScheduledVisit | null>(null);
 
   const route = useMemo<WeeklyRoute | null>(() => {
     if (selectedId) return routes.find((r) => r.id === selectedId) ?? null;
@@ -214,6 +216,7 @@ export default function RotaSemanal() {
                   clients={clients}
                   settings={settings}
                   onAdd={() => setAddDay(day)}
+                  onFinalize={(s) => setFinalize(s)}
                 />
               ))}
             </div>
@@ -247,6 +250,14 @@ export default function RotaSemanal() {
         routeClients={visits.map((rv) => rv.clientId)}
         clients={clients}
       />
+
+      {finalize && (
+        <VisitForm
+          client={finalize.client}
+          routeVisitId={finalize.routeVisit.id}
+          onClose={() => setFinalize(null)}
+        />
+      )}
     </div>
   );
 }
@@ -258,6 +269,7 @@ function DayColumn({
   clients,
   settings,
   onAdd,
+  onFinalize,
 }: {
   day: number;
   date: string;
@@ -265,6 +277,7 @@ function DayColumn({
   clients: Client[];
   settings: Settings;
   onAdd: () => void;
+  onFinalize: (s: ScheduledVisit) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: `day-${day}` });
   const scheduled = computeSchedule(visits, clients, settings, day);
@@ -296,7 +309,7 @@ function DayColumn({
       >
         <SortableContext items={visits.map((v) => v.id)} strategy={verticalListSortingStrategy}>
           {scheduled.map((s) => (
-            <RouteCard key={s.routeVisit.id} scheduled={s} />
+            <RouteCard key={s.routeVisit.id} scheduled={s} onFinalize={onFinalize} />
           ))}
         </SortableContext>
         {scheduled.length === 0 && (
@@ -310,12 +323,13 @@ function DayColumn({
   );
 }
 
-function RouteCard({ scheduled }: { scheduled: ScheduledVisit }) {
+function RouteCard({ scheduled, onFinalize }: { scheduled: ScheduledVisit; onFinalize: (s: ScheduledVisit) => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: scheduled.routeVisit.id,
   });
   const style = { transform: CSS.Transform.toString(transform), transition };
   const done = scheduled.routeVisit.status === "concluida";
+  const missed = scheduled.routeVisit.status === "nao_realizada";
 
   return (
     <div
@@ -338,12 +352,26 @@ function RouteCard({ scheduled }: { scheduled: ScheduledVisit }) {
         <div className="flex items-center gap-1.5">
           <span className="truncate font-medium">{scheduled.client.name}</span>
           {done && <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-primary" />}
+          {missed && <span className="shrink-0 rounded bg-slate-500/15 px-1 text-[10px] text-slate-500">não realizada</span>}
         </div>
         <div className="truncate text-xs text-muted-foreground">
           {scheduled.client.city} · ~{scheduled.travelMin} min de deslocamento
         </div>
         {scheduled.client.tier === "A" && <Badge className="tier-badge-a mt-1">Prioridade A</Badge>}
       </div>
+      {!done && !missed && (
+        <button
+          title="Registrar/finalizar esta visita"
+          className="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-secondary text-secondary-foreground hover:bg-primary hover:text-primary-foreground"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            onFinalize(scheduled);
+          }}
+        >
+          <CheckCircle2 className="h-4 w-4" />
+        </button>
+      )}
     </div>
   );
 }

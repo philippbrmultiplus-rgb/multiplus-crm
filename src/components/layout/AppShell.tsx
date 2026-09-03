@@ -1,9 +1,10 @@
 import { type ReactNode } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import {
   CalendarDays,
   Database,
   LayoutDashboard,
+  Loader2,
   LogOut,
   MapPin,
   Route as RouteIcon,
@@ -29,7 +30,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { useData } from "@/lib/DataContext";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { CoordGate } from "./CoordGate";
+import { AuthScreen } from "./AuthScreen";
 
 interface NavItem {
   to: string;
@@ -62,21 +63,24 @@ function Brand() {
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const { state, setRole, coordAuthed, logoutCoordinator } = useData();
+  const { user, role, authLoading, signOut, cloudReady, lastSyncAt } = useData();
   const location = useLocation();
-  const navigate = useNavigate();
   const isMobile = useIsMobile();
-  const role = state.sessionRole;
-  const items = NAV_ITEMS.filter((i) => i.roles.includes(role));
 
-  if (role === "coordenador" && !coordAuthed) {
-    return <CoordGate />;
+  if (authLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
   }
 
-  const leaveToProfileSelect = () => {
-    if (role === "coordenador") logoutCoordinator();
-    navigate("/entrar");
-  };
+  if (!user) {
+    return <AuthScreen />;
+  }
+
+  const items = NAV_ITEMS.filter((i) => i.roles.includes(role ?? "vendedor"));
+  const roleLabel = role === "coordenador" ? "Coordenador" : "Vendedor";
 
   return (
     <SidebarProvider>
@@ -86,9 +90,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </SidebarHeader>
         <SidebarContent>
           <SidebarGroup>
-            <SidebarGroupLabel>
-              {role === "coordenador" ? "Gestão" : "Execução"}
-            </SidebarGroupLabel>
+            <SidebarGroupLabel>{role === "coordenador" ? "Gestão" : "Execução"}</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 {items.map((item) => {
@@ -111,13 +113,14 @@ export function AppShell({ children }: { children: ReactNode }) {
         <SidebarFooter>
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton asChild tooltip="Trocar de perfil" onClick={leaveToProfileSelect}>
-                <Link to="/entrar">
-                  <LogOut />
-                  <span>
-                    {role === "coordenador" ? "Coordenador" : "Vendedor"} · trocar
-                  </span>
-                </Link>
+              <SidebarMenuButton
+                tooltip="Sair da conta"
+                onClick={() => {
+                  void signOut();
+                }}
+              >
+                <LogOut />
+                <span>Sair · {user.email}</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>
@@ -131,19 +134,17 @@ export function AppShell({ children }: { children: ReactNode }) {
             {items.find((i) => i.to === location.pathname)?.label ?? "RotaSul"}
           </div>
           <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
+            {lastSyncAt && (
+              <span className="hidden text-muted-foreground sm:inline">
+                sinc. {lastSyncAt}
+              </span>
+            )}
             <span className="rounded-full bg-secondary px-2.5 py-1 font-medium text-secondary-foreground">
-              {role === "coordenador" ? "Coordenador" : "Vendedor"}
+              {roleLabel}
             </span>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 px-2 text-xs"
-              onClick={() => {
-                setRole(role === "coordenador" ? "vendedor" : "coordenador");
-              }}
-            >
-              alternar
-            </Button>
+            {!cloudReady && (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            )}
           </div>
         </header>
         <main className="h-[calc(100%-3.5rem)] overflow-y-auto p-4 md:p-6">

@@ -75,8 +75,11 @@ export interface Visit {
   gpsAccuracyM: number | null;
   distanceFromClientM: number | null;
   withinRadius: boolean;
-  /** foto comprimida (base64 jpeg) */
+  /** fonte da imagem de comprovação (base64 local ou URL pública da nuvem) */
   photoData?: string;
+  /** URL pública quando a foto está na nuvem */
+  photoUrl?: string | null;
+  createdBy?: string;
 }
 
 export interface AppState {

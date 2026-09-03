@@ -50,8 +50,9 @@ export function VisitForm({
   routeVisitId: string | null;
   onClose: () => void;
 }) {
-  const { state, addVisit, markRouteVisitStatus } = useData();
+  const { state, role, addVisit, markRouteVisitStatus } = useData();
   const settings = state.settings;
+  const photoRequired = role === "vendedor";
 
   const [status, setStatus] = useState<VisitStatus>("realizada");
   const [comments, setComments] = useState("");
@@ -131,11 +132,19 @@ export function VisitForm({
       setPhotoKb(estimateKb(dataUrl));
       setError(null);
     } catch {
-      setError("Não foi possível processar a foto. Você pode finalizar sem ela.");
+      setError(
+        photoRequired
+          ? "Não foi possível processar a foto. Tente novamente."
+          : "Não foi possível processar a foto. Você pode finalizar sem ela.",
+      );
     }
   };
 
   const submit = async () => {
+    if (photoRequired && !photo) {
+      setError("Foto de comprovação obrigatória — registre a visita só depois de fotografar o local.");
+      return;
+    }
     setError(null);
     setSaving(true);
     // guarda uma pequena pausa para o botão aparecer "Salvando…"
@@ -155,7 +164,7 @@ export function VisitForm({
       withinRadius: withinRadius ?? true,
       photoData: photo ?? undefined,
     };
-    addVisit(visit);
+    addVisit(visit, { uploadPhoto: !!photo?.startsWith("data:") });
     if (routeVisitId) markRouteVisitStatus(routeVisitId, "concluida");
     setSaving(false);
     onClose();
@@ -172,10 +181,13 @@ export function VisitForm({
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Foto (opcional) */}
+          {/* Foto */}
           <div className="space-y-2">
             <Label>
-              Foto de comprovação <span className="font-normal text-muted-foreground">(opcional)</span>
+              Foto de comprovação{" "}
+              <span className="font-normal text-muted-foreground">
+                {photoRequired ? "(obrigatória)" : "(opcional)"}
+              </span>
             </Label>
             {photo ? (
               <div className="relative">
