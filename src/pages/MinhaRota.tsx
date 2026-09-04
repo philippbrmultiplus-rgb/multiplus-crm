@@ -21,7 +21,10 @@ export default function MinhaRota() {
   const todayIso = todayKey();
 
   const route = useMemo(
-    () => routes.find((r) => r.weekStart === weekStart && r.status === "publicada"),
+    () =>
+      routes
+        .filter((r) => r.weekStart === weekStart && r.status === "publicada")
+        .sort((a, b) => (a.generatedAt < b.generatedAt ? 1 : -1))[0] ?? null,
     [routes, weekStart],
   );
 

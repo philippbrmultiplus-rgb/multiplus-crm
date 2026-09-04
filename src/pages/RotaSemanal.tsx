@@ -291,7 +291,7 @@ export default function RotaSemanal() {
       <AddClientDialog
         open={addDay !== null}
         onClose={() => setAddDay(null)}
-        routeId={route?.id ?? ""}
+        route={route}
         day={addDay ?? 1}
         routeClients={visits.map((rv) => rv.clientId)}
         clients={clients}
@@ -461,14 +461,14 @@ function RouteCard({ scheduled, onFinalize }: { scheduled: ScheduledVisit; onFin
 function AddClientDialog({
   open,
   onClose,
-  routeId,
+  route,
   day,
   routeClients,
   clients,
 }: {
   open: boolean;
   onClose: () => void;
-  routeId: string;
+  route: WeeklyRoute | null;
   day: number;
   routeClients: string[];
   clients: Client[];
@@ -558,7 +558,7 @@ function AddClientDialog({
                 isColetaOverdue(c) ? "opt-overdue" : ""
               }`}
               onClick={() => {
-                if (routeId) addRouteVisit(routeId, c.id, day);
+                if (route) addRouteVisit(route, c.id, day);
                 onClose();
               }}
             >
