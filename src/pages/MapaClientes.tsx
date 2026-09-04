@@ -34,7 +34,15 @@ function coletaTooltip(c: Client): string {
   return `${c.name} — ${d} ${d === 1 ? "dia" : "dias"} sem coleta`;
 }
 
-function ClientPopup({ c, onSetDate }: { c: Client; onSetDate: (v: string | null) => void }) {
+function ClientPopup({
+  c,
+  editable,
+  onSetDate,
+}: {
+  c: Client;
+  editable: boolean;
+  onSetDate: (v: string | null) => void;
+}) {
   return (
     <div className="w-60 space-y-2">
       <div className="flex items-start justify-between gap-2">
@@ -49,16 +57,20 @@ function ClientPopup({ c, onSetDate }: { c: Client; onSetDate: (v: string | null
         <TierBadge tier={c.tier} />
       </div>
       {c.address && <p className="truncate text-xs text-muted-foreground">{c.address}</p>}
-      <div className="flex items-center gap-2">
+      {editable ? (
         <input
           type="date"
           aria-label="Data da última troca"
           title="Data da última troca/coleta"
-          className="h-8 min-w-0 flex-1 rounded-md border bg-transparent px-1.5 text-xs text-foreground"
+          className="h-8 min-w-0 w-full rounded-md border bg-transparent px-1.5 text-xs text-foreground"
           value={c.lastCollectAt ?? ""}
           onChange={(e) => onSetDate(e.target.value || null)}
         />
-      </div>
+      ) : c.lastCollectAt ? (
+        <p className="text-xs text-muted-foreground">
+          Última troca: {c.lastCollectAt.slice(0, 10).split("-").reverse().join("/")}
+        </p>
+      ) : null}
       {c.lastCollectAt ? (
         <ColetaBadge c={c} withLabel />
       ) : (
@@ -77,8 +89,9 @@ const LEGEND = [
 ];
 
 export default function MapaClientes() {
-  const { state, updateClient } = useData();
+  const { state, updateClient, role } = useData();
   const { clients } = state;
+  const podeEditarColeta = role === "coordenador";
 
   const [onlyActive, setOnlyActive] = useState(true);
   const [grupo, setGrupo] = useState("all");
@@ -109,10 +122,16 @@ export default function MapaClientes() {
         lng: c.lng as number,
         label: c.name,
         tooltip: coletaTooltip(c),
-        popup: <ClientPopup c={c} onSetDate={(v) => updateClient(c.id, { lastCollectAt: v })} />,
+        popup: (
+          <ClientPopup
+            c={c}
+            editable={podeEditarColeta}
+            onSetDate={(v) => updateClient(c.id, { lastCollectAt: v })}
+          />
+        ),
         color: dotColor(c),
       }));
-  }, [geocoded, onlyActive, grupo, situ, updateClient]);
+  }, [geocoded, onlyActive, grupo, situ, updateClient, podeEditarColeta]);
 
   const inativosVisiveis = !onlyActive;
   const legend = inativosVisiveis ? LEGEND : LEGEND.filter((l) => l.label !== "Inativo");
@@ -141,10 +160,13 @@ export default function MapaClientes() {
           <span className="flex items-center gap-2">
             <MapPinOff className="h-4 w-4 text-amber-600" />
             {missingCoords.length} cliente(s) ativo(s) ainda não têm endereço no mapa e não aparecem aqui.
+            {!podeEditarColeta && " O coordenador precisa geocodificar no cadastro."}
           </span>
-          <Button asChild variant="outline" size="sm" className="ml-auto">
-            <Link to="/clientes">Geocodificar em Clientes</Link>
-          </Button>
+          {podeEditarColeta && (
+            <Button asChild variant="outline" size="sm" className="ml-auto">
+              <Link to="/clientes">Geocodificar em Clientes</Link>
+            </Button>
+          )}
         </div>
       )}
 
@@ -182,12 +204,15 @@ export default function MapaClientes() {
         <div className="card-soft flex flex-col items-center gap-3 p-12 text-center">
           <MapPinOff className="h-8 w-8 text-muted-foreground" />
           <p className="max-w-md text-sm text-muted-foreground">
-            Nenhum cliente tem coordenadas ainda. Use "Geocodificar" na tela Clientes para localizar os
-            endereços e voltar aqui para conferir cada um no mapa.
+            {podeEditarColeta
+              ? "Nenhum cliente tem coordenadas ainda. Use \"Geocodificar\" na tela Clientes para localizar os endereços e voltar aqui para conferir cada um no mapa."
+              : "Ainda não há clientes com endereço localizado no mapa. Assim que o coordenador fizer a geocodificação, eles aparecem aqui."}
           </p>
-          <Button asChild>
-            <Link to="/clientes">Ir para Clientes</Link>
-          </Button>
+          {podeEditarColeta && (
+            <Button asChild>
+              <Link to="/clientes">Ir para Clientes</Link>
+            </Button>
+          )}
         </div>
       ) : points.length === 0 ? (
         <div className="card-soft flex items-center justify-center p-12 text-center text-sm text-muted-foreground">
