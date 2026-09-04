@@ -3,6 +3,7 @@ import { AppShell } from "@/components/layout/AppShell";
 import { AuthScreen } from "@/components/layout/AuthScreen";
 import Dashboard from "./pages/Dashboard";
 import Clientes from "./pages/Clientes";
+import MapaClientes from "./pages/MapaClientes";
 import RotaSemanal from "./pages/RotaSemanal";
 import MinhaRota from "./pages/MinhaRota";
 import MinhaRotaSemana from "./pages/MinhaRotaSemana";
@@ -32,6 +33,15 @@ export const routers = [
     element: (
       <AppShell>
         <Clientes />
+      </AppShell>
+    ),
+  },
+  {
+    path: "/mapa",
+    name: "mapa",
+    element: (
+      <AppShell>
+        <MapaClientes />
       </AppShell>
     ),
   },
