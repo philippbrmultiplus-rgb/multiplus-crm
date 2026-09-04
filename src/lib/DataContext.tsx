@@ -338,6 +338,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
   const roleRef = useRef<Role | null>(null);
   const uidRef = useRef<string | null>(null);
+  const handledUidRef = useRef<string | null>(null);
+  const signOutRequestedRef = useRef(false);
   const notifiedRef = useRef<string | null>(null);
 
   roleRef.current = role;
@@ -354,13 +356,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
   /** carrega o papel do usuário recém-criado/logado (trigger pode levar instantes) */
   const loadProfileRole = useCallback(async (uid: string): Promise<Role | null> => {
     for (let i = 0; i < 8; i++) {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", uid)
-        .maybeSingle();
-      if (!error && data) return (data.role as Role) ?? "vendedor";
-      if (error) await new Promise((r) => setTimeout(r, 400));
+      try {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", uid)
+          .maybeSingle();
+        if (!error && data) return (data.role as Role) ?? "vendedor";
+        if (error) await new Promise((r) => setTimeout(r, 400));
+      } catch {
+        await new Promise((r) => setTimeout(r, 400));
+      }
     }
     return "vendedor";
   }, []);
@@ -441,39 +447,89 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const onSignedIn = useCallback(
     async (uid: string, email: string, name: string) => {
-      const roleName = await loadProfileRole(uid);
-      setRole(roleName);
-      setUser({ id: uid, email, fullName: name });
-      setAuthLoading(false);
-      void refreshAll(uid, roleName);
+      let roleName: Role | null = null;
+      try {
+        roleName = await loadProfileRole(uid);
+      } catch {
+        roleName = "vendedor";
+      } finally {
+        setRole(roleName ?? "vendedor");
+        setUser({ id: uid, email, fullName: name });
+        setAuthLoading(false);
+        void refreshAll(uid, roleName ?? "vendedor");
+      }
     },
     [loadProfileRole, refreshAll],
   );
 
-  // sessão: registra listener antes de restaurar
+  // sessão: registra listener antes de restaurar.
+  // A renovação do token pode falhar por rede e disparar SIGNED_OUT; antes de
+  // deslogar tentamos recuperar a sessão algumas vezes (senão o app "pula"
+  // para a tela de login sem motivo).
   useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      const s = session;
-      if (s?.user) {
-        const meta = s.user.user_metadata as { full_name?: string };
-        void onSignedIn(s.user.id, s.user.email ?? "", meta?.full_name ?? s.user.email?.split("@")[0] ?? "");
-      } else {
-        setUser(null);
-        setRole(null);
-        setAuthLoading(false);
-        setCloudReady(false);
+    let disposed = false;
+    let retries = 0;
+    const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+    const applySession = (session: {
+      user?: { id: string; email?: string | null; user_metadata?: { full_name?: string } } | null;
+    } | null) => {
+      if (session?.user) {
+        if (handledUidRef.current === session.user.id) return;
+        handledUidRef.current = session.user.id;
+        const meta = session.user.user_metadata as { full_name?: string };
+        void onSignedIn(
+          session.user.id,
+          session.user.email ?? "",
+          meta?.full_name ?? session.user.email?.split("@")[0] ?? "",
+        );
       }
+    };
+
+    const clearSession = () => {
+      handledUidRef.current = null;
+      signOutRequestedRef.current = false;
+      setUser(null);
+      setRole(null);
+      setAuthLoading(false);
+      setCloudReady(false);
+    };
+
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.user) {
+        retries = 0;
+        applySession(session);
+        return;
+      }
+      // sem sessão: se não foi um "sair" explícito, tenta recuperar (token
+      // expirou e a renovação falhou por rede momentânea)
+      if (event === "SIGNED_OUT" && !signOutRequestedRef.current && !disposed && retries < 3) {
+        retries += 1;
+        void (async () => {
+          await delay(1200 * retries);
+          if (disposed) return;
+          try {
+            const { data } = await supabase.auth.getSession();
+            if (data.session?.user) {
+              retries = 0;
+              applySession(data.session);
+              return;
+            }
+          } catch {
+            // segue abaixo: sem sessão recuperável
+          }
+          if (retries >= 3) clearSession();
+        })();
+        return;
+      }
+      clearSession();
     });
-    void supabase.auth.getSession().then(({ data }) => {
-      const s = data.session;
-      if (s?.user) {
-        const meta = s.user.user_metadata as { full_name?: string };
-        void onSignedIn(s.user.id, s.user.email ?? "", meta?.full_name ?? s.user.email?.split("@")[0] ?? "");
-      } else {
-        setAuthLoading(false);
-      }
+
+    void supabase.auth.getSession().then(({ data }) => applySession(data.session)).catch(() => {
+      if (!disposed) setAuthLoading(false);
     });
     return () => {
+      disposed = true;
       sub.subscription.unsubscribe();
     };
   }, [onSignedIn]);
@@ -508,7 +564,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
   );
 
   const signOut = useCallback(async () => {
-    await supabase.auth.signOut();
+    signOutRequestedRef.current = true;
+    try {
+      await supabase.auth.signOut();
+    } finally {
+      setTimeout(() => {
+        signOutRequestedRef.current = false;
+      }, 1500);
+    }
   }, []);
 
   /* ---------- alertas em tempo real (novas visitas) ---------- */
