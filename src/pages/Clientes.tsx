@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   CheckCircle2,
   Loader2,
+  Map as MapIcon,
   MapPin,
   MapPinOff,
   Pencil,
@@ -177,6 +179,11 @@ export default function Clientes() {
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={recomputeTiers}>
             Recalcular prioridades
+          </Button>
+          <Button variant="outline" asChild>
+            <Link to="/mapa">
+              <MapIcon className="mr-2 h-4 w-4" /> Mapa
+            </Link>
           </Button>
           <Button onClick={handleGeocode} disabled={geocoding !== null || pendingGeocode === 0}>
             {geocoding !== null ? (
