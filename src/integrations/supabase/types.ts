@@ -3371,6 +3371,7 @@ export type Database = {
           geocode_status: string | null
           id: string
           last_collect_at: string | null
+          last_visit_at: string | null
           lat: number | null
           lng: number | null
           name: string
@@ -3392,6 +3393,7 @@ export type Database = {
           geocode_status?: string | null
           id: string
           last_collect_at?: string | null
+          last_visit_at?: string | null
           lat?: number | null
           lng?: number | null
           name: string
@@ -3413,6 +3415,7 @@ export type Database = {
           geocode_status?: string | null
           id?: string
           last_collect_at?: string | null
+          last_visit_at?: string | null
           lat?: number | null
           lng?: number | null
           name?: string
@@ -3837,6 +3840,39 @@ export type Database = {
         Relationships: []
       }
       messages_2026_09_06: {
+        Row: {
+          event: string | null
+          extension: string
+          id: string
+          inserted_at: string
+          payload: Json | null
+          private: boolean | null
+          topic: string
+          updated_at: string
+        }
+        Insert: {
+          event?: string | null
+          extension: string
+          id?: string
+          inserted_at?: string
+          payload?: Json | null
+          private?: boolean | null
+          topic: string
+          updated_at?: string
+        }
+        Update: {
+          event?: string | null
+          extension?: string
+          id?: string
+          inserted_at?: string
+          payload?: Json | null
+          private?: boolean | null
+          topic?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      messages_2026_09_07: {
         Row: {
           event: string | null
           extension: string

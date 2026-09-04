@@ -27,16 +27,19 @@ export function coletaDays(c: Client): number | null {
 
 export type ColetaStatus = "sem" | "ok" | "warn" | "late";
 
-/**
- * Faixa de cor por dias sem coleta (regra definida pelo coordenador):
- * até 20 dias = verde (ok), 21 a 30 = laranja (warn), acima de 30 = vermelho (late).
- */
-export function coletaStatus(c: Client): ColetaStatus {
-  const d = coletaDays(c);
+/** faixa por dias decorridos (regra do coordenador): até 20 = verde, 21 a 30 = laranja, acima de 30 = vermelho */
+function bandOfDays(d: number | null): ColetaStatus {
   if (d == null) return "sem";
   if (d > 30) return "late";
   if (d > 20) return "warn";
   return "ok";
+}
+
+/**
+ * Situação da coleta por dias sem troca/coleta de material.
+ */
+export function coletaStatus(c: Client): ColetaStatus {
+  return bandOfDays(coletaDays(c));
 }
 
 /** chip colorido (badge) para a situação da coleta */
@@ -62,6 +65,21 @@ export const COLETA_TEXT_TONE: Record<ColetaStatus, string> = {
   late: "text-destructive",
   sem: "text-muted-foreground",
 };
+
+/** dias desde a última visita REALIZADA registrada pelo vendedor (null = nunca houve visita pelo app) */
+export function lastVisitDays(c: Client): number | null {
+  return daysSinceToday(c.lastVisitAt);
+}
+
+/** situação da última visita do vendedor — usa as mesmas faixas de cor da coleta */
+export function visitaStatus(c: Client): ColetaStatus {
+  return bandOfDays(lastVisitDays(c));
+}
+
+/** paleta de badges da "última visita" (mesmas cores das faixas de coleta) */
+export const VISITA_BADGE_TONE = COLETA_BADGE_TONE;
+/** paleta de texto da "última visita" (mesmas cores das faixas de coleta) */
+export const VISITA_TEXT_TONE = COLETA_TEXT_TONE;
 
 /** atrasada = acima de 30 dias sem coleta */
 export function isColetaOverdue(c: Client): boolean {

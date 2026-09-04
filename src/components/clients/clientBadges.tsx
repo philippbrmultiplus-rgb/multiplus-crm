@@ -4,8 +4,11 @@ import {
   coletaStatus,
   COLETA_BADGE_TONE,
   isColetaOverdue,
+  lastVisitDays,
   tierBadgeClass,
   TIER_LABEL,
+  visitaStatus,
+  VISITA_BADGE_TONE,
 } from "@/components/clients/clientBits";
 import type { Client, Tier } from "@/lib/types";
 
@@ -26,4 +29,25 @@ export function ColetaBadge({ c, withLabel }: { c: Client; withLabel?: boolean }
   const base = days === 0 ? "hoje" : `há ${days} ${days === 1 ? "dia" : "dias"}`;
   const text = withLabel && status === "late" ? `${base} · atrasada` : base;
   return <Badge className={COLETA_BADGE_TONE[status]}>{text}</Badge>;
+}
+
+/** badge colorido da última visita realizada do vendedor (mesmas faixas da coleta) */
+export function VisitaBadge({ c, withLabel }: { c: Client; withLabel?: boolean }) {
+  const days = lastVisitDays(c);
+  if (days == null) {
+    return (
+      <Badge variant="outline" title="Nenhuma visita realizada foi registrada ainda">
+        {withLabel ? "sem visita registrada" : "sem visita"}
+      </Badge>
+    );
+  }
+  const status = visitaStatus(c);
+  const base = days === 0 ? "hoje" : `há ${days} ${days === 1 ? "dia" : "dias"}`;
+  const text = withLabel ? `visita ${base}` : base;
+  const title = `Última visita realizada: ${c.lastVisitAt?.slice(0, 10).split("-").reverse().join("/") ?? ""}`;
+  return (
+    <Badge className={VISITA_BADGE_TONE[status]} title={title}>
+      {text}
+    </Badge>
+  );
 }

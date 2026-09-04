@@ -1,7 +1,7 @@
 import { CheckCircle2, Clock, MapPin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ColetaBadge, TierBadge } from "@/components/clients/clientBadges";
+import { ColetaBadge, TierBadge, VisitaBadge } from "@/components/clients/clientBadges";
 import { computeSchedule } from "@/lib/route";
 import type { Client, RouteVisit, Settings, Visit } from "@/lib/types";
 
@@ -72,6 +72,7 @@ export function DaySchedule({
               <div className="mt-1 flex flex-wrap gap-1.5">
                 <TierBadge tier={s.client.tier} />
                 {s.client.lastCollectAt && <ColetaBadge c={s.client} />}
+                {s.client.lastVisitAt && <VisitaBadge c={s.client} />}
               </div>
               {rec && (
                 <p className="mt-1 flex items-center gap-1 text-xs text-primary">

@@ -25,6 +25,7 @@ import type {
 import { generateWeekRoute } from "./route";
 import { applySegmentData } from "./segmentMerge";
 import { applyCadenceData, tierOfFreq } from "./cadence";
+import { toLocalDateKey } from "./geo";
 
 const STORAGE_KEY = "rs-app-state.v1";
 
@@ -132,6 +133,7 @@ function clientFromRow(r: Record<string, any>): Client {
     tier: (r.tier ?? "D") as Tier,
     freqMonth: Number(r.freq_month ?? 0.5),
     lastCollectAt: r.last_collect_at ?? null,
+    lastVisitAt: r.last_visit_at ?? null,
     lat: r.lat,
     lng: r.lng,
     geocodeStatus: r.geocode_status ?? "pendente",
@@ -154,6 +156,7 @@ function clientToRow(c: Client): Record<string, any> {
     tier: c.tier,
     freq_month: c.freqMonth,
     last_collect_at: c.lastCollectAt ?? null,
+    last_visit_at: c.lastVisitAt ?? null,
     lat: c.lat,
     lng: c.lng,
     geocode_status: c.geocodeStatus,
@@ -278,6 +281,13 @@ function visitToRow(v: Visit): Record<string, any> {
     within_radius: v.withinRadius,
     photo_url: v.photoUrl ?? null,
   };
+}
+
+/** registra a data da última visita realizada no cliente (só avança, nunca retrocede) */
+function applyLastVisitDate(c: Client, localDate: string | null): Client {
+  if (!localDate) return c;
+  if (c.lastVisitAt && c.lastVisitAt >= localDate) return c;
+  return { ...c, lastVisitAt: localDate };
 }
 
 /* ---------- contexto ---------- */
@@ -588,13 +598,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
           const isMine = row.created_by === uidRef.current;
           setAppState((prev) => {
             if (prev.visits.some((v) => v.id === row.id)) return prev;
-            const visit = visitFromRow(row);
-            const nextRv = prev.routeVisits.map((rv) =>
-              rv.id === visit.routeVisitId && rv.status !== "concluida"
-                ? { ...rv, status: "concluida" as const }
-                : rv,
-            );
-            const client = prev.clients.find((c) => c.id === visit.clientId);
+          const visit = visitFromRow(row);
+          const nextRv = prev.routeVisits.map((rv) =>
+            rv.id === visit.routeVisitId && rv.status !== "concluida"
+              ? { ...rv, status: "concluida" as const }
+              : rv,
+          );
+          const visitLocalDate = toLocalDateKey(row.visited_at ?? visit.visitedAt);
+          const clients =
+            visit.status === "realizada"
+              ? prev.clients.map((c) => (c.id === visit.clientId ? applyLastVisitDate(c, visitLocalDate) : c))
+              : prev.clients;
+          const client = prev.clients.find((c) => c.id === visit.clientId);
             if (!isMine && notifiedRef.current !== visit.id) {
               notifiedRef.current = visit.id;
               setTimeout(() => {
@@ -616,7 +631,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 }
               }, 0);
             }
-            return { ...prev, visits: [visit, ...prev.visits], routeVisits: nextRv };
+            return { ...prev, visits: [visit, ...prev.visits], routeVisits: nextRv, clients };
           });
         },
       )
@@ -889,7 +904,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const addVisit = useCallback(
     (visit: Visit, opts?: { uploadPhoto?: boolean }) => {
-      setAppState((prev) => ({ ...prev, visits: [visit, ...prev.visits] }));
+      const localDate = toLocalDateKey(visit.visitedAt);
+      setAppState((prev) => {
+        const clients =
+          visit.status === "realizada"
+            ? prev.clients.map((c) => (c.id === visit.clientId ? applyLastVisitDate(c, localDate) : c))
+            : prev.clients;
+        return { ...prev, visits: [visit, ...prev.visits], clients };
+      });
       if (!uidRef.current) return;
       void (async () => {
         let photoUrl: string | null = null;

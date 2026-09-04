@@ -20,6 +20,8 @@ export interface Client {
   freqMonth: number;
   /** data (yyyy-mm-dd) da última troca/coleta de material informada */
   lastCollectAt?: string | null;
+  /** data (yyyy-mm-dd) da última visita REALIZADA registrada pelo vendedor (zera o contador de dias sem visita) */
+  lastVisitAt?: string | null;
   lat: number | null;
   lng: number | null;
   geocodeStatus: GeocodeStatus;

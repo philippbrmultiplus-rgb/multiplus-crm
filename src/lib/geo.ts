@@ -73,6 +73,15 @@ export function todayKey(): string {
   return `${d.getFullYear()}-${m}-${day}`;
 }
 
+/** converte um instante (ISO) para "yyyy-mm-dd" no fuso local do aparelho */
+export function toLocalDateKey(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso.slice(0, 10);
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${m}-${day}`;
+}
+
 /** dias inteiros entre uma data (yyyy-mm-dd) e hoje (0 = hoje; cresce sozinho dia a dia) */
 export function daysSinceToday(iso: string | null | undefined): number | null {
   if (!iso) return null;

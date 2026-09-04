@@ -46,7 +46,7 @@ import {
   isColetaOverdue,
   type ClientSort,
 } from "@/components/clients/clientBits";
-import { ColetaBadge, TierBadge } from "@/components/clients/clientBadges";
+import { ColetaBadge, TierBadge, VisitaBadge } from "@/components/clients/clientBadges";
 import type { Client } from "@/lib/types";
 
 const FREQ_OPTIONS: Array<{ value: string; label: string }> = [
@@ -311,6 +311,7 @@ export default function Clientes() {
               <TableHead>Grupo</TableHead>
               <TableHead>Cadência</TableHead>
               <TableHead>Últ. troca / dias</TableHead>
+              <TableHead>Últ. visita</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Ações</TableHead>
             </TableRow>
@@ -355,6 +356,9 @@ export default function Clientes() {
                   <ColetaCell c={c} onDate={(v) => updateClient(c.id, { lastCollectAt: v })} />
                 </TableCell>
                 <TableCell>
+                  <VisitaBadge c={c} />
+                </TableCell>
+                <TableCell>
                   <div className="flex items-center gap-1.5">
                     {c.active ? (
                       <Badge variant="outline">Ativo</Badge>
@@ -373,7 +377,7 @@ export default function Clientes() {
             ))}
             {filtered.length === 0 && (
               <TableRow>
-                <TableCell colSpan={8} className="py-8 text-center text-muted-foreground">
+                <TableCell colSpan={9} className="py-8 text-center text-muted-foreground">
                   Nenhum cliente encontrado com os filtros atuais.
                 </TableCell>
               </TableRow>

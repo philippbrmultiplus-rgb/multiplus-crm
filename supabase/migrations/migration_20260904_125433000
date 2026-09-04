@@ -1,0 +1,28 @@
+ALTER TABLE public.clients ADD COLUMN IF NOT EXISTS last_visit_at date;
+
+COMMENT ON COLUMN public.clients.last_visit_at IS 'Data (dd) da ultima visita com status "realizada" registrada pelo vendedor; alimenta o contador de dias sem visita.';
+
+CREATE OR REPLACE FUNCTION public.set_client_last_visit_at()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF NEW.status = 'realizada' AND NEW.client_id IS NOT NULL THEN
+    UPDATE public.clients
+       SET last_visit_at = (NEW.visited_at AT TIME ZONE 'America/Sao_Paulo')::date,
+           updated_at = now()
+     WHERE id = NEW.client_id
+       AND (last_visit_at IS NULL
+            OR last_visit_at < (NEW.visited_at AT TIME ZONE 'America/Sao_Paulo')::date);
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_set_client_last_visit_at ON public.visits;
+CREATE TRIGGER trg_set_client_last_visit_at
+  AFTER INSERT ON public.visits
+  FOR EACH ROW
+  EXECUTE FUNCTION public.set_client_last_visit_at();

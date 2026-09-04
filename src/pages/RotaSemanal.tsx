@@ -66,6 +66,9 @@ import {
   coletaStatus,
   compareClients,
   isColetaOverdue,
+  lastVisitDays,
+  visitaStatus,
+  VISITA_TEXT_TONE,
 } from "@/components/clients/clientBits";
 import { ColetaBadge, TierBadge } from "@/components/clients/clientBadges";
 import { LeafletMap } from "@/components/map/LeafletMap";
@@ -439,6 +442,7 @@ function RouteCard({ scheduled, onFinalize }: { scheduled: ScheduledVisit; onFin
             {status === "late" ? " (atrasada)" : ""}
           </div>
         )}
+        <VisitaLine client={scheduled.client} />
         {scheduled.client.tier === "A" && <Badge className="tier-badge-a mt-1">Grupo A</Badge>}
       </div>
       {!done && !missed && (
@@ -454,6 +458,24 @@ function RouteCard({ scheduled, onFinalize }: { scheduled: ScheduledVisit; onFin
           <CheckCircle2 className="h-4 w-4" />
         </button>
       )}
+    </div>
+  );
+}
+
+/** linha de detalhe "última visita do vendedor" (mesmas faixas de cor da coleta) */
+function VisitaLine({ client }: { client: Client }) {
+  const vDays = lastVisitDays(client);
+  if (vDays == null) {
+    return <div className="mt-0.5 text-[11px] text-muted-foreground">sem visita registrada</div>;
+  }
+  const vStatus = visitaStatus(client);
+  return (
+    <div
+      className={`mt-0.5 text-[11px] ${VISITA_TEXT_TONE[vStatus]} ${
+        vStatus === "late" ? "font-medium" : ""
+      }`}
+    >
+      última visita há {vDays} {vDays === 1 ? "dia" : "dias"}
     </div>
   );
 }
@@ -575,6 +597,14 @@ function AddClientDialog({
                   </span>
                   <span>{cadenceLabel(c.freqMonth)}</span>
                   {c.lastCollectAt && <span>últ. troca {formatDateBR(c.lastCollectAt)}</span>}
+                  <span
+                    className={c.lastVisitAt ? VISITA_TEXT_TONE[visitaStatus(c)] : "text-muted-foreground"}
+                    title="Última visita realizada"
+                  >
+                    {c.lastVisitAt
+                      ? `últ. visita ${formatDateBR(c.lastVisitAt)}`
+                      : "sem visita registrada"}
+                  </span>
                 </span>
               </span>
               <span className="shrink-0">
