@@ -1,72 +1,79 @@
-# App de Controle de Visitas e Rotas — Vendedor Externo (Região Sul)
+# Plano — Rota semanal sem cadência, navegação de semanas e prospecção
 
 ## Contexto
 
-O usuário é coordenador comercial de uma recicladora de gesso da construção civil e coordena um vendedor externo (que mora em Porto Alegre/RS e se desloca de carro, 07h–17h). Ele precisa de um app para:
+No RotaSul o coordenador monta a rota semanal. Hoje a geração usa a cadência
+(`shouldVisit` em `src/lib/route.ts`) para escolher quais clientes entram na
+semana. O usuário quer:
 
-1. **Planejar rotas semanais** de visitas, dia a dia, agrupando clientes próximos e priorizando os de maior volume mensal (que devem ser visitados mais de uma vez por mês).
-2. **Comprovar a presença** do vendedor em cada visita (foto + confirmação de localização via GPS).
-3. **Registrar o resultado** da visita: o que foi realizado e o que será feito na próxima visita ao mesmo cliente.
+1. **Geração sem cadência**: todo cliente **ativo** entra **ao menos 1x na
+   semana**, distribuído entre os dias úteis (seg–sex, sáb/dom fora), de modo que
+   o calendário se mantenha com o passar dos dias.
+2. **Navegação de semanas**: manter o modelo por semana, mas deixar a semana
+   **anterior e a seguinte** navegáveis (gerar quando o coordenador clicar em
+   "Gerar").
+3. **Prospecção**: poder criar um registro de cliente marcado como "Prospecção",
+   com todos os campos que um cliente comum tem, e adicioná-lo direto no dia da
+   rota. Podem existir várias prospecções.
 
-A base de clientes vem da planilha anexada, aba **CARTEIRA POA** (249 clientes do RS + alguns de SC, com endereço, cidade, segmento, status ativo e volumes mensais 2025/2026).
+## Mudanças
 
-### Decisões acordadas com o usuário
-- **Carteira:** apenas a do RS (aba CARTEIRA POA) — foco no vendedor externo.
-- **Frequência:** automática por faixa de volume mensal (com ajuste manual).
-- **Acesso:** login com papéis (coordenador e vendedor). *(Sem backend — versão local com seleção de perfil.)*
-- **Rota:** geração automática (proximidade + prioridade de volume, respeitando 07h–17h) com ajuste manual (arrastar/reordenar/mover clientes entre dias).
+### 1. Geração sem cadência — `src/lib/route.ts`
+- Em `generateWeekRoute`, substituir a seleção por cadência (`shouldVisit` +
+  `isOverdue` + `OVERDUE_CAP_PER_WEEK`) por: **todos os clientes ativos com
+  lat/lng** como candidatos.
+- Manter os avisos existentes de "sem coordenadas" e "muito distantes" e o
+  algoritmo de distribuição pelos dias dentro do expediente (o dia estoura →
+  aviso, como hoje).
+- `shouldVisit`/`isOverdue`/`weekMeta` ficam exportados mas sem uso interno
+  (nenhum outro arquivo os importa — confirmado por busca).
 
----
+### 2. Navegação de semanas — `src/pages/RotaSemanal.tsx`
+- No cabeçalho da semana, além das setas já existentes, adicionar botões
+  rápidos: **"Semana anterior"**, **"Esta semana"** e **"Próxima semana"**
+  (`setWeekStart(addDays(weekStart, ∓7))` e `mondayOf(todayKey())`).
+- O quadro continua mostrando só seg–sex (`settings.workingDays`), e cada dia
+  tem o botão "Adicionar cliente" — já existente.
 
-## Arquitetura (versão local, sem backend)
+### 3. Prospecção
+- **Migração** (`supabase_migration`): `clients.is_prospecao boolean NOT NULL
+  DEFAULT false` (RLS preservada — validar com `supabase_get_table_schema`).
+- **`src/lib/types.ts`**: campo `isProspecao: boolean` em `Client`.
+- **`src/lib/DataContext.tsx`**:
+  - `clientFromRow`/`clientToRow` mapeiam `is_prospecao ↔ isProspecao`.
+  - `seedClients` seta `isProspecao: false`.
+  - Nova função `createClient(c: Client)` (estado + `upsert` em `clients`
+    quando o papel for coordenador).
+- **`src/pages/Clientes.tsx`**: badge "Prospecção" junto ao nome quando
+  `isProspecao`; Switch "Prospecção" no diálogo de edição.
+- **`src/pages/RotaSemanal.tsx` (AddClientDialog)**: botão **"Nova prospecção"**
+  que abre um formulário (reusar padrão do `EditClientDialog`) com os campos de
+  um cliente comum: Nome (padrão "Prospecção"), Cidade, Endereço, Segmento,
+  Cadência (`FREQ_OPTIONS`), Observações, Ativo e posição no mapa (opcional).
+  Ao salvar: `createClient(...)` + `addRouteVisit(route, novoId, day)` + toast.
 
-- Dados persistidos em **localStorage** (estado único `rs-app-state.v1`) com **exportação/importação de backup em JSON** para transferência entre aparelhos.
-- **Perfis** por seleção (Coordenador / Vendedor), sem senha.
-- **Geocodificação** dos endereços via Nominatim (OpenStreetMap) em lote com 1,1 s entre chamadas; falhas recebem pin manual no mapa.
-- **Mapa** Leaflet + OpenStreetMap; **drag & drop** com @dnd-kit.
+## Arquivos alterados
+- `src/lib/route.ts` — seleção de candidatos na geração.
+- `src/pages/RotaSemanal.tsx` — pager de semanas + criação de prospecção.
+- `src/lib/types.ts` — campo `isProspecao`.
+- `src/lib/DataContext.tsx` — mapeamento + `createClient`.
+- `src/pages/Clientes.tsx` — badge e switch de prospecção.
+- Migração SQL no Enter Cloud (coluna `is_prospecao`).
 
-### Arquivos criados
-- `src/data/clientsRS.ts` — 249 clientes extraídos da planilha (seed).
-- `src/lib/types.ts` — modelos (Client, Settings, RouteVisit, Visit, …).
-- `src/lib/geo.ts` — Haversine, distâncias, horários, datas.
-- `src/lib/route.ts` — gerador da rota semanal + schedule.
-- `src/lib/DataContext.tsx` — estado global + persistência + geocodificação + CRUD.
-- `src/lib/image.ts` — compressão de foto (base64 JPEG).
-- `src/components/map/LeafletMap.tsx` — mapa com marcadores/polilinhas por dia.
-- `src/components/layout/AppShell.tsx` — sidebar por papel.
-- `src/components/visitas/VisitForm.tsx` — comprovação (GPS + foto + comentários).
-- `src/pages/RoleSelect.tsx`, `Dashboard.tsx`, `Clientes.tsx`, `RotaSemanal.tsx`, `MinhaRota.tsx`, `Visitas.tsx`, `Backup.tsx`.
-- `src/router.tsx`, `src/App.tsx`, `src/index.css` (design tokens verde-esmeralda).
-- Dependências: `leaflet`, `react-leaflet`, `@dnd-kit/*`.
+## Implementation checklist
+- [ ] Migração adiciona `clients.is_prospecao` (default false); `supabase_get_table_schema` confirma coluna + políticas RLS intactas.
+- [ ] `route.ts`: `generateWeekRoute` usa todos os clientes ativos com coordenadas (sem cadência), mantendo avisos de sem-coord/distante e distribuição seg–sex.
+- [ ] `types.ts`: `Client.isProspecao: boolean`.
+- [ ] `DataContext.tsx`: mapeia `is_prospecao` em `clientFromRow`/`clientToRow`; `seedClients` com `false`; exporta `createClient`.
+- [ ] `RotaSemanal.tsx`: pager "Semana anterior / Esta semana / Próxima semana" funcional; quadro segue seg–sex.
+- [ ] `RotaSemanal.tsx`: diálogo "Nova prospecção" cria o cliente e o adiciona ao dia da rota.
+- [ ] `Clientes.tsx`: badge "Prospecção" + Switch no editar.
+- [ ] `pnpm exec tsc --noEmit`, `pnpm lint` e `pnpm build` passam.
 
-### Algoritmo da rota semanal
-1. Candidatos da semana pela rotação de frequência (A=2x/mês semanas alternadas, B=1x/mês, C=1x a cada 2 meses; determinístico por id).
-2. Clientes sem coordenadas e clientes muito distantes para dia único (> raio de ½ expediente) ficam de fora com aviso claro.
-3. Processamento distante-primeiro, inserindo cada cliente no dia cujo último ponto é o mais próximo, desde que o custo (ida + visita + volta à base) caiba em 07h–17h.
-4. Cada dia é reordenado por vizinho-mais-próximo a partir de POA; horários de chegada/saída calculados.
-
----
-
-## Status de implementação
-
-### Checklist de implementação
-- [x] Extração da carteira (aba CARTEIRA POA) → `src/data/clientsRS.ts` (249 clientes).
-- [x] Tipos, geolocalização e algoritmo de rota (`types.ts`, `geo.ts`, `route.ts`).
-- [x] Estado global com localStorage, seed, backup export/import e geocodificação (Nominatim) (`DataContext.tsx`).
-- [x] Mapa Leaflet com marcadores por dia e polilinhas (`LeafletMap.tsx`).
-- [x] Layout com sidebar por papel e troca de perfil (`AppShell.tsx`).
-- [x] Página Clientes: busca/filtros, frequência por cliente, geocodificar com progresso, edição com pin manual no mapa.
-- [x] Página Rota Semanal: seletor de semana, gerar, quadro dia a dia com drag & drop, adicionar/remover visitas, publicar, mapa.
-- [x] Página Minha Rota (vendedor): visitas do dia com horário, navegação (Google Maps) e fluxo de registro (GPS + foto + comentários + próxima ação), com alerta de "fora do raio".
-- [x] Página Visitas: histórico com filtros (fora do raio / realizadas), foto, distância GPS e comentários.
-- [x] Dashboard do coordenador: resumo semanal, cobertura, alertas.
-- [x] Dados & backup: exportar/importar JSON, configurações da rota (horário, velocidade, prioridades, raio, dias úteis), reset.
-- [x] Design system (tokens verde-esmeralda, claro/escuro) e responsividade.
-
-### Checklist de verificação
-- [x] `pnpm lint` e `pnpm exec tsc --noEmit` e `pnpm build` passam sem erros.
-- [x] Algoritmo testado com a carteira real (simulando coordenadas por cidade): dias balanceados, todos terminam antes de 17h, clientes distantes isolados com aviso.
-- [x] Tela de entrada, dashboard, clientes, rota, backup e visitas verificados por screenshot (desktop).
-- [x] Fluxo mobile do vendedor verificado em `mobile_390` (sem problemas de layout).
-- [ ] Verificação final pelo usuário: clicar "Geocodificar" (uma vez, ~4–5 min) e depois "Gerar rota da semana".
-- [ ] Comprovação completa de visita (foto + GPS) requer dispositivo físico com câmera/localização (não testável por screenshot).
+## Verification checklist
+- [ ] **Positivo**: com clientes geocodificados, "Gerar rota" inclui todos os ativos distribuídos entre seg–sex; sábado/domingo não aparecem no quadro.
+- [ ] **Positivo**: criar 2 prospecções (dias diferentes) → aparecem em Clientes com o badge e entram na rota do dia escolhido.
+- [ ] **Padrão**: prospecção sem coordenadas é adicionada manualmente no dia (não depende de geocodificação).
+- [ ] **Contorno**: navegar para semana anterior/próxima sem rota → estado vazio com botão "Gerar agora".
+- [ ] **Negativo**: clientes inativos e clientes sem coordenadas ficam fora da geração (avisos mantidos).
+- [ ] **Build**: `tsc --noEmit`, `lint`, `build` limpos.
