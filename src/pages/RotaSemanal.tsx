@@ -497,6 +497,7 @@ function AddClientDialog({
 }) {
   const { addRouteVisit } = useData();
   const [q, setQ] = useState("");
+  const [cidade, setCidade] = useState("all");
   const [grupo, setGrupo] = useState("all");
   const [situ, setSitu] = useState("todas");
 
@@ -505,10 +506,17 @@ function AddClientDialog({
     [clients, routeClients],
   );
 
+  const cities = useMemo(() => {
+    const map = new Map<string, number>();
+    clients.forEach((c) => map.set(c.city, (map.get(c.city) ?? 0) + 1));
+    return [...map.entries()].sort((a, b) => b[1] - a[1]);
+  }, [clients]);
+
   const options = useMemo(() => {
     const term = q.trim().toLowerCase();
     return available
       .filter((c) => (grupo === "all" ? true : c.tier === grupo))
+      .filter((c) => (cidade === "all" ? true : c.city === cidade))
       .filter((c) => {
         if (situ === "todas") return true;
         if (situ === "sem_data") return c.lastCollectAt == null;
@@ -521,7 +529,7 @@ function AddClientDialog({
           : true,
       )
       .sort((a, b) => compareClients(a, b, "grupo"));
-  }, [available, q, grupo, situ]);
+  }, [available, q, cidade, grupo, situ]);
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
@@ -543,6 +551,19 @@ function AddClientDialog({
               onChange={(e) => setQ(e.target.value)}
             />
           </div>
+          <Select value={cidade} onValueChange={setCidade}>
+            <SelectTrigger className="w-44">
+              <SelectValue placeholder="Cidade" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas as cidades</SelectItem>
+              {cities.map(([name, n]) => (
+                <SelectItem key={name} value={name}>
+                  {name || "(sem cidade)"} ({n})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Select value={grupo} onValueChange={setGrupo}>
             <SelectTrigger className="w-40">
               <SelectValue placeholder="Grupo" />
