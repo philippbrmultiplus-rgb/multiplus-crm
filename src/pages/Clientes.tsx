@@ -327,7 +327,14 @@ export default function Clientes() {
             {filtered.map((c) => (
               <TableRow key={c.id} className={isColetaOverdue(c) ? "row-overdue" : undefined}>
                 <TableCell>
-                  <div className="font-medium">{c.name}</div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-medium">{c.name}</span>
+                    {c.isProspecao && (
+                      <Badge variant="outline" className="border-violet-500/40 text-violet-600 dark:text-violet-300">
+                        prospecção
+                      </Badge>
+                    )}
+                  </div>
                   <div className="max-w-64 truncate text-xs text-muted-foreground">
                     {c.address || "—"}
                   </div>
@@ -423,6 +430,7 @@ function EditClientDialog({
   const [address, setAddress] = useState(client?.address ?? "");
   const [city, setCity] = useState(client?.city ?? "");
   const [active, setActive] = useState(client?.active ?? true);
+  const [isProsp, setIsProsp] = useState(client?.isProspecao ?? false);
   const [lat, setLat] = useState<number | null>(client?.lat ?? null);
   const [lng, setLng] = useState<number | null>(client?.lng ?? null);
 
@@ -457,6 +465,10 @@ function EditClientDialog({
             <Switch checked={active} onCheckedChange={setActive} />
             <Label>Cliente ativo (entra na rota)</Label>
           </div>
+          <div className="flex items-center gap-2 sm:col-span-2">
+            <Switch checked={isProsp} onCheckedChange={setIsProsp} />
+            <Label>Prospecção (novo cliente em negociação)</Label>
+          </div>
         </div>
         <div className="space-y-2">
           <Label>Posição no mapa</Label>
@@ -488,6 +500,7 @@ function EditClientDialog({
                 address,
                 city,
                 active,
+                isProspecao: isProsp,
                 lat,
                 lng,
                 geocodeStatus: lat != null ? "ok" : client.geocodeStatus,

@@ -76,23 +76,21 @@ export function generateWeekRoute(
   existingRoutes: WeeklyRoute[],
 ): RoutePlanResult {
   const warnings: string[] = [];
-  const { weekIndex, monthIndex, monthWeek } = weekMeta(weekStart);
   const startMin = timeToMinutes(settings.workStart);
   const endMin = timeToMinutes(settings.workEnd);
   const budgetMin = endMin - startMin;
   const days = [...settings.workingDays].sort((a, b) => a - b);
 
+  // sem cadência: todo cliente ATIVO com coordenadas entra na semana, distribuído
+  // pelos dias úteis dentro do expediente (sábado/domingo ficam de fora)
   const candidates: Candidate[] = [];
-  const overduePool: Candidate[] = [];
   const noCoord: string[] = [];
   const farClients: string[] = [];
   // raio máximo para "dia único" (ida+visita+volta dentro do expediente)
   const oneWayBudgetMin = budgetMin / 2;
   const maxDayTripKm = (oneWayBudgetMin / 60) * settings.travelSpeedKmh / 1.3;
   for (const c of clients) {
-    const due = shouldVisit(c, weekIndex, monthIndex, monthWeek);
-    const overdue = isOverdue(c);
-    if (!due && !overdue) continue;
+    if (!c.active) continue;
     if (c.lat == null || c.lng == null) {
       noCoord.push(c.name);
       continue;
@@ -102,19 +100,8 @@ export function generateWeekRoute(
       farClients.push(c.name);
       continue;
     }
-    const cand = { client: c, distHomeKm: dist };
-    // atrasados que ainda não estão na rotação entram primeiro os mais urgentes
-    if (overdue && !due) overduePool.push(cand);
-    else candidates.push(cand);
+    candidates.push({ client: c, distHomeKm: dist });
   }
-  // inclui os atrasados mais urgentes desta semana (limita para não lotar a rota)
-  const OVERDUE_CAP_PER_WEEK = 10;
-  overduePool.sort((a, b) => {
-    const ea = (daysSinceToday(a.client.lastCollectAt) ?? 0) - intervalDays(a.client.freqMonth);
-    const eb = (daysSinceToday(b.client.lastCollectAt) ?? 0) - intervalDays(b.client.freqMonth);
-    return eb - ea;
-  });
-  candidates.push(...overduePool.slice(0, OVERDUE_CAP_PER_WEEK));
   if (noCoord.length > 0) {
     warnings.push(
       `${noCoord.length} cliente(s) sem coordenadas ficaram de fora: ${noCoord.slice(0, 4).join(", ")}${noCoord.length > 4 ? "…" : ""}. Marque no mapa ou ajuste a frequência.`,
@@ -126,7 +113,7 @@ export function generateWeekRoute(
     );
   }
   if (candidates.length === 0) {
-    warnings.push("Nenhum cliente selecionado para esta semana. Ajuste frequências ou a semana.");
+    warnings.push("Nenhum cliente ativo com coordenadas disponível para esta semana.");
   }
 
   // distantes primeiro

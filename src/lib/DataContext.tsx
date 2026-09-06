@@ -74,6 +74,7 @@ export function seedClients(): Client[] {
       avgMonthly: c.avgMonthly,
       tier,
       freqMonth: freqOfTier(tier, c.active),
+      isProspecao: false,
       lat: null,
       lng: null,
       geocodeStatus: "pendente",
@@ -134,6 +135,7 @@ function clientFromRow(r: Record<string, any>): Client {
     freqMonth: Number(r.freq_month ?? 0.5),
     lastCollectAt: r.last_collect_at ?? null,
     lastVisitAt: r.last_visit_at ?? null,
+    isProspecao: r.is_prospecao ?? false,
     lat: r.lat,
     lng: r.lng,
     geocodeStatus: r.geocode_status ?? "pendente",
@@ -157,6 +159,7 @@ function clientToRow(c: Client): Record<string, any> {
     freq_month: c.freqMonth,
     last_collect_at: c.lastCollectAt ?? null,
     last_visit_at: c.lastVisitAt ?? null,
+    is_prospecao: c.isProspecao ?? false,
     lat: c.lat,
     lng: c.lng,
     geocode_status: c.geocodeStatus,
@@ -312,6 +315,7 @@ interface DataContextValue {
   importData: (json: string) => string | null;
   geocodeAll: (onProgress: (done: number, total: number, current: string) => void) => Promise<{ ok: number; failed: number }>;
   updateClient: (id: string, patch: Partial<Client>) => void;
+  createClient: (c: Client) => void;
   recomputeTiers: () => void;
   updateSettings: (patch: Partial<Settings>) => void;
   generateRoute: (weekStart: string) => RoutePlanResult;
@@ -666,6 +670,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }
         return { ...prev, clients };
       });
+    },
+    [setAppState],
+  );
+
+  /** cria um cliente novo (ex.: prospecção) no estado e na nuvem quando for coordenador */
+  const createClient = useCallback(
+    (c: Client) => {
+      setAppState((prev) => ({ ...prev, clients: [...prev.clients, c] }));
+      if (canWriteClientData()) {
+        void supabase.from("clients").upsert(clientToRow(c));
+      }
     },
     [setAppState],
   );
@@ -1078,6 +1093,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     importData,
     geocodeAll,
     updateClient,
+    createClient,
     recomputeTiers,
     updateSettings,
     generateRoute,

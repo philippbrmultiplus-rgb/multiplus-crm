@@ -25,11 +25,15 @@ import {
   Rocket,
   Search,
   Trash2,
+  UserPlus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -59,7 +63,7 @@ import {
 import { useData } from "@/lib/DataContext";
 import { addDays, DAY_NAMES, formatDateBR, formatKm, mondayOf, timeToMinutes, todayKey } from "@/lib/geo";
 import { computeSchedule } from "@/lib/route";
-import { cadenceLabel } from "@/lib/cadence";
+import { cadenceLabel, tierOfFreq } from "@/lib/cadence";
 import {
   COLETA_TEXT_TONE,
   coletaDays,
@@ -188,19 +192,46 @@ export default function RotaSemanal() {
             Clientes agrupados por proximidade, priorizando maior volume. Ajuste arrastando.
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" onClick={() => setWeekStart(addDays(weekStart, -7))}>
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <div className="min-w-44 text-center text-sm font-medium">
-            Semana de {weekStart.split("-").reverse().join("/")}
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <div className="flex items-center gap-1 rounded-lg border bg-secondary/30 p-0.5">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 px-2 text-xs"
+              onClick={() => setWeekStart(addDays(weekStart, -7))}
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+              Anterior
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 px-2 text-xs"
+              onClick={() => setWeekStart(mondayOf(todayKey()))}
+            >
+              Esta semana
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 px-2 text-xs"
+              onClick={() => setWeekStart(addDays(weekStart, 7))}
+            >
+              Próxima
+              <ChevronRight className="h-3.5 w-3.5" />
+            </Button>
           </div>
-          <Button variant="outline" size="icon" onClick={() => setWeekStart(addDays(weekStart, 7))}>
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-          <Button variant="outline" onClick={() => setWeekStart(mondayOf(todayKey()))}>
-            Hoje
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="icon" onClick={() => setWeekStart(addDays(weekStart, -7))}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <div className="min-w-44 text-center text-sm font-medium">
+              Semana de {weekStart.split("-").reverse().join("/")}
+            </div>
+            <Button variant="outline" size="icon" onClick={() => setWeekStart(addDays(weekStart, 7))}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -500,6 +531,7 @@ function AddClientDialog({
   const [cidade, setCidade] = useState("all");
   const [grupo, setGrupo] = useState("all");
   const [situ, setSitu] = useState("todas");
+  const [showProsp, setShowProsp] = useState(false);
 
   const available = useMemo(
     () => clients.filter((c) => !routeClients.includes(c.id)),
@@ -537,10 +569,17 @@ function AddClientDialog({
         <DialogHeader>
           <DialogTitle>Adicionar visita — {DAY_NAMES[day]}</DialogTitle>
           <DialogDescription>
-            Escolha um cliente para incluir manualmente na rota. Prioridade A e coletas atrasadas vêm
-            primeiro e ficam destacadas em vermelho.
+            Escolha um cliente para incluir manualmente na rota, ou crie uma prospecção.
           </DialogDescription>
         </DialogHeader>
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-xs text-muted-foreground">
+            Prioridade A e coletas atrasadas vêm primeiro e ficam destacadas.
+          </p>
+          <Button size="sm" variant="outline" onClick={() => setShowProsp(true)}>
+            <UserPlus className="mr-1.5 h-4 w-4" /> Nova prospecção
+          </Button>
+        </div>
         <div className="flex flex-wrap gap-2">
           <div className="relative min-w-52 flex-1">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -642,6 +681,172 @@ function AddClientDialog({
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
             Fechar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+      {showProsp && (
+        <ProspecaoDialog
+          open={showProsp}
+          day={day}
+          route={route}
+          onClose={() => setShowProsp(false)}
+        />
+      )}
+    </Dialog>
+  );
+}
+
+const CADENCE_OPTIONS = [
+  { value: "0", label: cadenceLabel(0) },
+  { value: "0.33", label: cadenceLabel(0.33) },
+  { value: "0.5", label: cadenceLabel(0.5) },
+  { value: "1", label: cadenceLabel(1) },
+  { value: "2", label: cadenceLabel(2) },
+  { value: "3", label: cadenceLabel(3) },
+  { value: "4", label: cadenceLabel(4) },
+];
+
+/** cria um cliente marcado como prospecção e o adiciona direto no dia da rota */
+function ProspecaoDialog({
+  open,
+  day,
+  route,
+  onClose,
+}: {
+  open: boolean;
+  day: number;
+  route: WeeklyRoute | null;
+  onClose: () => void;
+}) {
+  const { createClient, addRouteVisit } = useData();
+  const [nome, setNome] = useState("Prospecção");
+  const [cidade, setCidade] = useState("");
+  const [endereco, setEndereco] = useState("");
+  const [segmento, setSegmento] = useState("");
+  const [freq, setFreq] = useState("1");
+  const [obs, setObs] = useState("");
+  const [ativo, setAtivo] = useState(true);
+  const [pos, setPos] = useState<{ lat: number; lng: number } | null>(null);
+
+  const salvar = () => {
+    if (!route) {
+      onClose();
+      return;
+    }
+    const f = parseFloat(freq);
+    const novo: Client = {
+      id: `cli-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      name: nome.trim() || "Prospecção",
+      segment: segmento.trim(),
+      address: endereco.trim(),
+      city: cidade.trim(),
+      state: "RS",
+      active: ativo,
+      total2025: 0,
+      total2026: 0,
+      avgMonthly: 0,
+      tier: tierOfFreq(f),
+      freqMonth: f,
+      isProspecao: true,
+      lastCollectAt: null,
+      lastVisitAt: null,
+      lat: pos?.lat ?? null,
+      lng: pos?.lng ?? null,
+      geocodeStatus: pos ? "ok" : "pendente",
+      obs: obs.trim() || undefined,
+    };
+    createClient(novo);
+    addRouteVisit(route, novo.id, day);
+    toast.success(`Prospecção "${novo.name}" adicionada à ${DAY_NAMES[day]}.`);
+    onClose();
+  };
+
+  const points = pos ? [{ lat: pos.lat, lng: pos.lng, label: nome || "Prospecção", color: "#7c3aed" }] : [];
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-h-[calc(100dvh-2.5rem)] max-w-xl overflow-y-auto overscroll-contain">
+        <DialogHeader>
+          <DialogTitle>Nova prospecção</DialogTitle>
+          <DialogDescription>
+            Cria um cliente marcado como "Prospecção" e já o adiciona na {DAY_NAMES[day]}. Todos os
+            dados podem ser editados depois em Clientes.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label>Nome</Label>
+            <Input
+              value={nome}
+              onChange={(e) => setNome(e.target.value)}
+              placeholder="Prospecção — nome da empresa"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Cidade</Label>
+            <Input value={cidade} onChange={(e) => setCidade(e.target.value)} placeholder="Porto Alegre" />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Segmento</Label>
+            <Input value={segmento} onChange={(e) => setSegmento(e.target.value)} placeholder="Construção civil…" />
+          </div>
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label>Endereço</Label>
+            <Input value={endereco} onChange={(e) => setEndereco(e.target.value)} placeholder="Rua, número, bairro" />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Cadência de visitas</Label>
+            <Select value={freq} onValueChange={setFreq}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {CADENCE_OPTIONS.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>
+                    {o.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-end">
+            <label className="flex h-9 items-center gap-2 text-sm text-muted-foreground">
+              <Switch checked={ativo} onCheckedChange={setAtivo} />
+              Ativo (entra na rota)
+            </label>
+          </div>
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label>Observações</Label>
+            <Textarea
+              rows={2}
+              value={obs}
+              onChange={(e) => setObs(e.target.value)}
+              placeholder="Anotações da prospecção…"
+            />
+          </div>
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label>Posição no mapa (opcional)</Label>
+            <LeafletMap
+              height="220px"
+              fit={false}
+              center={pos ? [pos.lat, pos.lng] : [-30.03, -51.22]}
+              zoom={12}
+              points={points}
+              onMapClick={(lat, lng) => setPos({ lat, lng })}
+            />
+            <p className="text-xs text-muted-foreground">
+              {pos
+                ? `Coordenadas: ${pos.lat.toFixed(5)}, ${pos.lng.toFixed(5)}`
+                : "Clique no mapa para marcar (opcional). Sem posição, a prospecção é adicionada manualmente ao dia."}
+            </p>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button onClick={salvar}>
+            <UserPlus className="mr-2 h-4 w-4" /> Criar e adicionar
           </Button>
         </DialogFooter>
       </DialogContent>

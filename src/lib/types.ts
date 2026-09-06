@@ -22,6 +22,8 @@ export interface Client {
   lastCollectAt?: string | null;
   /** data (yyyy-mm-dd) da última visita REALIZADA registrada pelo vendedor (zera o contador de dias sem visita) */
   lastVisitAt?: string | null;
+  /** cliente marcado como prospecção (novo cliente em negociação) */
+  isProspecao: boolean;
   lat: number | null;
   lng: number | null;
   geocodeStatus: GeocodeStatus;
