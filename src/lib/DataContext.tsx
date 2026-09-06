@@ -651,6 +651,58 @@ export function DataProvider({ children }: { children: ReactNode }) {
     };
   }, [user, setAppState]);
 
+  /* ---------- clientes em tempo real (geocodificação/edições do coordenador) ---------- */
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel("clients-realtime")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "clients" },
+        (payload) => {
+          const row = payload.new as Record<string, any>;
+          if (!row?.id) return;
+          setAppState((prev) =>
+            prev.clients.some((c) => c.id === row.id)
+              ? prev
+              : { ...prev, clients: [...prev.clients, clientFromRow(row)] },
+          );
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "clients" },
+        (payload) => {
+          const row = payload.new as Record<string, any>;
+          if (!row?.id) return;
+          const updated = clientFromRow(row);
+          setAppState((prev) => ({
+            ...prev,
+            clients: prev.clients.some((c) => c.id === updated.id)
+              ? prev.clients.map((c) => (c.id === updated.id ? updated : c))
+              : [...prev.clients, updated],
+          }));
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "clients" },
+        (payload) => {
+          const old = payload.old as Record<string, any>;
+          if (!old?.id) return;
+          setAppState((prev) => ({
+            ...prev,
+            clients: prev.clients.filter((c) => c.id !== old.id),
+          }));
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [user, setAppState]);
+
   /* ---------- operações de dados (local + nuvem) ---------- */
 
   const canWriteClientData = () => roleRef.current === "coordenador" && !!uidRef.current;
@@ -1029,6 +1081,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const geocodeAll = useCallback(
     async (onProgress: (done: number, total: number, current: string) => void) => {
+      if (roleRef.current !== "coordenador" || !uidRef.current) {
+        toast.error("Geocodificação disponível apenas para o coordenador.");
+        return { ok: 0, failed: state.clients.length };
+      }
       const pending = state.clients.filter((c) => c.lat == null || c.geocodeStatus !== "ok");
       let ok = 0;
       let failed = 0;
@@ -1060,14 +1116,27 @@ export function DataProvider({ children }: { children: ReactNode }) {
         } else {
           failed++;
         }
-        updateClient(c.id, { geocodeStatus: status, lat, lng });
+        setAppState((prev) => ({
+          ...prev,
+          clients: prev.clients.map((x) =>
+            x.id === c.id ? { ...x, geocodeStatus: status, lat, lng } : x,
+          ),
+        }));
+        const { error } = await supabase
+          .from("clients")
+          .update({ lat, lng, geocode_status: status, updated_at: new Date().toISOString() })
+          .eq("id", c.id);
+        if (error) {
+          console.warn("geocodificar/persistir cliente:", error.message);
+          failed++;
+        }
         if (i < pending.length - 1) {
           await new Promise((r) => setTimeout(r, 1100));
         }
       }
       return { ok, failed };
     },
-    [state.clients, updateClient],
+    [state.clients, setAppState],
   );
 
   const storageUsageKb = (() => {

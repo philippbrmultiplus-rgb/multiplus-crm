@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { toast } from "sonner";
 import {
   CheckCircle2,
   Loader2,
@@ -165,6 +166,17 @@ export default function Clientes() {
       setGeocoding({ done, total, current }),
     );
     setGeocoding(null);
+    if (res.ok > 0) {
+      toast.success(`Geocodificação concluída: ${res.ok} localizados.`);
+    } else {
+      toast.warning("Nenhum endereço localizado.", {
+        description:
+          "Confira se os endereços estão preenchidos corretamente em Clientes (editar). A lista de cidades pode conter endereços incompletos.",
+      });
+    }
+    if (res.failed > 0) {
+      toast.warning(`${res.failed} não foram localizados (endereço não encontrado ou erro de rede).`);
+    }
   };
 
   return (
