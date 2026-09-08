@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
-import { CalendarX2, ChevronLeft, ChevronRight, Info } from "lucide-react";
+import { CalendarX2, ChevronLeft, ChevronRight, Info, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useData } from "@/lib/DataContext";
 import { DaySchedule } from "@/components/rota/DaySchedule";
 import { VisitForm } from "@/components/visitas/VisitForm";
+import { ProspectVisitDialog } from "@/components/visitas/ProspectVisitDialog";
 import {
   addDays,
   DAY_NAMES,
@@ -20,6 +21,7 @@ export default function MinhaRotaSemana() {
   const todayIso = todayKey();
   const [weekStart, setWeekStart] = useState<string>(mondayOf(todayIso));
   const [formClient, setFormClient] = useState<{ client: Client; routeVisitId: string } | null>(null);
+  const [prospectDay, setProspectDay] = useState<number | null>(null);
 
   const route = useMemo(() => {
     const week = routes.filter((r) => r.weekStart === weekStart && r.status === "publicada");
@@ -109,12 +111,22 @@ export default function MinhaRotaSemana() {
               <section key={day} className="card-soft p-4">
                 <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
                   <h2 className="text-lg font-semibold">{DAY_NAMES[day]}</h2>
-                  <div className="text-right text-xs text-muted-foreground">
-                    <div>{dateIso.split("-").reverse().join("/")}</div>
-                    <div>
-                      {dayVisits.filter((v) => v.status === "concluida").length}/{dayVisits.length} concluídas
-                      {!canAct && " · bloqueado para registro"}
+                  <div className="flex flex-wrap items-center justify-end gap-2 text-right">
+                    <div className="text-xs text-muted-foreground">
+                      <div>{dateIso.split("-").reverse().join("/")}</div>
+                      <div>
+                        {dayVisits.filter((v) => v.status === "concluida").length}/{dayVisits.length} concluídas
+                        {!canAct && " · bloqueado para registro"}
+                      </div>
                     </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setProspectDay(day)}
+                      title="Registrar um cliente novo prospectado neste dia"
+                    >
+                      <UserPlus className="mr-1.5 h-4 w-4" /> Nova prospecção
+                    </Button>
                   </div>
                 </div>
                 <DaySchedule
@@ -139,6 +151,15 @@ export default function MinhaRotaSemana() {
           client={formClient.client}
           routeVisitId={formClient.routeVisitId}
           onClose={() => setFormClient(null)}
+        />
+      )}
+
+      {prospectDay != null && route && (
+        <ProspectVisitDialog
+          open
+          day={prospectDay}
+          routeId={route.id}
+          onClose={() => setProspectDay(null)}
         />
       )}
     </div>

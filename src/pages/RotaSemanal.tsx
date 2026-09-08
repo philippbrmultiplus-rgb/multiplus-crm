@@ -774,6 +774,7 @@ function ProspecaoDialog({
   const [cidade, setCidade] = useState("");
   const [endereco, setEndereco] = useState("");
   const [segmento, setSegmento] = useState("");
+  const [contato, setContato] = useState("");
   const [freq, setFreq] = useState("1");
   const [obs, setObs] = useState("");
   const [ativo, setAtivo] = useState(true);
@@ -799,6 +800,7 @@ function ProspecaoDialog({
       tier: tierOfFreq(f),
       freqMonth: f,
       isProspecao: true,
+      contato: contato.trim() || null,
       lastCollectAt: null,
       lastVisitAt: null,
       lat: pos?.lat ?? null,
@@ -836,6 +838,10 @@ function ProspecaoDialog({
           <div className="space-y-1.5">
             <Label>Cidade</Label>
             <Input value={cidade} onChange={(e) => setCidade(e.target.value)} placeholder="Porto Alegre" />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Contato</Label>
+            <Input value={contato} onChange={(e) => setContato(e.target.value)} placeholder="(51) 9 9999-9999" />
           </div>
           <div className="space-y-1.5">
             <Label>Segmento</Label>

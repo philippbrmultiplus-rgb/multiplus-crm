@@ -20,7 +20,9 @@ import type {
   Settings,
   Tier,
   Visit,
+  VisitStatus,
   WeeklyRoute,
+  ProspectVisitInput,
 } from "./types";
 import { generateWeekRoute, mergeWeekRoute } from "./route";
 import { applySegmentData } from "./segmentMerge";
@@ -136,6 +138,7 @@ function clientFromRow(r: Record<string, any>): Client {
     lastCollectAt: r.last_collect_at ?? null,
     lastVisitAt: r.last_visit_at ?? null,
     isProspecao: r.is_prospecao ?? false,
+    contato: r.contato ?? null,
     lat: r.lat,
     lng: r.lng,
     geocodeStatus: r.geocode_status ?? "pendente",
@@ -160,6 +163,7 @@ function clientToRow(c: Client): Record<string, any> {
     last_collect_at: c.lastCollectAt ?? null,
     last_visit_at: c.lastVisitAt ?? null,
     is_prospecao: c.isProspecao ?? false,
+    contato: c.contato ?? null,
     lat: c.lat,
     lng: c.lng,
     geocode_status: c.geocodeStatus,
@@ -329,6 +333,7 @@ interface DataContextValue {
   deleteRoute: (routeId: string) => void;
   publishRoute: (routeId: string) => void;
   addVisit: (visit: Visit, opts?: { uploadPhoto?: boolean }) => void;
+  registerProspectVisit: (args: ProspectVisitInput) => void;
   updateVisit: (id: string, patch: Partial<Visit>) => void;
   deleteVisit: (id: string) => void;
   markRouteVisitStatus: (routeVisitId: string, status: RouteVisit["status"]) => void;
@@ -1236,6 +1241,106 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [setAppState, uploadVisitPhoto],
   );
 
+  /**
+   * Vendedor registra uma "visita prospecção": cria o cliente novo (marcado como
+   * prospecção), inclui na rota do dia e salva a visita — tudo chega em tempo
+   * real ao coordenador (cliente, item da rota e visita).
+   */
+  const registerProspectVisit = useCallback(
+    (args: ProspectVisitInput) => {
+      const clientId = `cli-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      const rvId = `rv-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      const nowIso = new Date().toISOString();
+      const novo: Client = {
+        id: clientId,
+        name: args.nome.trim() || "Prospecção",
+        segment: args.segmento?.trim() ?? "",
+        address: args.endereco?.trim() ?? "",
+        city: args.cidade?.trim() ?? "",
+        state: "RS",
+        active: true,
+        total2025: 0,
+        total2026: 0,
+        avgMonthly: 0,
+        tier: "D",
+        freqMonth: 1,
+        isProspecao: true,
+        contato: args.contato?.trim() || null,
+        lastCollectAt: null,
+        lastVisitAt: null,
+        lat: null,
+        lng: null,
+        geocodeStatus: "pendente",
+      };
+      const pos = state.routeVisits.filter(
+        (rv) => rv.routeId === args.routeId && rv.day === args.day,
+      ).length;
+      const rv: RouteVisit = {
+        id: rvId,
+        routeId: args.routeId,
+        clientId,
+        day: args.day,
+        position: pos,
+        estTravelMin: 0,
+        estVisitMin: state.settings.visitTimeMin,
+        status: "concluida",
+      };
+      const visit: Visit = {
+        id: `v-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        routeVisitId: rvId,
+        clientId,
+        visitedAt: nowIso,
+        status: args.status,
+        resultComments: args.comments.trim(),
+        nextActions: args.nextActions.trim(),
+        gpsLat: args.gpsLat ?? null,
+        gpsLng: args.gpsLng ?? null,
+        gpsAccuracyM: args.gpsAccuracyM ?? null,
+        distanceFromClientM: null,
+        withinRadius: true,
+        photoData: args.photoData,
+      };
+      setAppState((prev) => ({
+        ...prev,
+        clients: [...prev.clients, novo],
+        routeVisits: [...prev.routeVisits, rv],
+        visits: [visit, ...prev.visits],
+      }));
+      if (!uidRef.current) return;
+      void (async () => {
+        const { error: cErr } = await supabase.from("clients").insert(clientToRow(novo));
+        if (cErr) {
+          console.error("criar prospecção:", cErr.message);
+          toast.error("Não foi possível salvar a prospecção", { description: cErr.message });
+          return;
+        }
+        const { error: rErr } = await supabase.from("route_visits").insert(rvToRow(rv));
+        if (rErr) {
+          console.error("incluir prospecção na rota:", rErr.message);
+          toast.error("Não foi possível incluir a prospecção na rota", { description: rErr.message });
+          return;
+        }
+        let photoUrl: string | null = null;
+        if (visit.photoData?.startsWith("data:")) {
+          photoUrl = await uploadVisitPhoto(visit, visit.photoData);
+        }
+        const synced: Visit = { ...visit, photoUrl };
+        const { error: vErr } = await supabase.from("visits").insert(visitToRow(synced));
+        if (vErr) {
+          console.error("salvar visita prospecção:", vErr.message);
+          toast.error("Não foi possível salvar a visita", { description: vErr.message });
+        }
+        if (photoUrl) {
+          setAppState((prev) => ({
+            ...prev,
+            visits: prev.visits.map((v) => (v.id === visit.id ? synced : v)),
+          }));
+        }
+      })();
+    },
+    [setAppState, state.routeVisits, state.settings, uploadVisitPhoto],
+  );
+
   const updateVisit = useCallback(
     (id: string, patch: Partial<Visit>) => {
       setAppState((prev) => {
@@ -1431,6 +1536,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     deleteRoute,
     publishRoute,
     addVisit,
+    registerProspectVisit,
     updateVisit,
     deleteVisit,
     markRouteVisitStatus,

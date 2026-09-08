@@ -3366,6 +3366,7 @@ export type Database = {
           address: string | null
           avg_monthly: number | null
           city: string | null
+          contato: string | null
           created_at: string
           freq_month: number | null
           geocode_status: string | null
@@ -3389,6 +3390,7 @@ export type Database = {
           address?: string | null
           avg_monthly?: number | null
           city?: string | null
+          contato?: string | null
           created_at?: string
           freq_month?: number | null
           geocode_status?: string | null
@@ -3412,6 +3414,7 @@ export type Database = {
           address?: string | null
           avg_monthly?: number | null
           city?: string | null
+          contato?: string | null
           created_at?: string
           freq_month?: number | null
           geocode_status?: string | null

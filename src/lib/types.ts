@@ -24,6 +24,8 @@ export interface Client {
   lastVisitAt?: string | null;
   /** cliente marcado como prospecção (novo cliente em negociação) */
   isProspecao: boolean;
+  /** telefone/whatsapp de contato */
+  contato?: string | null;
   lat: number | null;
   lng: number | null;
   geocodeStatus: GeocodeStatus;
@@ -67,6 +69,24 @@ export interface RouteVisit {
 }
 
 export type VisitStatus = "realizada" | "nao_encontrado" | "recusada";
+
+/** dados de uma "visita prospecção" registrada pelo vendedor (cliente novo + visita) */
+export interface ProspectVisitInput {
+  routeId: string;
+  day: number;
+  nome: string;
+  contato?: string;
+  endereco?: string;
+  cidade?: string;
+  segmento?: string;
+  status: VisitStatus;
+  comments: string;
+  nextActions: string;
+  photoData?: string;
+  gpsLat?: number | null;
+  gpsLng?: number | null;
+  gpsAccuracyM?: number | null;
+}
 
 export interface Visit {
   id: string;
