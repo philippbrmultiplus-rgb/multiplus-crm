@@ -42,6 +42,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useData } from "@/lib/DataContext";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { LeafletMap } from "@/components/map/LeafletMap";
 import { cadenceLabel, tierOfFreq } from "@/lib/cadence";
 import {
@@ -87,9 +88,27 @@ function GeocodeStatus({ c }: { c: Client }) {
   return <MapPin className="h-4 w-4 text-muted-foreground" />;
 }
 
+function CadenceSelect({ value, onValue }: { value: number; onValue: (f: number) => void }) {
+  return (
+    <Select value={String(value)} onValueChange={(v) => onValue(parseFloat(v))}>
+      <SelectTrigger className="h-8 w-36 text-xs">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {FREQ_OPTIONS.map((o) => (
+          <SelectItem key={o.value} value={o.value}>
+            {o.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
 export default function Clientes() {
   const { state, updateClient, geocodeAll, recomputeTiers } = useData();
   const { clients } = state;
+  const isMobile = useIsMobile();
 
   const [search, setSearch] = useState("");
   const [city, setCity] = useState("all");
@@ -320,102 +339,161 @@ export default function Clientes() {
         )}
       </div>
 
-      <div className="card-soft overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Cliente</TableHead>
-              <TableHead>Cidade</TableHead>
-              <TableHead className="hidden lg:table-cell">Segmento</TableHead>
-              <TableHead>Grupo</TableHead>
-              <TableHead>Cadência</TableHead>
-              <TableHead>Últ. troca / dias</TableHead>
-              <TableHead className="hidden md:table-cell">Últ. visita</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Ações</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filtered.map((c) => (
-              <TableRow key={c.id} className={isColetaOverdue(c) ? "row-overdue" : undefined}>
-                <TableCell>
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-medium">{c.name}</span>
+      {isMobile ? (
+        <div className="space-y-2">
+          {filtered.map((c) => (
+            <div key={c.id} className={`card-soft p-3 ${isColetaOverdue(c) ? "opt-overdue" : ""}`}>
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="font-semibold leading-tight">{c.name}</span>
                     {c.isProspecao && (
                       <Badge variant="outline" className="border-violet-500/40 text-violet-600 dark:text-violet-300">
                         prospecção
                       </Badge>
                     )}
                   </div>
-                  <div className="max-w-64 truncate text-xs text-muted-foreground">
-                    {c.address || "—"}
-                  </div>
-                </TableCell>
-                <TableCell className="whitespace-nowrap text-sm">{c.city}</TableCell>
-                <TableCell className="hidden whitespace-nowrap lg:table-cell">
-                  {c.segment ? <Badge variant="outline">{c.segment}</Badge> : "—"}
-                </TableCell>
-                <TableCell>
-                  <TierBadge tier={c.tier} showFreq />
-                </TableCell>
-                <TableCell>
-                  <Select
-                    value={String(c.freqMonth)}
-                    onValueChange={(v) => {
-                      const f = parseFloat(v);
-                      updateClient(c.id, { freqMonth: f, tier: tierOfFreq(f) });
-                    }}
-                  >
-                    <SelectTrigger className="h-8 w-36 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {FREQ_OPTIONS.map((o) => (
-                        <SelectItem key={o.value} value={o.value}>
-                          {o.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </TableCell>
-                <TableCell>
-                  <ColetaCell c={c} onDate={(v) => updateClient(c.id, { lastCollectAt: v })} />
-                </TableCell>
-                <TableCell className="hidden md:table-cell">
-                  <VisitaBadge c={c} />
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-1.5">
-                    {c.active ? (
-                      <Badge variant="outline">Ativo</Badge>
-                    ) : (
-                      <Badge variant="secondary">Inativo</Badge>
-                    )}
-                    <GeocodeStatus c={c} />
-                  </div>
-                </TableCell>
-                <TableCell className="text-right">
-                  <Button variant="ghost" size="sm" onClick={() => setEditing(c)}>
+                  <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{c.address || "—"}</p>
+                </div>
+                <div className="flex shrink-0 items-center gap-1">
+                  <GeocodeStatus c={c} />
+                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setEditing(c)}>
                     <Pencil className="h-4 w-4" />
                   </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-            {filtered.length === 0 && (
+                </div>
+              </div>
+              <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1.5 text-sm">
+                <div className="min-w-0">
+                  <span className="block text-[11px] text-muted-foreground">Cidade</span>
+                  <span className="block truncate">{c.city || "—"}</span>
+                </div>
+                <div className="min-w-0">
+                  <span className="block text-[11px] text-muted-foreground">Segmento</span>
+                  <span className="block truncate">{c.segment || "—"}</span>
+                </div>
+                <div>
+                  <span className="block text-[11px] text-muted-foreground">Grupo</span>
+                  <TierBadge tier={c.tier} showFreq />
+                </div>
+                <div>
+                  <span className="block text-[11px] text-muted-foreground">Status</span>
+                  {c.active ? <Badge variant="outline">Ativo</Badge> : <Badge variant="secondary">Inativo</Badge>}
+                </div>
+              </div>
+              <div className="mt-2 space-y-2 border-t pt-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] text-muted-foreground">Cadência</span>
+                  <CadenceSelect
+                    value={c.freqMonth}
+                    onValue={(f) => updateClient(c.id, { freqMonth: f, tier: tierOfFreq(f) })}
+                  />
+                </div>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-[11px] text-muted-foreground">Última troca</span>
+                  <ColetaCell c={c} onDate={(v) => updateClient(c.id, { lastCollectAt: v })} />
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] text-muted-foreground">Última visita</span>
+                  <VisitaBadge c={c} />
+                </div>
+              </div>
+            </div>
+          ))}
+          {filtered.length === 0 && (
+            <div className="card-soft p-10 text-center text-sm text-muted-foreground">
+              Nenhum cliente encontrado com os filtros atuais.
+            </div>
+          )}
+          {filtered.length >= 300 && (
+            <p className="text-xs text-muted-foreground">
+              Mostrando os 300 primeiros — use a busca ou os filtros para refinar.
+            </p>
+          )}
+        </div>
+      ) : (
+        <div className="card-soft overflow-x-auto">
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={9} className="py-8 text-center text-muted-foreground">
-                  Nenhum cliente encontrado com os filtros atuais.
-                </TableCell>
+                <TableHead>Cliente</TableHead>
+                <TableHead>Cidade</TableHead>
+                <TableHead>Segmento</TableHead>
+                <TableHead>Grupo</TableHead>
+                <TableHead>Cadência</TableHead>
+                <TableHead>Últ. troca / dias</TableHead>
+                <TableHead>Últ. visita</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Ações</TableHead>
               </TableRow>
-            )}
-          </TableBody>
-        </Table>
-        {filtered.length >= 300 && (
-          <p className="border-t p-2 text-xs text-muted-foreground">
-            Mostrando os 300 primeiros — use a busca ou os filtros para refinar.
-          </p>
-        )}
-      </div>
+            </TableHeader>
+            <TableBody>
+              {filtered.map((c) => (
+                <TableRow key={c.id} className={isColetaOverdue(c) ? "row-overdue" : undefined}>
+                  <TableCell>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-medium">{c.name}</span>
+                      {c.isProspecao && (
+                        <Badge variant="outline" className="border-violet-500/40 text-violet-600 dark:text-violet-300">
+                          prospecção
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="max-w-64 truncate text-xs text-muted-foreground">
+                      {c.address || "—"}
+                    </div>
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap text-sm">{c.city}</TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    {c.segment ? <Badge variant="outline">{c.segment}</Badge> : "—"}
+                  </TableCell>
+                  <TableCell>
+                    <TierBadge tier={c.tier} showFreq />
+                  </TableCell>
+                  <TableCell>
+                    <CadenceSelect
+                      value={c.freqMonth}
+                      onValue={(f) => updateClient(c.id, { freqMonth: f, tier: tierOfFreq(f) })}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <ColetaCell c={c} onDate={(v) => updateClient(c.id, { lastCollectAt: v })} />
+                  </TableCell>
+                  <TableCell>
+                    <VisitaBadge c={c} />
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1.5">
+                      {c.active ? (
+                        <Badge variant="outline">Ativo</Badge>
+                      ) : (
+                        <Badge variant="secondary">Inativo</Badge>
+                      )}
+                      <GeocodeStatus c={c} />
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button variant="ghost" size="sm" onClick={() => setEditing(c)}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {filtered.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={9} className="py-8 text-center text-muted-foreground">
+                    Nenhum cliente encontrado com os filtros atuais.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+          {filtered.length >= 300 && (
+            <p className="border-t p-2 text-xs text-muted-foreground">
+              Mostrando os 300 primeiros — use a busca ou os filtros para refinar.
+            </p>
+          )}
+        </div>
+      )}
 
       <EditClientDialog
         client={editing}
