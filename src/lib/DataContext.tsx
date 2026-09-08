@@ -1011,9 +1011,21 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const upsertRv = useCallback((rv: RouteVisit) => {
     // qualquer usuário logado pode gravar o status da visita de rota
-    // (coordenador edita; vendedor marca concluída/não realizada)
+    // (coordenador edita; vendedor marca concluída/não realizada).
+    // Usamos UPDATE (a linha já existe) porque upsert = INSERT ON CONFLICT,
+    // e o INSERT do vendedor só é permitido para clientes prospecção.
     if (!uidRef.current) return;
-    void supabase.from("route_visits").upsert(rvToRow(rv));
+    const row = rvToRow(rv);
+    delete row.id;
+    void supabase
+      .from("route_visits")
+      .update(row)
+      .eq("id", rv.id)
+      .then(({ error }) => {
+        if (error) {
+          console.warn("atualizar visita da rota:", error.message);
+        }
+      });
   }, []);
 
   const updateRouteVisit = useCallback(
