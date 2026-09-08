@@ -1,0 +1,2 @@
+DELETE FROM public.route_visits WHERE route_id = 'route-1788881239242-ir112';
+DELETE FROM public.weekly_routes WHERE id = 'route-1788881239242-ir112';
