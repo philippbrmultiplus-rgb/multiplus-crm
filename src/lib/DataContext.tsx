@@ -1000,7 +1000,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [setAppState]);
 
   const upsertRv = useCallback((rv: RouteVisit) => {
-    if (!canWriteClientData()) return;
+    // qualquer usuário logado pode gravar o status da visita de rota
+    // (coordenador edita; vendedor marca concluída/não realizada)
+    if (!uidRef.current) return;
     void supabase.from("route_visits").upsert(rvToRow(rv));
   }, []);
 
@@ -1263,8 +1265,27 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const deleteVisit = useCallback((id: string) => {
     setAppState((prev) => {
-      if (uidRef.current) {
-        void supabase.from("visits").delete().eq("id", id);
+      const target = prev.visits.find((v) => v.id === id);
+      const rv = target?.routeVisitId ? prev.routeVisits.find((r) => r.id === target.routeVisitId) : undefined;
+      if (uidRef.current && target) {
+        void (async () => {
+          const { error } = await supabase.from("visits").delete().eq("id", id);
+          if (error) {
+            console.error("excluir visita:", error.message);
+            toast.error("Não foi possível excluir a visita", { description: error.message });
+            return;
+          }
+          // se a visita era de um item da rota concluído, volta o item para pendente
+          if (rv && rv.status !== "pendente") {
+            await supabase.from("route_visits").update({ status: "pendente" }).eq("id", rv.id);
+            setAppState((p) => ({
+              ...p,
+              routeVisits: p.routeVisits.map((x) =>
+                x.id === rv.id ? { ...x, status: "pendente" as const } : x,
+              ),
+            }));
+          }
+        })();
       }
       return { ...prev, visits: prev.visits.filter((v) => v.id !== id) };
     });
@@ -1276,7 +1297,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
         rv.id === routeVisitId ? { ...rv, status } : rv,
       );
       const changed = routeVisits.find((rv) => rv.id === routeVisitId);
-      if (changed && roleRef.current === "coordenador") upsertRv(changed);
+      // qualquer usuário logado: vendedor marca concluída/não realizada e o coordenador vê na hora
+      if (changed && uidRef.current) upsertRv(changed);
       return { ...prev, routeVisits };
     });
   }, [setAppState, upsertRv]);

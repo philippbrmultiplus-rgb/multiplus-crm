@@ -1,0 +1,5 @@
+CREATE POLICY "visits_delete_coord" ON public.visits
+  FOR DELETE USING (is_coordenador());
+
+CREATE POLICY "rv_update_any" ON public.route_visits
+  FOR UPDATE USING (auth.uid() IS NOT NULL) WITH CHECK (auth.uid() IS NOT NULL);
