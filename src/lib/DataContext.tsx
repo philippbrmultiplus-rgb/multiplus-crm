@@ -630,7 +630,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 });
                 if ("Notification" in window && Notification.permission === "granted") {
                   try {
-                    new Notification("RotaSul", { body: `${label}: ${client?.name ?? ""} — ${client?.city ?? ""}` });
+                    new Notification("RotaSul — nova visita", {
+                      body: `${label}: ${client?.name ?? ""} — ${client?.city ?? ""} (${new Date(visit.visitedAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })})`,
+                      tag: `nova-visita-${visit.id}`,
+                      renotify: true,
+                      vibrate: [200, 100, 200],
+                    });
                   } catch {
                     // navegador sem suporte a notificação
                   }
@@ -645,7 +650,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
     if ("Notification" in window && Notification.permission === "default" && roleRef.current === "coordenador") {
       setTimeout(() => {
-        void Notification.requestPermission();
+        try {
+          if (typeof Notification.requestPermission === "function") {
+            void Notification.requestPermission();
+          }
+        } catch {
+          // navegador que não suporta pedir permissão (ex.: iOS em alguns casos)
+        }
       }, 1500);
     }
     return () => {
