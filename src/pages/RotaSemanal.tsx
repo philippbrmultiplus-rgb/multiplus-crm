@@ -286,7 +286,7 @@ export default function RotaSemanal() {
       ) : (
         <>
           <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
-            <div className="flex gap-3 overflow-x-auto pb-2">
+            <div className="flex flex-col gap-3 pb-2 md:flex-row md:overflow-x-auto">
               {settings.workingDays.sort((a, b) => a - b).map((day) => (
                 <DayColumn
                   key={day}
@@ -418,7 +418,7 @@ function DayColumn({
   const overdue = last ? last.arrivalMin + last.visitMin > budget : false;
 
   return (
-    <div className="flex min-w-64 max-w-64 flex-col">
+    <div className="flex w-full min-w-0 flex-col md:w-64 md:min-w-64 md:max-w-64">
       <div className="mb-1 flex items-center justify-between">
         <div>
           <div className="text-sm font-semibold">{DAY_NAMES[day]}</div>

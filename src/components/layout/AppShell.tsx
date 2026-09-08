@@ -163,8 +163,8 @@ export function AppShell({ children }: { children: ReactNode }) {
             )}
           </div>
         </header>
-        <main className="h-[calc(100%-3.5rem)] overflow-y-auto p-4 md:p-6">
-          <div className="mx-auto max-w-7xl">{children}</div>
+        <main className="h-[calc(100%-3.5rem)] overflow-auto overscroll-contain p-3 md:p-6">
+          <div className="mx-auto w-full max-w-7xl min-w-0">{children}</div>
         </main>
       </SidebarInset>
     </SidebarProvider>

@@ -326,11 +326,11 @@ export default function Clientes() {
             <TableRow>
               <TableHead>Cliente</TableHead>
               <TableHead>Cidade</TableHead>
-              <TableHead>Segmento</TableHead>
+              <TableHead className="hidden lg:table-cell">Segmento</TableHead>
               <TableHead>Grupo</TableHead>
               <TableHead>Cadência</TableHead>
               <TableHead>Últ. troca / dias</TableHead>
-              <TableHead>Últ. visita</TableHead>
+              <TableHead className="hidden md:table-cell">Últ. visita</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Ações</TableHead>
             </TableRow>
@@ -352,7 +352,7 @@ export default function Clientes() {
                   </div>
                 </TableCell>
                 <TableCell className="whitespace-nowrap text-sm">{c.city}</TableCell>
-                <TableCell className="whitespace-nowrap">
+                <TableCell className="hidden whitespace-nowrap lg:table-cell">
                   {c.segment ? <Badge variant="outline">{c.segment}</Badge> : "—"}
                 </TableCell>
                 <TableCell>
@@ -381,7 +381,7 @@ export default function Clientes() {
                 <TableCell>
                   <ColetaCell c={c} onDate={(v) => updateClient(c.id, { lastCollectAt: v })} />
                 </TableCell>
-                <TableCell>
+                <TableCell className="hidden md:table-cell">
                   <VisitaBadge c={c} />
                 </TableCell>
                 <TableCell>
