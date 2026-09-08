@@ -611,8 +611,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
             if (prev.visits.some((v) => v.id === row.id)) return prev;
           const visit = visitFromRow(row);
           const nextRv = prev.routeVisits.map((rv) =>
-            rv.id === visit.routeVisitId && rv.status !== "concluida"
-              ? { ...rv, status: "concluida" as const }
+            rv.id === visit.routeVisitId && rv.status === "pendente"
+              ? {
+                  ...rv,
+                  status: visit.status === "nao_realizada" ? ("nao_realizada" as const) : ("concluida" as const),
+                }
               : rv,
           );
           const visitLocalDate = toLocalDateKey(row.visited_at ?? visit.visitedAt);
@@ -629,7 +632,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
                     ? "Visita realizada"
                     : visit.status === "nao_encontrado"
                       ? "Cliente não encontrado"
-                      : "Atendimento recusado";
+                      : visit.status === "nao_realizada"
+                        ? "Visita não realizada"
+                        : "Atendimento recusado";
                 toast(`${label}: ${client?.name ?? "cliente"}`, {
                   description: client ? `${client.city} · ${new Date(visit.visitedAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}` : undefined,
                 });
@@ -1404,6 +1409,37 @@ export function DataProvider({ children }: { children: ReactNode }) {
       const changed = routeVisits.find((rv) => rv.id === routeVisitId);
       // qualquer usuário logado: vendedor marca concluída/não realizada e o coordenador vê na hora
       if (changed && uidRef.current) upsertRv(changed);
+      if (!changed) return { ...prev, routeVisits };
+
+      // registra também uma "visita não realizada" para o coordenador ver em Visitas
+      const notDone = prev.visits.find((v) => v.routeVisitId === routeVisitId && v.status === "nao_realizada");
+      if (status === "nao_realizada" && !notDone) {
+        const nv: Visit = {
+          id: `v-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          routeVisitId,
+          clientId: changed.clientId,
+          visitedAt: new Date().toISOString(),
+          status: "nao_realizada",
+          resultComments: "",
+          nextActions: "",
+          gpsLat: null,
+          gpsLng: null,
+          gpsAccuracyM: null,
+          distanceFromClientM: null,
+          withinRadius: true,
+        };
+        if (uidRef.current) {
+          void supabase.from("visits").insert(visitToRow(nv));
+        }
+        return { ...prev, routeVisits, visits: [nv, ...prev.visits] };
+      }
+      if (status !== "nao_realizada" && notDone) {
+        // ao reabrir ou concluir de verdade, remove o registro de "não realizada"
+        if (uidRef.current) {
+          void supabase.from("visits").delete().eq("id", notDone.id);
+        }
+        return { ...prev, routeVisits, visits: prev.visits.filter((v) => v.id !== notDone.id) };
+      }
       return { ...prev, routeVisits };
     });
   }, [setAppState, upsertRv]);

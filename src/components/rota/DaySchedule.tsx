@@ -75,8 +75,14 @@ export function DaySchedule({
                 {s.client.lastVisitAt && <VisitaBadge c={s.client} />}
               </div>
               {rec && (
-                <p className="mt-1 flex items-center gap-1 text-xs text-primary">
-                  <CheckCircle2 className="h-3 w-3" /> Visita registrada em {new Date(rec.visitedAt).toLocaleDateString("pt-BR")}
+                <p
+                  className={`mt-1 flex items-center gap-1 text-xs ${
+                    rec.status === "nao_realizada" ? "text-muted-foreground" : "text-primary"
+                  }`}
+                >
+                  <CheckCircle2 className="h-3 w-3" />
+                  {rec.status === "nao_realizada" ? "Não realizada em" : "Visita registrada em"}{" "}
+                  {new Date(rec.visitedAt).toLocaleDateString("pt-BR")}
                 </p>
               )}
             </div>

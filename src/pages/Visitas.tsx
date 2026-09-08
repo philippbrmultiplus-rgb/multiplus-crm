@@ -30,6 +30,7 @@ const STATUS_LABEL: Record<Visit["status"], string> = {
   realizada: "Realizada",
   nao_encontrado: "Não encontrado",
   recusada: "Recusado",
+  nao_realizada: "Não realizada",
 };
 
 export default function Visitas() {
@@ -122,7 +123,9 @@ export default function Visitas() {
                           ? "bg-primary/10 text-primary"
                           : v.status === "nao_encontrado"
                             ? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
-                            : "bg-destructive/10 text-destructive"
+                            : v.status === "nao_realizada"
+                              ? "bg-slate-500/15 text-slate-600 dark:text-slate-300"
+                              : "bg-destructive/10 text-destructive"
                       }
                     >
                       {STATUS_LABEL[v.status]}

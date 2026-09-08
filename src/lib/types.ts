@@ -68,7 +68,7 @@ export interface RouteVisit {
   status: RouteVisitStatus;
 }
 
-export type VisitStatus = "realizada" | "nao_encontrado" | "recusada";
+export type VisitStatus = "realizada" | "nao_encontrado" | "recusada" | "nao_realizada";
 
 /** dados de uma "visita prospecção" registrada pelo vendedor (cliente novo + visita) */
 export interface ProspectVisitInput {

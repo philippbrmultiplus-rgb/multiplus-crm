@@ -155,7 +155,9 @@ export default function MinhaRota() {
                         ? "Visita realizada"
                         : recorded.status === "nao_encontrado"
                           ? "Não encontrado"
-                          : "Recusado"}
+                          : recorded.status === "nao_realizada"
+                            ? "Não realizada"
+                            : "Recusado"}
                       {recorded.gpsLat == null
                         ? " · sem confirmação de GPS"
                         : recorded.distanceFromClientM != null && ` · ${Math.round(recorded.distanceFromClientM)} m do endereço`}
