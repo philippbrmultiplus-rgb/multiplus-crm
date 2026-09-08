@@ -1,0 +1,1 @@
+DELETE FROM public.route_visits WHERE route_id = 'route-1788720688197-muxzt';

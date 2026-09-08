@@ -22,7 +22,6 @@ import {
   Clock,
   GripVertical,
   Plus,
-  RefreshCw,
   Rocket,
   Search,
   Trash2,
@@ -93,7 +92,6 @@ export default function RotaSemanal() {
   const {
     state,
     createEmptyWeekRoute,
-    updateWeekRoute,
     publishRoute,
     deleteRoute,
     moveRouteVisit,
@@ -152,23 +150,6 @@ export default function RotaSemanal() {
     toast.success("Rota da semana criada (vazia).", {
       description: "Adicione os clientes dia a dia em cada coluna. Se já havia algo gerado, foi apagado.",
     });
-  };
-
-  /** atualiza a rota existente preservando os clientes já gerados/adicionados */
-  const handleUpdate = () => {
-    const before = visits.length;
-    const result = updateWeekRoute(weekStart);
-    if (!result) {
-      toast.warning("Nenhuma rota para esta semana ainda — use “Gerar rota da semana”.");
-      return;
-    }
-    setWarnings(result.warnings);
-    const added = result.routeVisits.length - before;
-    toast.success(
-      added > 0
-        ? `Rota atualizada: ${added} cliente(s) novo(s) incluído(s). Os demais foram mantidos.`
-        : "Rota atualizada — nenhum cliente ativo novo para incluir.",
-    );
   };
 
   const mapPoints = useMemo(
@@ -258,11 +239,6 @@ export default function RotaSemanal() {
         <Button onClick={handleGenerate}>
           <Rocket className="mr-2 h-4 w-4" /> Gerar rota da semana
         </Button>
-        {route && (
-          <Button variant="outline" onClick={handleUpdate}>
-            <RefreshCw className="mr-2 h-4 w-4" /> Atualizar rota
-          </Button>
-        )}
         {route && (
           <>
             {route.status === "rascunho" ? (
