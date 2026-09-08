@@ -142,7 +142,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </SidebarMenu>
         </SidebarFooter>
       </Sidebar>
-      <SidebarInset>
+      <SidebarInset className="h-svh">
         <header className="flex h-14 items-center gap-2 border-b px-4">
           <SidebarTrigger />
           <Separator orientation="vertical" className="h-5" />
@@ -163,9 +163,9 @@ export function AppShell({ children }: { children: ReactNode }) {
             )}
           </div>
         </header>
-        <main className="h-[calc(100%-3.5rem)] overflow-auto overscroll-contain p-3 md:p-6">
+        <div className="min-h-0 flex-1 overflow-auto p-3 md:p-6">
           <div className="mx-auto w-full max-w-7xl min-w-0">{children}</div>
-        </main>
+        </div>
       </SidebarInset>
     </SidebarProvider>
   );
