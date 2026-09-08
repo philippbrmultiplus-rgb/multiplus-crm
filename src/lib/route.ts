@@ -61,6 +61,19 @@ export function weekMeta(weekStartIso: string) {
   return { weekIndex, monthIndex, monthWeek };
 }
 
+/** rota mais recente de uma semana (todas ou só de um status) — ordem única para todos os papéis */
+export function newestRoute(
+  routes: WeeklyRoute[],
+  weekStart: string,
+  status?: WeeklyRoute["status"],
+): WeeklyRoute | null {
+  return (
+    routes
+      .filter((r) => r.weekStart === weekStart && (status ? r.status === status : true))
+      .sort((a, b) => (a.generatedAt < b.generatedAt ? 1 : -1))[0] ?? null
+  );
+}
+
 /**
  * Gera a rota semanal respeitando 07h–17h (ida e volta à base no mesmo dia):
  * 1. Seleciona candidatos pela rotação de frequência.

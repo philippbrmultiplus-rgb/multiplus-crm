@@ -42,15 +42,16 @@ export default function Visitas() {
   const [viewing, setViewing] = useState<Visit | null>(null);
   const [toDelete, setToDelete] = useState<Visit | null>(null);
 
+  const clientOf = (id: string) => clients.find((c) => c.id === id);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const clientOf = (id: string) => clients.find((c) => c.id === id);
     return visits
       .filter((v) => (onlyAlerta ? v.withinRadius === false : true))
       .filter((v) => (onlyRealizadas ? v.status === "realizada" : true))
       .filter((v) => {
         if (!q) return true;
-        const c = clientOf(v.clientId);
+        const c = clients.find((x) => x.id === v.clientId);
         return `${c?.name ?? ""} ${c?.city ?? ""}`.toLowerCase().includes(q);
       });
   }, [visits, search, onlyAlerta, onlyRealizadas, clients]);

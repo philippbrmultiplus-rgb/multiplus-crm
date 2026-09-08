@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useData } from "@/lib/DataContext";
 import { addDays, mondayOf, todayKey } from "@/lib/geo";
+import { newestRoute } from "@/lib/route";
 
 export default function Dashboard() {
   const { state } = useData();
@@ -20,7 +21,7 @@ export default function Dashboard() {
 
   const activeClients = useMemo(() => clients.filter((c) => c.active), [clients]);
   const weekStart = mondayOf(todayKey());
-  const publishedRoute = routes.find((r) => r.weekStart === weekStart && r.status === "publicada");
+  const publishedRoute = newestRoute(routes, weekStart, "publicada");
   const plannedCount = useMemo(
     () => routeVisits.filter((rv) => rv.routeId === publishedRoute?.id).length,
     [routeVisits, publishedRoute],

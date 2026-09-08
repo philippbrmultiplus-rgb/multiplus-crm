@@ -63,7 +63,7 @@ import {
 } from "@/components/ui/select";
 import { useData } from "@/lib/DataContext";
 import { addDays, DAY_NAMES, formatDateBR, formatKm, mondayOf, timeToMinutes, todayKey } from "@/lib/geo";
-import { computeSchedule } from "@/lib/route";
+import { computeSchedule, newestRoute } from "@/lib/route";
 import { cadenceLabel, tierOfFreq } from "@/lib/cadence";
 import {
   COLETA_TEXT_TONE,
@@ -116,12 +116,8 @@ export default function RotaSemanal() {
 
   const route = useMemo<WeeklyRoute | null>(() => {
     if (selectedId) return routes.find((r) => r.id === selectedId) ?? null;
-    const weekRoutes = routes.filter((r) => r.weekStart === weekStart);
-    return (
-      weekRoutes.find((r) => r.status === "publicada") ??
-      [...weekRoutes].sort((a, b) => (a.generatedAt < b.generatedAt ? 1 : -1))[0] ??
-      null
-    );
+    // mesma regra para todos os papéis: publicada mais recente; senão o rascunho mais recente
+    return newestRoute(routes, weekStart, "publicada") ?? newestRoute(routes, weekStart);
   }, [routes, selectedId, weekStart]);
 
   const visits = useMemo(

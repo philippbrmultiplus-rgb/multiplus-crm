@@ -1,0 +1,1 @@
+UPDATE public.weekly_routes SET status = 'rascunho' WHERE id = 'route-1788881239242-ir112';
