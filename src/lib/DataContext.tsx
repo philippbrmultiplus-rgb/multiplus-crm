@@ -656,6 +656,30 @@ export function DataProvider({ children }: { children: ReactNode }) {
           });
         },
       )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "visits" },
+        (payload) => {
+          const row = payload.new as Record<string, any>;
+          if (!row?.id) return;
+          const updated = visitFromRow(row);
+          setAppState((prev) => ({
+            ...prev,
+            visits: prev.visits.some((v) => v.id === updated.id)
+              ? prev.visits.map((v) => (v.id === updated.id ? updated : v))
+              : [updated, ...prev.visits],
+          }));
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "visits" },
+        (payload) => {
+          const old = payload.old as Record<string, any>;
+          if (!old?.id) return;
+          setAppState((prev) => ({ ...prev, visits: prev.visits.filter((v) => v.id !== old.id) }));
+        },
+      )
       .subscribe();
 
     if ("Notification" in window && Notification.permission === "default" && roleRef.current === "coordenador") {

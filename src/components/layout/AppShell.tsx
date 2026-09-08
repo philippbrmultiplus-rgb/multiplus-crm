@@ -49,7 +49,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: "/hoje", label: "Minha rota de hoje", icon: CalendarDays, roles: ["vendedor"] },
   { to: "/minha-semana", label: "Minha rota da semana", icon: CalendarDays, roles: ["vendedor"] },
   { to: "/meu-mes", label: "Minha rota do mês", icon: CalendarRange, roles: ["vendedor"] },
-  { to: "/visitas", label: "Visitas", icon: MapPin, roles: ["coordenador", "vendedor"] },
+  { to: "/visitas", label: "Visitas", icon: MapPin, roles: ["coordenador"] },
   { to: "/backup", label: "Dados & backup", icon: Database, roles: ["coordenador"] },
 ];
 
