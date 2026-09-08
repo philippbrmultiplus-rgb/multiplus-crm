@@ -90,7 +90,15 @@ const DAY_COLORS: Record<number, string> = {
 };
 
 export default function RotaSemanal() {
-  const { state, generateRoute, updateWeekRoute, saveRoutePlan, publishRoute, deleteRoute, moveRouteVisit } = useData();
+  const {
+    state,
+    createEmptyWeekRoute,
+    updateWeekRoute,
+    publishRoute,
+    deleteRoute,
+    moveRouteVisit,
+    removeRouteVisit,
+  } = useData();
   const { routes, routeVisits, clients, settings } = state;
 
   const [weekStart, setWeekStart] = useState<string>(mondayOf(todayKey()));
@@ -98,6 +106,7 @@ export default function RotaSemanal() {
   const [warnings, setWarnings] = useState<string[]>([]);
   const [addDay, setAddDay] = useState<number | null>(null);
   const [finalize, setFinalize] = useState<ScheduledVisit | null>(null);
+  const [removeTarget, setRemoveTarget] = useState<RouteVisit | null>(null);
   const [askPublishEmpty, setAskPublishEmpty] = useState(false);
   const [, setNow] = useState(0);
   useEffect(() => {
@@ -141,16 +150,12 @@ export default function RotaSemanal() {
   };
 
   const handleGenerate = () => {
-    const result = generateRoute(weekStart);
-    saveRoutePlan(result.route, result.routeVisits);
+    const result = createEmptyWeekRoute(weekStart);
     setSelectedId(result.route.id);
-    setWarnings(result.warnings);
-    if (result.routeVisits.length === 0) {
-      toast.warning("A rota ficou vazia.", {
-        description:
-          "Nenhum cliente entrou na semana. Se houver aviso de clientes sem coordenadas, execute “Geocodificar” na tela Clientes e gere novamente.",
-      });
-    }
+    setWarnings([]);
+    toast.success("Rota da semana criada (vazia).", {
+      description: "Adicione os clientes dia a dia em cada coluna. Se já havia algo gerado, foi apagado.",
+    });
   };
 
   /** atualiza a rota existente preservando os clientes já gerados/adicionados */
@@ -320,6 +325,7 @@ export default function RotaSemanal() {
                   settings={settings}
                   onAdd={() => setAddDay(day)}
                   onFinalize={(s) => setFinalize(s)}
+                  onRemove={(rv) => setRemoveTarget(rv)}
                 />
               ))}
             </div>
@@ -359,9 +365,9 @@ export default function RotaSemanal() {
           <AlertDialogHeader>
             <AlertDialogTitle>Publicar rota sem visitas?</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta rota está vazia — provavelmente porque os clientes ainda não têm coordenadas no mapa
-              (clique em <b>Geocodificar</b> na tela Clientes) ou nenhum cliente caiu nesta semana pela
-              cadência. Se publicar, o vendedor verá uma semana sem visitas.
+              Esta rota está vazia — provavelmente porque nenhum cliente foi adicionado nos dias ainda
+              (ou os clientes não têm coordenadas no mapa, impedindo o cálculo). Se publicar, o vendedor
+              verá uma semana sem visitas.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -373,6 +379,30 @@ export default function RotaSemanal() {
               }}
             >
               Publicar mesmo assim
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!removeTarget} onOpenChange={(o) => !o && setRemoveTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover cliente da rota?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {removeTarget
+                ? `Remover ${clients.find((c) => c.id === removeTarget.clientId)?.name ?? "este cliente"} da ${DAY_NAMES[removeTarget.day]}? Ele continua cadastrado em Clientes e pode ser adicionado de novo depois.`
+                : ""}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (removeTarget) removeRouteVisit(removeTarget.id);
+                setRemoveTarget(null);
+              }}
+            >
+              Remover
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -397,6 +427,7 @@ function DayColumn({
   settings,
   onAdd,
   onFinalize,
+  onRemove,
 }: {
   day: number;
   date: string;
@@ -405,6 +436,7 @@ function DayColumn({
   settings: Settings;
   onAdd: () => void;
   onFinalize: (s: ScheduledVisit) => void;
+  onRemove: (rv: RouteVisit) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: `day-${day}` });
   const scheduled = computeSchedule(visits, clients, settings, day);
@@ -436,7 +468,12 @@ function DayColumn({
       >
         <SortableContext items={visits.map((v) => v.id)} strategy={verticalListSortingStrategy}>
           {scheduled.map((s) => (
-            <RouteCard key={s.routeVisit.id} scheduled={s} onFinalize={onFinalize} />
+            <RouteCard
+              key={s.routeVisit.id}
+              scheduled={s}
+              onFinalize={onFinalize}
+              onRemove={() => onRemove(s.routeVisit)}
+            />
           ))}
         </SortableContext>
         {scheduled.length === 0 && (
@@ -450,7 +487,15 @@ function DayColumn({
   );
 }
 
-function RouteCard({ scheduled, onFinalize }: { scheduled: ScheduledVisit; onFinalize: (s: ScheduledVisit) => void }) {
+function RouteCard({
+  scheduled,
+  onFinalize,
+  onRemove,
+}: {
+  scheduled: ScheduledVisit;
+  onFinalize: (s: ScheduledVisit) => void;
+  onRemove: () => void;
+}) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: scheduled.routeVisit.id,
   });
@@ -512,6 +557,17 @@ function RouteCard({ scheduled, onFinalize }: { scheduled: ScheduledVisit; onFin
           <CheckCircle2 className="h-4 w-4" />
         </button>
       )}
+      <button
+        title="Remover este cliente da rota"
+        className="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation();
+          onRemove();
+        }}
+      >
+        <Trash2 className="h-3.5 w-3.5" />
+      </button>
     </div>
   );
 }

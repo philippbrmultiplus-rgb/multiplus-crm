@@ -319,6 +319,7 @@ interface DataContextValue {
   recomputeTiers: () => void;
   updateSettings: (patch: Partial<Settings>) => void;
   generateRoute: (weekStart: string) => RoutePlanResult;
+  createEmptyWeekRoute: (weekStart: string) => RoutePlanResult;
   updateWeekRoute: (weekStart: string) => RoutePlanResult | null;
   saveRoutePlan: (route: WeeklyRoute, routeVisits: RouteVisit[]) => void;
   updateRouteVisit: (id: string, patch: Partial<RouteVisit>) => void;
@@ -763,6 +764,48 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const generateRoute = useCallback(
     (weekStart: string) => generateWeekRoute(state.clients, state.settings, weekStart, state.routes),
     [state.clients, state.settings, state.routes],
+  );
+
+  /** cria uma rota da semana vazia (sem clientes) para o coordenador montar manualmente */
+  const createEmptyWeekRoute = useCallback(
+    (weekStart: string): RoutePlanResult => {
+      const routeId = `route-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+      const route: WeeklyRoute = {
+        id: routeId,
+        weekStart,
+        status: "rascunho",
+        generatedAt: new Date().toISOString(),
+      };
+      const oldDrafts = state.routes.filter((r) => r.weekStart === weekStart && r.status === "rascunho");
+      setAppState((prev) => {
+        const oldIds = new Set(
+          prev.routes.filter((r) => r.weekStart === weekStart && r.status === "rascunho").map((r) => r.id),
+        );
+        const others = prev.routes.filter(
+          (r) => r.weekStart !== weekStart || r.status !== "rascunho",
+        );
+        return {
+          ...prev,
+          routes: [route, ...others],
+          routeVisits: prev.routeVisits.filter((rv) => !oldIds.has(rv.routeId)),
+        };
+      });
+      if (canWriteClientData()) {
+        void (async () => {
+          for (const o of oldDrafts) {
+            await supabase.from("route_visits").delete().eq("route_id", o.id);
+            await supabase.from("weekly_routes").delete().eq("id", o.id);
+          }
+          const { error } = await supabase.from("weekly_routes").upsert(routeToRow(route));
+          if (error) {
+            console.error("criar rota vazia:", error.message);
+            toast.error("Não foi possível criar a rota da semana", { description: error.message });
+          }
+        })();
+      }
+      return { route, routeVisits: [], warnings: [], daySummaries: [] };
+    },
+    [state.routes, setAppState],
   );
 
   /**
@@ -1222,6 +1265,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     recomputeTiers,
     updateSettings,
     generateRoute,
+    createEmptyWeekRoute,
     updateWeekRoute,
     saveRoutePlan,
     updateRouteVisit,
