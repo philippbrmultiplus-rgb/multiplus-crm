@@ -653,6 +653,97 @@ export function DataProvider({ children }: { children: ReactNode }) {
     };
   }, [user, setAppState]);
 
+  /* ---------- rotas e visitas de rota em tempo real (mudanças do coordenador) ---------- */
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel("routes-realtime")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "weekly_routes" },
+        (payload) => {
+          const row = payload.new as Record<string, any>;
+          if (!row?.id) return;
+          const r = routeFromRow(row);
+          setAppState((prev) =>
+            prev.routes.some((x) => x.id === r.id)
+              ? prev
+              : { ...prev, routes: [...prev.routes, r] },
+          );
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "weekly_routes" },
+        (payload) => {
+          const row = payload.new as Record<string, any>;
+          if (!row?.id) return;
+          const r = routeFromRow(row);
+          setAppState((prev) => ({
+            ...prev,
+            routes: prev.routes.some((x) => x.id === r.id)
+              ? prev.routes.map((x) => (x.id === r.id ? r : x))
+              : [...prev.routes, r],
+          }));
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "weekly_routes" },
+        (payload) => {
+          const old = payload.old as Record<string, any>;
+          if (!old?.id) return;
+          setAppState((prev) => ({ ...prev, routes: prev.routes.filter((x) => x.id !== old.id) }));
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "route_visits" },
+        (payload) => {
+          const row = payload.new as Record<string, any>;
+          if (!row?.id) return;
+          const rv = rvFromRow(row);
+          setAppState((prev) =>
+            prev.routeVisits.some((x) => x.id === rv.id)
+              ? prev
+              : { ...prev, routeVisits: [...prev.routeVisits, rv] },
+          );
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "route_visits" },
+        (payload) => {
+          const row = payload.new as Record<string, any>;
+          if (!row?.id) return;
+          const rv = rvFromRow(row);
+          setAppState((prev) => ({
+            ...prev,
+            routeVisits: prev.routeVisits.some((x) => x.id === rv.id)
+              ? prev.routeVisits.map((x) => (x.id === rv.id ? rv : x))
+              : [...prev.routeVisits, rv],
+          }));
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "route_visits" },
+        (payload) => {
+          const old = payload.old as Record<string, any>;
+          if (!old?.id) return;
+          setAppState((prev) => ({
+            ...prev,
+            routeVisits: prev.routeVisits.filter((x) => x.id !== old.id),
+          }));
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [user, setAppState]);
+
   /* ---------- clientes em tempo real (geocodificação/edições do coordenador) ---------- */
   useEffect(() => {
     if (!user) return;
