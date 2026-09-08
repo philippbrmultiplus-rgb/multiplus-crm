@@ -257,6 +257,154 @@ export function generateWeekRoute(
   return { route, routeVisits, warnings, daySummaries };
 }
 
+/**
+ * Atualiza uma rota existente SEM apagar o que já está nela: mantém todos os
+ * clientes já gerados/ajustados (status, dia e ordem preservados) e apenas
+ * acrescenta os clientes ativos que ainda não estão na rota, distribuindo-os
+ * nos dias úteis com folga.
+ */
+export function mergeWeekRoute(
+  existing: WeeklyRoute,
+  routeVisits: RouteVisit[],
+  clients: Client[],
+  settings: Settings,
+): RoutePlanResult {
+  const warnings: string[] = [];
+  const days = [...settings.workingDays].sort((a, b) => a - b);
+  const startMin = timeToMinutes(settings.workStart);
+  const endMin = timeToMinutes(settings.workEnd);
+  const budgetMin = endMin - startMin;
+
+  const inRoute = new Set(routeVisits.map((rv) => rv.clientId));
+
+  interface DayUsage {
+    lat: number;
+    lng: number;
+    count: number;
+    used: number;
+  }
+  const lastByDay = new Map<number, DayUsage>();
+  for (const d of days) {
+    const list = routeVisits
+      .filter((rv) => rv.day === d)
+      .sort((a, b) => a.position - b.position);
+    const last = list[list.length - 1];
+    const client = last ? clients.find((c) => c.id === last.clientId) : null;
+    lastByDay.set(d, {
+      lat: client?.lat ?? settings.homeLat,
+      lng: client?.lng ?? settings.homeLng,
+      count: list.length,
+      used: list.reduce((acc, rv) => acc + (rv.estTravelMin ?? 0) + (rv.estVisitMin ?? settings.visitTimeMin), 0),
+    });
+  }
+
+  const newCandidates: Candidate[] = [];
+  const noCoord: string[] = [];
+  const farClients: string[] = [];
+  const oneWayBudgetMin = budgetMin / 2;
+  const maxDayTripKm = (oneWayBudgetMin / 60) * settings.travelSpeedKmh / 1.3;
+  for (const c of clients) {
+    if (inRoute.has(c.id)) continue;
+    if (!c.active) continue;
+    if (c.lat == null || c.lng == null) {
+      noCoord.push(c.name);
+      continue;
+    }
+    const dist = roadKm(settings.homeLat, settings.homeLng, c.lat, c.lng);
+    if (dist > maxDayTripKm) {
+      farClients.push(c.name);
+      continue;
+    }
+    newCandidates.push({ client: c, distHomeKm: dist });
+  }
+  if (noCoord.length > 0) {
+    warnings.push(
+      `${noCoord.length} cliente(s) novo(s) sem coordenadas ficaram de fora: ${noCoord.slice(0, 4).join(", ")}${noCoord.length > 4 ? "…" : ""}.`,
+    );
+  }
+  if (farClients.length > 0) {
+    warnings.push(
+      `${farClients.length} cliente(s) novo(s) muito distantes para um dia único (ex.: ${farClients.slice(0, 4).join(", ")}${farClients.length > 4 ? "…" : ""}).`,
+    );
+  }
+  if (newCandidates.length === 0) {
+    warnings.push("Rota já atualizada — nenhum cliente ativo novo para incluir.");
+  }
+
+  newCandidates.sort((a, b) => b.distHomeKm - a.distHomeKm);
+  const travel = (a: { lat: number; lng: number }, b: { lat: number; lng: number }) =>
+    travelMinutes(roadKm(a.lat, a.lng, b.lat, b.lng), settings.travelSpeedKmh);
+  const home = { lat: settings.homeLat, lng: settings.homeLng };
+
+  const added: RouteVisit[] = [];
+  for (const cand of newCandidates) {
+    const c = cand.client;
+    const pt = { lat: c.lat!, lng: c.lng! };
+
+    let chosen: number | null = null;
+    let bestIncr = Infinity;
+    let bestRemaining = -Infinity;
+    for (const d of days) {
+      const st = lastByDay.get(d)!;
+      const retPrev = travel({ lat: st.lat, lng: st.lng }, home);
+      const incr = travel({ lat: st.lat, lng: st.lng }, pt);
+      const retNew = travel(pt, home);
+      const newCost = st.used - retPrev + incr + settings.visitTimeMin + retNew;
+      if (newCost <= budgetMin) {
+        if (incr < bestIncr || (incr === bestIncr && budgetMin - newCost > bestRemaining)) {
+          bestIncr = incr;
+          bestRemaining = budgetMin - newCost;
+          chosen = d;
+        }
+      }
+    }
+    if (chosen === null) {
+      let maxRem = -Infinity;
+      for (const d of days) {
+        const rem = budgetMin - lastByDay.get(d)!.used;
+        if (rem > maxRem) {
+          maxRem = rem;
+          chosen = d;
+        }
+      }
+    }
+
+    const st = lastByDay.get(chosen!)!;
+    const retPrev = travel({ lat: st.lat, lng: st.lng }, home);
+    const incr = travel({ lat: st.lat, lng: st.lng }, pt);
+    const retNew = travel(pt, home);
+    st.used = st.used - retPrev + incr + settings.visitTimeMin + retNew;
+    st.lat = c.lat!;
+    st.lng = c.lng!;
+    added.push({
+      id: `rv-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      routeId: existing.id,
+      clientId: c.id,
+      day: chosen!,
+      position: st.count,
+      estTravelMin: incr,
+      estVisitMin: settings.visitTimeMin,
+      status: "pendente",
+    });
+    st.count += 1;
+  }
+
+  const routeVisitsAll = [...routeVisits, ...added];
+  const daySummaries: DaySummary[] = days
+    .map((d) => {
+      const count = routeVisitsAll.filter((rv) => rv.day === d).length;
+      return { day: d, count, travelKm: 0, totalMin: 0, endClock: "" };
+    })
+    .filter((s) => s.count > 0);
+
+  return {
+    route: { ...existing, generatedAt: new Date().toISOString() },
+    routeVisits: routeVisitsAll,
+    warnings,
+    daySummaries,
+  };
+}
+
 /** Calcula horários de chegada/saída de cada visita de um dia, em ordem. */
 export function computeSchedule(
   routeVisits: RouteVisit[],

@@ -22,7 +22,7 @@ import type {
   Visit,
   WeeklyRoute,
 } from "./types";
-import { generateWeekRoute } from "./route";
+import { generateWeekRoute, mergeWeekRoute } from "./route";
 import { applySegmentData } from "./segmentMerge";
 import { applyCadenceData, tierOfFreq } from "./cadence";
 import { toLocalDateKey } from "./geo";
@@ -319,6 +319,7 @@ interface DataContextValue {
   recomputeTiers: () => void;
   updateSettings: (patch: Partial<Settings>) => void;
   generateRoute: (weekStart: string) => RoutePlanResult;
+  updateWeekRoute: (weekStart: string) => RoutePlanResult | null;
   saveRoutePlan: (route: WeeklyRoute, routeVisits: RouteVisit[]) => void;
   updateRouteVisit: (id: string, patch: Partial<RouteVisit>) => void;
   moveRouteVisit: (id: string, day: number, position: number) => void;
@@ -764,6 +765,61 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [state.clients, state.settings, state.routes],
   );
 
+  /**
+   * Atualiza a rota existente da semana sem apagar os clientes já gerados:
+   * preserva status, dia e ordem atuais e só inclui os clientes ativos novos.
+   */
+  const updateWeekRoute = useCallback(
+    (weekStart: string): RoutePlanResult | null => {
+      const existing = [...state.routes]
+        .filter((r) => r.weekStart === weekStart)
+        .sort((a, b) => (a.generatedAt < b.generatedAt ? 1 : -1))[0];
+      if (!existing) return null;
+      const existingVisits = state.routeVisits.filter((rv) => rv.routeId === existing.id);
+      const result = mergeWeekRoute(existing, existingVisits, state.clients, state.settings);
+      if (!canWriteClientData()) {
+        toast.error("Sem permissão para atualizar a rota. Entre como coordenador.");
+        return result;
+      }
+      const nowIso = new Date().toISOString();
+      setAppState((prev) => ({
+        ...prev,
+        routes: prev.routes.map((r) => (r.id === existing.id ? { ...r, generatedAt: nowIso } : r)),
+        routeVisits: [
+          ...prev.routeVisits.filter((rv) => rv.routeId !== existing.id),
+          ...result.routeVisits,
+        ],
+      }));
+      void (async () => {
+        const { error: rErr } = await supabase
+          .from("weekly_routes")
+          .upsert(routeToRow({ ...existing, generatedAt: nowIso }));
+        if (rErr) {
+          console.error("atualizar rota:", rErr.message);
+          toast.error("Não foi possível atualizar a rota", { description: rErr.message });
+          return;
+        }
+        const { error: dErr } = await supabase.from("route_visits").delete().eq("route_id", existing.id);
+        if (dErr) {
+          console.error("limpar visitas ao atualizar:", dErr.message);
+          toast.error("Não foi possível atualizar as visitas da rota", { description: dErr.message });
+          return;
+        }
+        if (result.routeVisits.length > 0) {
+          const { error: iErr } = await supabase
+            .from("route_visits")
+            .insert(result.routeVisits.map((rv) => rvToRow(rv)));
+          if (iErr) {
+            console.error("salvar visitas ao atualizar:", iErr.message);
+            toast.error("Não foi possível salvar as visitas da rota", { description: iErr.message });
+          }
+        }
+      })();
+      return result;
+    },
+    [state.routes, state.routeVisits, state.clients, state.settings, setAppState],
+  );
+
   const saveRoutePlan = useCallback((route: WeeklyRoute, routeVisits: RouteVisit[]) => {
     setAppState((prev) => {
       const others = prev.routes.filter((r) => r.weekStart !== route.weekStart || r.status !== "rascunho");
@@ -1166,6 +1222,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     recomputeTiers,
     updateSettings,
     generateRoute,
+    updateWeekRoute,
     saveRoutePlan,
     updateRouteVisit,
     moveRouteVisit,

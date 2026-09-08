@@ -22,6 +22,7 @@ import {
   Clock,
   GripVertical,
   Plus,
+  RefreshCw,
   Rocket,
   Search,
   Trash2,
@@ -89,7 +90,7 @@ const DAY_COLORS: Record<number, string> = {
 };
 
 export default function RotaSemanal() {
-  const { state, generateRoute, saveRoutePlan, publishRoute, deleteRoute, moveRouteVisit } = useData();
+  const { state, generateRoute, updateWeekRoute, saveRoutePlan, publishRoute, deleteRoute, moveRouteVisit } = useData();
   const { routes, routeVisits, clients, settings } = state;
 
   const [weekStart, setWeekStart] = useState<string>(mondayOf(todayKey()));
@@ -150,6 +151,23 @@ export default function RotaSemanal() {
           "Nenhum cliente entrou na semana. Se houver aviso de clientes sem coordenadas, execute “Geocodificar” na tela Clientes e gere novamente.",
       });
     }
+  };
+
+  /** atualiza a rota existente preservando os clientes já gerados/adicionados */
+  const handleUpdate = () => {
+    const before = visits.length;
+    const result = updateWeekRoute(weekStart);
+    if (!result) {
+      toast.warning("Nenhuma rota para esta semana ainda — use “Gerar rota da semana”.");
+      return;
+    }
+    setWarnings(result.warnings);
+    const added = result.routeVisits.length - before;
+    toast.success(
+      added > 0
+        ? `Rota atualizada: ${added} cliente(s) novo(s) incluído(s). Os demais foram mantidos.`
+        : "Rota atualizada — nenhum cliente ativo novo para incluir.",
+    );
   };
 
   const mapPoints = useMemo(
@@ -239,6 +257,11 @@ export default function RotaSemanal() {
         <Button onClick={handleGenerate}>
           <Rocket className="mr-2 h-4 w-4" /> Gerar rota da semana
         </Button>
+        {route && (
+          <Button variant="outline" onClick={handleUpdate}>
+            <RefreshCw className="mr-2 h-4 w-4" /> Atualizar rota
+          </Button>
+        )}
         {route && (
           <>
             {route.status === "rascunho" ? (
