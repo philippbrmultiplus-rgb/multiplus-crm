@@ -579,6 +579,8 @@ function EditClientDialog({
   const [name, setName] = useState(client?.name ?? "");
   const [address, setAddress] = useState(client?.address ?? "");
   const [city, setCity] = useState(client?.city ?? "");
+  const [segment, setSegment] = useState(client?.segment ?? "");
+  const [contato, setContato] = useState(client?.contato ?? "");
   const [active, setActive] = useState(client?.active ?? true);
   const [isProsp, setIsProsp] = useState(client?.isProspecao ?? false);
   const [lat, setLat] = useState<number | null>(client?.lat ?? null);
@@ -605,7 +607,15 @@ function EditClientDialog({
           </div>
           <div className="space-y-2">
             <Label>Cidade</Label>
-            <Input value={city} onChange={(e) => setCity(e.target.value)} />
+            <Input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Porto Alegre" />
+          </div>
+          <div className="space-y-2">
+            <Label>Segmento</Label>
+            <Input value={segment} onChange={(e) => setSegment(e.target.value)} placeholder="Construção civil…" />
+          </div>
+          <div className="space-y-2">
+            <Label>Contato</Label>
+            <Input value={contato} onChange={(e) => setContato(e.target.value)} placeholder="(51) 9 9999-9999" />
           </div>
           <div className="space-y-2 sm:col-span-2">
             <Label>Endereço</Label>
@@ -649,6 +659,8 @@ function EditClientDialog({
                 name,
                 address,
                 city,
+                segment,
+                contato: contato.trim() || null,
                 active,
                 isProspecao: isProsp,
                 lat,
