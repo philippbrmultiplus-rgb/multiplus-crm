@@ -175,6 +175,15 @@ export default function Clientes() {
       .slice(0, 300);
   }, [clients, search, city, tier, segment, freqF, situ, sortBy, onlyActive]);
 
+  const segmentOptions = useMemo(
+    () =>
+      segments
+        .map(([s]) => s)
+        .filter((s) => s !== "(sem segmento)")
+        .sort((a, b) => a.localeCompare(b, "pt-BR")),
+    [segments],
+  );
+
   const anyFilter =
     search.trim() !== "" ||
     city !== "all" ||
@@ -548,7 +557,9 @@ export default function Clientes() {
       )}
 
       <EditClientDialog
+        key={editing?.id ?? "none"}
         client={editing}
+        segmentOptions={segmentOptions}
         onClose={() => setEditing(null)}
         onSave={(patch) => {
           if (editing) updateClient(editing.id, patch);
@@ -586,10 +597,12 @@ export default function Clientes() {
 
 function EditClientDialog({
   client,
+  segmentOptions,
   onClose,
   onSave,
 }: {
   client: Client | null;
+  segmentOptions: string[];
   onClose: () => void;
   onSave: (patch: Partial<Client>) => void;
 }) {
@@ -602,6 +615,13 @@ function EditClientDialog({
   const [isProsp, setIsProsp] = useState(client?.isProspecao ?? false);
   const [lat, setLat] = useState<number | null>(client?.lat ?? null);
   const [lng, setLng] = useState<number | null>(client?.lng ?? null);
+
+  const SEG_NONE = "__none__";
+  const segOptions = useMemo(
+    () =>
+      [...new Set([...(segment ? [segment] : []), ...segmentOptions])].filter(Boolean).sort((a, b) => a.localeCompare(b, "pt-BR")),
+    [segment, segmentOptions],
+  );
 
   if (!client) return null;
 
@@ -628,7 +648,19 @@ function EditClientDialog({
           </div>
           <div className="space-y-2">
             <Label>Segmento</Label>
-            <Input value={segment} onChange={(e) => setSegment(e.target.value)} placeholder="Construção civil…" />
+            <Select value={segment || SEG_NONE} onValueChange={(v) => setSegment(v === SEG_NONE ? "" : v)}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Selecionar segmento" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={SEG_NONE}>—</SelectItem>
+                {segOptions.map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {s}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-2">
             <Label>Contato</Label>
