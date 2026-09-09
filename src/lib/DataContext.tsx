@@ -1437,48 +1437,58 @@ export function DataProvider({ children }: { children: ReactNode }) {
     });
   }, [setAppState]);
 
-  const markRouteVisitStatus = useCallback((routeVisitId: string, status: RouteVisit["status"]) => {
-    setAppState((prev) => {
-      const routeVisits = prev.routeVisits.map((rv) =>
-        rv.id === routeVisitId ? { ...rv, status } : rv,
-      );
-      const changed = routeVisits.find((rv) => rv.id === routeVisitId);
-      // qualquer usuário logado: vendedor marca concluída/não realizada e o coordenador vê na hora
-      if (changed && uidRef.current) upsertRv(changed);
-      if (!changed) return { ...prev, routeVisits };
+  const markRouteVisitStatus = useCallback(
+    (routeVisitId: string, status: RouteVisit["status"], reason?: string) => {
+      setAppState((prev) => {
+        const routeVisits = prev.routeVisits.map((rv) =>
+          rv.id === routeVisitId ? { ...rv, status } : rv,
+        );
+        const changed = routeVisits.find((rv) => rv.id === routeVisitId);
+        // qualquer usuário logado: vendedor marca concluída/não realizada e o coordenador vê na hora
+        if (changed && uidRef.current) upsertRv(changed);
+        if (!changed) return { ...prev, routeVisits };
 
-      // registra também uma "visita não realizada" para o coordenador ver em Visitas
-      const notDone = prev.visits.find((v) => v.routeVisitId === routeVisitId && v.status === "nao_realizada");
-      if (status === "nao_realizada" && !notDone) {
-        const nv: Visit = {
-          id: `v-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-          routeVisitId,
-          clientId: changed.clientId,
-          visitedAt: new Date().toISOString(),
-          status: "nao_realizada",
-          resultComments: "",
-          nextActions: "",
-          gpsLat: null,
-          gpsLng: null,
-          gpsAccuracyM: null,
-          distanceFromClientM: null,
-          withinRadius: true,
-        };
-        if (uidRef.current) {
-          void supabase.from("visits").insert(visitToRow(nv));
+        // registra também uma "visita não realizada" (com justificativa) para o coordenador ver em Visitas
+        const notDone = prev.visits.find(
+          (v) => v.routeVisitId === routeVisitId && v.status === "nao_realizada",
+        );
+        if (status === "nao_realizada" && !notDone) {
+          const nv: Visit = {
+            id: `v-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+            routeVisitId,
+            clientId: changed.clientId,
+            visitedAt: new Date().toISOString(),
+            status: "nao_realizada",
+            resultComments: reason ?? "",
+            nextActions: "",
+            gpsLat: null,
+            gpsLng: null,
+            gpsAccuracyM: null,
+            distanceFromClientM: null,
+            withinRadius: true,
+          };
+          if (uidRef.current) {
+            void supabase
+              .from("visits")
+              .insert(visitToRow(nv))
+              .then(({ error }) => {
+                if (error) console.warn("registrar visita não realizada:", error.message);
+              });
+          }
+          return { ...prev, routeVisits, visits: [nv, ...prev.visits] };
         }
-        return { ...prev, routeVisits, visits: [nv, ...prev.visits] };
-      }
-      if (status !== "nao_realizada" && notDone) {
-        // ao reabrir ou concluir de verdade, remove o registro de "não realizada"
-        if (uidRef.current) {
-          void supabase.from("visits").delete().eq("id", notDone.id);
+        if (status !== "nao_realizada" && notDone) {
+          // ao reabrir ou concluir de verdade, remove o registro de "não realizada"
+          if (uidRef.current) {
+            void supabase.from("visits").delete().eq("id", notDone.id);
+          }
+          return { ...prev, routeVisits, visits: prev.visits.filter((v) => v.id !== notDone.id) };
         }
-        return { ...prev, routeVisits, visits: prev.visits.filter((v) => v.id !== notDone.id) };
-      }
-      return { ...prev, routeVisits };
-    });
-  }, [setAppState, upsertRv]);
+        return { ...prev, routeVisits };
+      });
+    },
+    [setAppState, upsertRv],
+  );
 
   /* ---------- backup / utilitários ---------- */
 

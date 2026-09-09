@@ -6,6 +6,7 @@ import { useData } from "@/lib/DataContext";
 import { DaySchedule } from "@/components/rota/DaySchedule";
 import { VisitForm } from "@/components/visitas/VisitForm";
 import { ProspectVisitDialog } from "@/components/visitas/ProspectVisitDialog";
+import { NotDoneDialog } from "@/components/visitas/NotDoneDialog";
 import {
   addDays,
   DAY_NAMES,
@@ -22,6 +23,7 @@ export default function MinhaRotaSemana() {
   const [weekStart, setWeekStart] = useState<string>(mondayOf(todayIso));
   const [formClient, setFormClient] = useState<{ client: Client; routeVisitId: string } | null>(null);
   const [prospectDay, setProspectDay] = useState<number | null>(null);
+  const [notDone, setNotDone] = useState<{ routeVisitId: string; clientName: string } | null>(null);
 
   const route = useMemo(() => {
     const week = routes.filter((r) => r.weekStart === weekStart && r.status === "publicada");
@@ -51,7 +53,13 @@ export default function MinhaRotaSemana() {
 
   const toggleNotDone = (rvId: string) => {
     const rv = routeVisits.find((x) => x.id === rvId);
-    markRouteVisitStatus(rvId, rv?.status === "nao_realizada" ? "pendente" : "nao_realizada");
+    if (!rv) return;
+    if (rv.status === "nao_realizada") {
+      markRouteVisitStatus(rvId, "pendente");
+    } else {
+      const client = clients.find((c) => c.id === rv.clientId);
+      setNotDone({ routeVisitId: rvId, clientName: client?.name ?? "Cliente" });
+    }
   };
 
   const isCurrentWeek = weekStart === mondayOf(todayIso);
@@ -160,6 +168,15 @@ export default function MinhaRotaSemana() {
           day={prospectDay}
           routeId={route.id}
           onClose={() => setProspectDay(null)}
+        />
+      )}
+
+      {notDone && (
+        <NotDoneDialog
+          open
+          clientName={notDone.clientName}
+          onClose={() => setNotDone(null)}
+          onConfirm={(reason) => markRouteVisitStatus(notDone.routeVisitId, "nao_realizada", reason)}
         />
       )}
     </div>

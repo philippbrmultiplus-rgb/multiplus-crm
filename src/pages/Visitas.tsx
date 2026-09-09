@@ -139,7 +139,9 @@ export default function Visitas() {
                   </p>
                   <div className="mt-2 grid gap-2 text-sm sm:grid-cols-2">
                     <div>
-                      <div className="text-xs font-medium text-muted-foreground">O que foi feito</div>
+                      <div className="text-xs font-medium text-muted-foreground">
+                        {v.status === "nao_realizada" ? "Justificativa" : "O que foi feito"}
+                      </div>
                       <p className="line-clamp-2">{v.resultComments || "—"}</p>
                     </div>
                     <div>

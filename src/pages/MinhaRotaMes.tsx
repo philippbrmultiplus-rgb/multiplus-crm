@@ -12,6 +12,7 @@ import { useData } from "@/lib/DataContext";
 import { DaySchedule } from "@/components/rota/DaySchedule";
 import { rotaStatusDot } from "@/components/clients/clientBits";
 import { VisitForm } from "@/components/visitas/VisitForm";
+import { NotDoneDialog } from "@/components/visitas/NotDoneDialog";
 import { DAY_NAMES, mondayOf, todayKey } from "@/lib/geo";import type { Client, RouteVisit, Visit } from "@/lib/types";
 
 const MONTHS = [
@@ -34,6 +35,7 @@ export default function MinhaRotaMes() {
   const [ym, setYm] = useState({ y: now.getFullYear(), m: now.getMonth() });
   const [openDate, setOpenDate] = useState<string | null>(null);
   const [formClient, setFormClient] = useState<{ client: Client; routeVisitId: string } | null>(null);
+  const [notDone, setNotDone] = useState<{ routeVisitId: string; clientName: string } | null>(null);
 
   const gridDates = useMemo(() => {
     const first = new Date(ym.y, ym.m, 1);
@@ -90,7 +92,13 @@ export default function MinhaRotaMes() {
 
   const toggleNotDone = (rvId: string) => {
     const rv = routeVisits.find((x) => x.id === rvId);
-    markRouteVisitStatus(rvId, rv?.status === "nao_realizada" ? "pendente" : "nao_realizada");
+    if (!rv) return;
+    if (rv.status === "nao_realizada") {
+      markRouteVisitStatus(rvId, "pendente");
+    } else {
+      const client = clients.find((c) => c.id === rv.clientId);
+      setNotDone({ routeVisitId: rvId, clientName: client?.name ?? "Cliente" });
+    }
   };
 
   const shiftMonth = (delta: number) => {
@@ -235,6 +243,15 @@ export default function MinhaRotaMes() {
           client={formClient.client}
           routeVisitId={formClient.routeVisitId}
           onClose={() => setFormClient(null)}
+        />
+      )}
+
+      {notDone && (
+        <NotDoneDialog
+          open
+          clientName={notDone.clientName}
+          onClose={() => setNotDone(null)}
+          onConfirm={(reason) => markRouteVisitStatus(notDone.routeVisitId, "nao_realizada", reason)}
         />
       )}
     </div>

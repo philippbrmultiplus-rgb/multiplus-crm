@@ -8,12 +8,14 @@ import { addDays, DAY_NAMES, formatDateBR, mondayOf, todayKey } from "@/lib/geo"
 import { computeSchedule } from "@/lib/route";
 import { ColetaBadge } from "@/components/clients/clientBadges";
 import { VisitForm } from "@/components/visitas/VisitForm";
+import { NotDoneDialog } from "@/components/visitas/NotDoneDialog";
 import type { Client, RouteVisit } from "@/lib/types";
 
 export default function MinhaRota() {
   const { state, markRouteVisitStatus } = useData();
   const { routes, routeVisits, clients, visits } = state;
   const [formClient, setFormClient] = useState<{ client: Client; routeVisitId: string | null } | null>(null);
+  const [notDone, setNotDone] = useState<{ client: Client; routeVisitId: string } | null>(null);
 
   const weekStart = mondayOf(todayKey());
   const today = new Date();
@@ -134,7 +136,7 @@ export default function MinhaRota() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => markRouteVisitStatus(s.routeVisit.id, "nao_realizada")}
+                        onClick={() => setNotDone({ client: s.client, routeVisitId: s.routeVisit.id })}
                       >
                         Não deu para visitar
                       </Button>
@@ -202,6 +204,15 @@ export default function MinhaRota() {
           client={formClient.client}
           routeVisitId={formClient.routeVisitId}
           onClose={() => setFormClient(null)}
+        />
+      )}
+
+      {notDone && (
+        <NotDoneDialog
+          open
+          clientName={notDone.client.name}
+          onClose={() => setNotDone(null)}
+          onConfirm={(reason) => markRouteVisitStatus(notDone.routeVisitId, "nao_realizada", reason)}
         />
       )}
     </div>
