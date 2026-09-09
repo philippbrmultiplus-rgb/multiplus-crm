@@ -1,0 +1,5 @@
+INSERT INTO public.visits (id, client_id, route_visit_id, visited_at, status, result_comments, next_actions, within_radius)
+SELECT concat('v-bf-', substr(md5(random()::text), 1, 8)), client_id, id, now(), 'nao_realizada', '', '', true
+FROM public.route_visits
+WHERE status = 'nao_realizada'
+  AND NOT EXISTS (SELECT 1 FROM public.visits v WHERE v.route_visit_id = public.route_visits.id AND v.status = 'nao_realizada');
