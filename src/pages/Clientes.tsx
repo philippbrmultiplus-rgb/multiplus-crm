@@ -76,11 +76,11 @@ const FREQ_OPTIONS: Array<{ value: string; label: string }> = [
 
 function ColetaCell({ c, onDate }: { c: Client; onDate: (v: string | null) => void }) {
   return (
-    <div className="flex items-center gap-1.5 whitespace-nowrap">
+    <div className="flex flex-wrap items-center gap-1">
       <input
         type="date"
         aria-label="Data da última troca"
-        className="h-8 w-32 rounded-md border bg-transparent px-1.5 text-xs text-foreground"
+        className="h-8 w-24 rounded-md border bg-transparent px-1 text-xs text-foreground"
         value={c.lastCollectAt ?? ""}
         onChange={(e) => onDate(e.target.value || null)}
       />
@@ -102,7 +102,7 @@ function GeocodeStatus({ c }: { c: Client }) {
 function CadenceSelect({ value, onValue }: { value: number; onValue: (f: number) => void }) {
   return (
     <Select value={String(value)} onValueChange={(v) => onValue(parseFloat(v))}>
-      <SelectTrigger className="h-8 w-36 text-xs">
+      <SelectTrigger className="h-8 w-24 text-xs">
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
@@ -436,7 +436,18 @@ export default function Clientes() {
         </div>
       ) : (
         <div className="card-soft overflow-x-auto">
-          <Table>
+          <Table className="table-fixed [&_th]:px-2 [&_th]:py-1.5 [&_td]:px-2 [&_td]:py-1.5">
+            <colgroup>
+              <col className="w-[21%]" />
+              <col className="w-[9%]" />
+              <col className="w-[11%]" />
+              <col className="w-[7%]" />
+              <col className="w-[10%]" />
+              <col className="w-[15%]" />
+              <col className="w-[9%]" />
+              <col className="w-[9%]" />
+              <col className="w-[9%]" />
+            </colgroup>
             <TableHeader>
               <TableRow>
                 <TableHead>Cliente</TableHead>
@@ -455,20 +466,26 @@ export default function Clientes() {
                 <TableRow key={c.id} className={isColetaOverdue(c) ? "row-overdue" : undefined}>
                   <TableCell>
                     <div className="flex items-center gap-1.5">
-                      <span className="font-medium">{c.name}</span>
+                      <span className="truncate font-medium">{c.name}</span>
                       {c.isProspecao && (
-                        <Badge variant="outline" className="border-violet-500/40 text-violet-600 dark:text-violet-300">
+                        <Badge variant="outline" className="shrink-0 border-violet-500/40 text-violet-600 dark:text-violet-300">
                           prospecção
                         </Badge>
                       )}
                     </div>
-                    <div className="max-w-64 truncate text-xs text-muted-foreground">
+                    <div className="truncate text-xs text-muted-foreground">
                       {c.address || "—"}
                     </div>
                   </TableCell>
-                  <TableCell className="whitespace-nowrap text-sm">{c.city}</TableCell>
+                  <TableCell className="truncate text-sm">{c.city || "—"}</TableCell>
                   <TableCell className="whitespace-nowrap">
-                    {c.segment ? <Badge variant="outline">{c.segment}</Badge> : "—"}
+                    {c.segment ? (
+                      <Badge variant="outline" className="max-w-full truncate">
+                        {c.segment}
+                      </Badge>
+                    ) : (
+                      "—"
+                    )}
                   </TableCell>
                   <TableCell>
                     <TierBadge tier={c.tier} showFreq />
