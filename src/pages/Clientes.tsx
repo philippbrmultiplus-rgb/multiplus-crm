@@ -129,7 +129,10 @@ export default function Clientes() {
 
   const cities = useMemo(() => {
     const map = new Map<string, number>();
-    clients.forEach((c) => map.set(c.city, (map.get(c.city) ?? 0) + 1));
+    clients.forEach((c) => {
+      const k = c.city || "(sem cidade)";
+      map.set(k, (map.get(k) ?? 0) + 1);
+    });
     return [...map.entries()].sort((a, b) => b[1] - a[1]);
   }, [clients]);
 
@@ -144,7 +147,7 @@ export default function Clientes() {
     return clients
       .filter((c) => (onlyActive ? c.active : true))
       .filter((c) => (tier === "all" ? true : c.tier === tier))
-      .filter((c) => (city === "all" ? true : c.city === city))
+      .filter((c) => (city === "all" ? true : (c.city || "(sem cidade)") === city))
       .filter((c) => (segment === "all" ? true : (c.segment || "(sem segmento)") === segment))
       .filter((c) => (freqF === "all" ? true : String(c.freqMonth) === freqF))
       .filter((c) => {

@@ -591,7 +591,10 @@ function AddClientDialog({
 
   const cities = useMemo(() => {
     const map = new Map<string, number>();
-    clients.forEach((c) => map.set(c.city, (map.get(c.city) ?? 0) + 1));
+    clients.forEach((c) => {
+      const k = c.city || "(sem cidade)";
+      map.set(k, (map.get(k) ?? 0) + 1);
+    });
     return [...map.entries()].sort((a, b) => b[1] - a[1]);
   }, [clients]);
 
@@ -599,7 +602,7 @@ function AddClientDialog({
     const term = q.trim().toLowerCase();
     return available
       .filter((c) => (grupo === "all" ? true : c.tier === grupo))
-      .filter((c) => (cidade === "all" ? true : c.city === cidade))
+      .filter((c) => (cidade === "all" ? true : (c.city || "(sem cidade)") === cidade))
       .filter((c) => {
         if (situ === "todas") return true;
         if (situ === "sem_data") return c.lastCollectAt == null;
