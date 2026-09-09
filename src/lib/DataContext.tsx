@@ -1444,8 +1444,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
           rv.id === routeVisitId ? { ...rv, status } : rv,
         );
         const changed = routeVisits.find((rv) => rv.id === routeVisitId);
-        // qualquer usuário logado: vendedor marca concluída/não realizada e o coordenador vê na hora
-        if (changed && uidRef.current) upsertRv(changed);
         if (!changed) return { ...prev, routeVisits };
 
         // registra também uma "visita não realizada" (com justificativa) para o coordenador ver em Visitas
@@ -1467,6 +1465,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
             distanceFromClientM: null,
             withinRadius: true,
           };
+          // primeiro o registro de visita; depois o status da rota (o gatilho no banco
+          // cria o registro caso o app não consiga — nunca duplica)
           if (uidRef.current) {
             void supabase
               .from("visits")
@@ -1474,6 +1474,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
               .then(({ error }) => {
                 if (error) console.warn("registrar visita não realizada:", error.message);
               });
+            upsertRv(changed);
           }
           return { ...prev, routeVisits, visits: [nv, ...prev.visits] };
         }
@@ -1481,9 +1482,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
           // ao reabrir ou concluir de verdade, remove o registro de "não realizada"
           if (uidRef.current) {
             void supabase.from("visits").delete().eq("id", notDone.id);
+            upsertRv(changed);
           }
           return { ...prev, routeVisits, visits: prev.visits.filter((v) => v.id !== notDone.id) };
         }
+        if (uidRef.current) upsertRv(changed);
         return { ...prev, routeVisits };
       });
     },
