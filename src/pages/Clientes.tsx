@@ -10,11 +10,22 @@ import {
   Pencil,
   RotateCcw,
   Search,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Select,
   SelectContent,
@@ -106,7 +117,7 @@ function CadenceSelect({ value, onValue }: { value: number; onValue: (f: number)
 }
 
 export default function Clientes() {
-  const { state, updateClient, geocodeAll, recomputeTiers } = useData();
+  const { state, updateClient, geocodeAll, recomputeTiers, deleteClient } = useData();
   const { clients } = state;
   const isMobile = useIsMobile();
 
@@ -119,6 +130,7 @@ export default function Clientes() {
   const [sortBy, setSortBy] = useState<ClientSort>("grupo");
   const [onlyActive, setOnlyActive] = useState(true);
   const [editing, setEditing] = useState<Client | null>(null);
+  const [toDelete, setToDelete] = useState<Client | null>(null);
   const [geocoding, setGeocoding] = useState<{ done: number; total: number; current: string } | null>(null);
   // atualiza o contador "há X dias" automaticamente
   const [, setNow] = useState(0);
@@ -363,6 +375,15 @@ export default function Clientes() {
                   <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setEditing(c)}>
                     <Pencil className="h-4 w-4" />
                   </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                    onClick={() => setToDelete(c)}
+                    title="Excluir este cliente definitivamente"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </div>
               </div>
               <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1.5 text-sm">
@@ -475,9 +496,20 @@ export default function Clientes() {
                     </div>
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="sm" onClick={() => setEditing(c)}>
-                      <Pencil className="h-4 w-4" />
-                    </Button>
+                    <div className="flex items-center justify-end gap-1">
+                      <Button variant="ghost" size="sm" onClick={() => setEditing(c)}>
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-muted-foreground hover:text-destructive"
+                        onClick={() => setToDelete(c)}
+                        title="Excluir este cliente definitivamente"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -506,6 +538,31 @@ export default function Clientes() {
           setEditing(null);
         }}
       />
+
+      <AlertDialog open={!!toDelete} onOpenChange={(o) => !o && setToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir cliente definitivamente?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {toDelete
+                ? `"${toDelete.name}" será removido de TODAS as bases (visitas, rotas e cadastro). Essa ação não pode ser desfeita, mas fica registrado o histórico da exclusão.`
+                : ""}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-white hover:bg-destructive/90"
+              onClick={() => {
+                if (toDelete) deleteClient(toDelete.id);
+                setToDelete(null);
+              }}
+            >
+              Excluir permanentemente
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

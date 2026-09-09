@@ -320,6 +320,7 @@ interface DataContextValue {
   geocodeAll: (onProgress: (done: number, total: number, current: string) => void) => Promise<{ ok: number; failed: number }>;
   updateClient: (id: string, patch: Partial<Client>) => void;
   createClient: (c: Client) => void;
+  deleteClient: (id: string) => void;
   recomputeTiers: () => void;
   updateSettings: (patch: Partial<Settings>) => void;
   generateRoute: (weekStart: string) => RoutePlanResult;
@@ -873,6 +874,49 @@ export function DataProvider({ children }: { children: ReactNode }) {
       }
     },
     [setAppState],
+  );
+
+  /**
+   * Exclui um cliente DEFINITIVAMENTE: remove os registros de visitas, itens de
+   * rota e o cliente, guardando um histórico da exclusão (nome, datas).
+   */
+  const deleteClient = useCallback(
+    (id: string) => {
+      const target = state.clients.find((c) => c.id === id);
+      setAppState((prev) => ({
+        ...prev,
+        clients: prev.clients.filter((c) => c.id !== id),
+        routeVisits: prev.routeVisits.filter((rv) => rv.clientId !== id),
+        visits: prev.visits.filter((v) => v.clientId !== id),
+      }));
+      if (!uidRef.current || !canWriteClientData()) {
+        toast.error("Sem permissão para excluir clientes. Entre como coordenador.");
+        return;
+      }
+      void (async () => {
+        if (target) {
+          const { error: logErr } = await supabase.from("clientes_excluidos").insert({
+            id: target.id,
+            name: target.name,
+            deleted_at: new Date().toISOString(),
+            last_collect_at: target.lastCollectAt ?? null,
+            last_visit_at: target.lastVisitAt ?? null,
+          });
+          if (logErr) console.warn("registrar exclusão:", logErr.message);
+        }
+        const r1 = await supabase.from("route_visits").delete().eq("client_id", id);
+        const r2 = await supabase.from("visits").delete().eq("client_id", id);
+        const r3 = await supabase.from("clients").delete().eq("id", id);
+        const err = r1.error ?? r2.error ?? r3.error;
+        if (err) {
+          console.error("excluir cliente:", err.message);
+          toast.error("Não foi possível excluir o cliente completamente", { description: err.message });
+        } else {
+          toast.success(`Cliente "${target?.name ?? ""}" excluído definitivamente.`);
+        }
+      })();
+    },
+    [setAppState, state.clients],
   );
 
   const recomputeTiers = useCallback(() => {
@@ -1608,6 +1652,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     geocodeAll,
     updateClient,
     createClient,
+    deleteClient,
     recomputeTiers,
     updateSettings,
     generateRoute,

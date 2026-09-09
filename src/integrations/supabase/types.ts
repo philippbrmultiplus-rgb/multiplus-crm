@@ -3360,6 +3360,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      clientes_excluidos: {
+        Row: {
+          deleted_at: string
+          deleted_by: string | null
+          id: string
+          last_collect_at: string | null
+          last_visit_at: string | null
+          name: string
+        }
+        Insert: {
+          deleted_at?: string
+          deleted_by?: string | null
+          id: string
+          last_collect_at?: string | null
+          last_visit_at?: string | null
+          name: string
+        }
+        Update: {
+          deleted_at?: string
+          deleted_by?: string | null
+          id?: string
+          last_collect_at?: string | null
+          last_visit_at?: string | null
+          name?: string
+        }
+        Relationships: []
+      }
       clients: {
         Row: {
           active: boolean | null
