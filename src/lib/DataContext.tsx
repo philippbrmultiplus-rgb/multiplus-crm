@@ -23,7 +23,6 @@ import type {
   VisitStatus,
   WeeklyRoute,
   ProspectVisitInput,
-  ProspeccaoStatus,
 } from "./types";
 import { generateWeekRoute, mergeWeekRoute } from "./route";
 import { applySegmentData } from "./segmentMerge";
@@ -142,6 +141,7 @@ function clientFromRow(r: Record<string, any>): Client {
     contato: r.contato ?? null,
     responsavel: r.responsavel ?? null,
     prospeccaoStatus: r.prospeccao_status ?? null,
+    prospeccaoJustificativa: r.prospeccao_justificativa ?? null,
     lat: r.lat,
     lng: r.lng,
     geocodeStatus: r.geocode_status ?? "pendente",
@@ -169,6 +169,7 @@ function clientToRow(c: Client): Record<string, any> {
     contato: c.contato ?? null,
     responsavel: c.responsavel ?? null,
     prospeccao_status: c.prospeccaoStatus ?? null,
+    prospeccao_justificativa: c.prospeccaoJustificativa ?? null,
     lat: c.lat,
     lng: c.lng,
     geocode_status: c.geocodeStatus,
@@ -340,7 +341,7 @@ interface DataContextValue {
   publishRoute: (routeId: string) => void;
   addVisit: (visit: Visit, opts?: { uploadPhoto?: boolean }) => void;
   registerProspectVisit: (args: ProspectVisitInput) => void;
-  setProspeccaoStatus: (clientId: string, status: ProspeccaoStatus) => void;
+  setProspeccaoStatus: (clientId: string, status: "fechado" | "perdido", justificativa?: string) => void;
   updateVisit: (id: string, patch: Partial<Visit>) => void;
   deleteVisit: (id: string) => void;
   markRouteVisitStatus: (routeVisitId: string, status: RouteVisit["status"]) => void;
@@ -1437,30 +1438,45 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [setAppState, state.routeVisits, state.settings, uploadVisitPhoto],
   );
 
-  /** muda a situação da prospecção (em negociação / fechado / perdido) */
+  /** finaliza a prospecção (fechado ou perdido) — trava depois de decidido */
   const setProspeccaoStatus = useCallback(
-    (clientId: string, status: ProspeccaoStatus) => {
+    (clientId: string, status: "fechado" | "perdido", justificativa?: string) => {
+      const target = state.clients.find((c) => c.id === clientId);
+      const current = target?.prospeccaoStatus ?? "em_negociacao";
+      if (current === "fechado" || current === "perdido") {
+        toast.error("Esta prospecção já foi finalizada e não pode mais ser alterada.");
+        return;
+      }
+      if (status === "perdido" && !justificativa?.trim()) {
+        toast.error("Escreva a justificativa para marcar a prospecção como perdida.");
+        return;
+      }
+      const texto = status === "perdido" ? justificativa!.trim() : target?.prospeccaoJustificativa ?? null;
       setAppState((prev) => ({
         ...prev,
         clients: prev.clients.map((c) =>
-          c.id === clientId ? { ...c, prospeccaoStatus: status } : c,
+          c.id === clientId ? { ...c, prospeccaoStatus: status, prospeccaoJustificativa: texto } : c,
         ),
       }));
       if (!uidRef.current) return;
       void supabase
         .from("clients")
-        .update({ prospeccao_status: status, updated_at: new Date().toISOString() })
+        .update({
+          prospeccao_status: status,
+          prospeccao_justificativa: texto,
+          updated_at: new Date().toISOString(),
+        })
         .eq("id", clientId)
         .then(({ error }) => {
           if (error) {
             console.error("atualizar prospecção:", error.message);
             toast.error("Não foi possível atualizar a prospecção", { description: error.message });
           } else {
-            toast.success("Situação da prospecção atualizada.");
+            toast.success(status === "fechado" ? "Prospecção marcada como fechada." : "Prospecção marcada como perdida.");
           }
         });
     },
-    [setAppState],
+    [setAppState, state.clients],
   );
 
   const updateVisit = useCallback(

@@ -33,6 +33,8 @@ export interface Client {
   responsavel?: string | null;
   /** situação da prospecção (só para clientes de prospecção) */
   prospeccaoStatus?: ProspeccaoStatus | null;
+  /** justificativa escrita quando a prospecção é marcada como perdida */
+  prospeccaoJustificativa?: string | null;
   lat: number | null;
   lng: number | null;
   geocodeStatus: GeocodeStatus;

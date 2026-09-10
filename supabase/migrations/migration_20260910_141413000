@@ -1,0 +1,2 @@
+ALTER TABLE public.clients ADD COLUMN IF NOT EXISTS prospeccao_justificativa text;
+COMMENT ON COLUMN public.clients.prospeccao_justificativa IS 'Justificativa escrita quando a prospecção é marcada como perdida.';

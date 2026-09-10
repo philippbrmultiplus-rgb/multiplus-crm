@@ -3405,6 +3405,7 @@ export type Database = {
           lng: number | null
           name: string
           obs: string | null
+          prospeccao_justificativa: string | null
           prospeccao_status: string | null
           responsavel: string | null
           segment: string | null
@@ -3431,6 +3432,7 @@ export type Database = {
           lng?: number | null
           name: string
           obs?: string | null
+          prospeccao_justificativa?: string | null
           prospeccao_status?: string | null
           responsavel?: string | null
           segment?: string | null
@@ -3457,6 +3459,7 @@ export type Database = {
           lng?: number | null
           name?: string
           obs?: string | null
+          prospeccao_justificativa?: string | null
           prospeccao_status?: string | null
           responsavel?: string | null
           segment?: string | null

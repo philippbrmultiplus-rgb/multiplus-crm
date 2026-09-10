@@ -1,8 +1,10 @@
 import { useMemo, useState } from "react";
-import { Building2, Phone, Search, Target, User } from "lucide-react";
+import { Building2, Lock, Phone, Search, Target, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -10,6 +12,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useData } from "@/lib/DataContext";
 import { formatDateBR } from "@/lib/geo";
 import type { Client, ProspeccaoStatus, Visit } from "@/lib/types";
@@ -32,6 +42,7 @@ export default function Prospeccoes() {
 
   const [search, setSearch] = useState("");
   const [situ, setSitu] = useState("todas");
+  const [lostTarget, setLostTarget] = useState<Client | null>(null);
 
   const lastVisitOf = useMemo(() => {
     const map = new Map<string, Visit>();
@@ -50,7 +61,9 @@ export default function Prospeccoes() {
         if (situ === "todas") return true;
         return (c.prospeccaoStatus ?? "em_negociacao") === situ;
       })
-      .filter((c) => (q ? `${c.name} ${c.responsavel ?? ""} ${c.city} ${c.segment}`.toLowerCase().includes(q) : true))
+      .filter((c) =>
+        q ? `${c.name} ${c.responsavel ?? ""} ${c.city} ${c.segment}`.toLowerCase().includes(q) : true,
+      )
       .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
   }, [clients, search, situ]);
 
@@ -70,10 +83,11 @@ export default function Prospeccoes() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Prospecções</h1>
           <p className="text-sm text-muted-foreground">
-            Todos os clientes prospectados, com a situação atual. Atualiza automaticamente.
+            Toda prospecção entra como <b>Em negociação</b>. Depois só pode ser finalizada como{" "}
+            <b>Fechado</b> ou <b>Perdido</b> — e não muda mais.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-2 text-xs">
           <Badge className={STATUS_TONE.em_negociacao}>Em negociação {counts.em_negociacao}</Badge>
           <Badge className={STATUS_TONE.fechado}>Fechado {counts.fechado}</Badge>
           <Badge className={STATUS_TONE.perdido}>Perdido {counts.perdido}</Badge>
@@ -119,10 +133,23 @@ export default function Prospeccoes() {
               key={c.id}
               client={c}
               visit={lastVisitOf.get(c.id)}
-              onStatus={(s) => setProspeccaoStatus(c.id, s)}
+              onFinalize={(s) =>
+                s === "fechado" ? setProspeccaoStatus(c.id, "fechado") : setLostTarget(c)
+              }
             />
           ))}
         </div>
+      )}
+
+      {lostTarget && (
+        <LostDialog
+          client={lostTarget}
+          onClose={() => setLostTarget(null)}
+          onConfirm={(justificativa) => {
+            setProspeccaoStatus(lostTarget.id, "perdido", justificativa);
+            setLostTarget(null);
+          }}
+        />
       )}
     </div>
   );
@@ -131,13 +158,14 @@ export default function Prospeccoes() {
 function ProspectCard({
   client,
   visit,
-  onStatus,
+  onFinalize,
 }: {
   client: Client;
   visit?: Visit;
-  onStatus: (s: ProspeccaoStatus) => void;
+  onFinalize: (s: "fechado" | "perdido") => void;
 }) {
   const status: ProspeccaoStatus = client.prospeccaoStatus ?? "em_negociacao";
+  const finalizada = status === "fechado" || status === "perdido";
   const photo = visit?.photoUrl ?? visit?.photoData ?? null;
 
   return (
@@ -182,20 +210,90 @@ function ProspectCard({
             Prospecção registrada em {formatDateBR(visit.visitedAt.slice(0, 10))}
           </p>
         )}
+        {status === "perdido" && client.prospeccaoJustificativa && (
+          <p className="rounded-md bg-destructive/5 p-2 text-xs text-destructive">
+            <b>Justificativa:</b> {client.prospeccaoJustificativa}
+          </p>
+        )}
       </div>
 
-      <div className="mt-auto flex flex-wrap gap-2 border-t pt-3">
-        {(["em_negociacao", "fechado", "perdido"] as ProspeccaoStatus[]).map((s) => (
-          <Button
-            key={s}
-            size="sm"
-            variant={status === s ? "default" : "outline"}
-            onClick={() => onStatus(s)}
-          >
-            {STATUS_LABEL[s]}
-          </Button>
-        ))}
+      <div className="mt-auto border-t pt-3">
+        {finalizada ? (
+          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Lock className="h-3.5 w-3.5" />
+            Prospecção finalizada — não pode mais ser alterada.
+          </p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" onClick={() => onFinalize("fechado")}>
+              Fechar negócio
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => onFinalize("perdido")}>
+              Perdido
+            </Button>
+          </div>
+        )}
       </div>
     </div>
+  );
+}
+
+function LostDialog({
+  client,
+  onClose,
+  onConfirm,
+}: {
+  client: Client;
+  onClose: () => void;
+  onConfirm: (justificativa: string) => void;
+}) {
+  const [reason, setReason] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const confirm = () => {
+    const texto = reason.trim();
+    if (!texto) {
+      setError("Escreva a justificativa para marcar como perdida.");
+      return;
+    }
+    onConfirm(texto);
+  };
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Marcar prospecção como perdida</DialogTitle>
+          <DialogDescription>
+            Cliente: <span className="font-medium text-foreground">{client.name}</span>. Depois de
+            confirmar, a prospecção fica finalizada e não pode mais ser alterada.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-2">
+          <Label>
+            Justificativa <span className="font-normal text-muted-foreground">(obrigatória)</span>
+          </Label>
+          <Textarea
+            rows={3}
+            autoFocus
+            placeholder="Ex.: optou por outro fornecedor, preço acima do praticado…"
+            value={reason}
+            onChange={(e) => {
+              setReason(e.target.value);
+              if (e.target.value.trim()) setError(null);
+            }}
+          />
+          {error && <p className="text-sm text-destructive">{error}</p>}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button variant="destructive" onClick={confirm} disabled={!reason.trim()}>
+            Confirmar perdido
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
