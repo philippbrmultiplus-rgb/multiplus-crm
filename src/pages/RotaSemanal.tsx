@@ -286,7 +286,7 @@ export default function RotaSemanal() {
       ) : (
         <>
           <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
-            <div className="flex flex-col gap-3 pb-2 md:flex-row md:overflow-x-auto">
+            <div className="grid grid-cols-1 gap-3 pb-2 md:grid-cols-5">
               {settings.workingDays.sort((a, b) => a - b).map((day) => (
                 <DayColumn
                   key={day}
@@ -326,6 +326,18 @@ export default function RotaSemanal() {
       <AddClientDialog
         open={addDay !== null}
         onClose={() => setAddDay(null)}
+        onAdvance={() => {
+          const days = [...settings.workingDays].sort((a, b) => a - b);
+          const idx = days.indexOf(addDay ?? days[0]);
+          const next = days[idx + 1];
+          if (next != null) {
+            setAddDay(next);
+            toast.success(`Agora incluindo clientes na ${DAY_NAMES[next]}.`);
+          } else {
+            setAddDay(null);
+            toast.success("Rota finalizada para a semana.");
+          }
+        }}
         route={route}
         day={addDay ?? 1}
         routeClients={visits.map((rv) => rv.clientId)}
@@ -418,7 +430,7 @@ function DayColumn({
   const overdue = last ? last.arrivalMin + last.visitMin > budget : false;
 
   return (
-    <div className="flex w-full min-w-0 flex-col md:w-64 md:min-w-64 md:max-w-64">
+    <div className="flex w-full min-w-0 flex-col">
       <div className="mb-1 flex items-center justify-between">
         <div>
           <div className="text-sm font-semibold">{DAY_NAMES[day]}</div>
@@ -565,6 +577,7 @@ function VisitaLine({ client }: { client: Client }) {
 function AddClientDialog({
   open,
   onClose,
+  onAdvance,
   route,
   day,
   routeClients,
@@ -572,6 +585,7 @@ function AddClientDialog({
 }: {
   open: boolean;
   onClose: () => void;
+  onAdvance: () => void;
   route: WeeklyRoute | null;
   day: number;
   routeClients: string[];
@@ -580,6 +594,7 @@ function AddClientDialog({
   const { addRouteVisit } = useData();
   const [q, setQ] = useState("");
   const [cidade, setCidade] = useState("all");
+  const [segmento, setSegmento] = useState("all");
   const [grupo, setGrupo] = useState("all");
   const [situ, setSitu] = useState("todas");
   const [showProsp, setShowProsp] = useState(false);
@@ -598,11 +613,21 @@ function AddClientDialog({
     return [...map.entries()].sort((a, b) => b[1] - a[1]);
   }, [clients]);
 
+  const segments = useMemo(() => {
+    const map = new Map<string, number>();
+    clients.forEach((c) => {
+      const k = c.segment || "(sem segmento)";
+      map.set(k, (map.get(k) ?? 0) + 1);
+    });
+    return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0], "pt-BR"));
+  }, [clients]);
+
   const options = useMemo(() => {
     const term = q.trim().toLowerCase();
     return available
       .filter((c) => (grupo === "all" ? true : c.tier === grupo))
       .filter((c) => (cidade === "all" ? true : (c.city || "(sem cidade)") === cidade))
+      .filter((c) => (segmento === "all" ? true : (c.segment || "(sem segmento)") === segmento))
       .filter((c) => {
         if (situ === "todas") return true;
         if (situ === "sem_data") return c.lastCollectAt == null;
@@ -615,23 +640,24 @@ function AddClientDialog({
           : true,
       )
       .sort((a, b) => compareClients(a, b, "grupo"));
-  }, [available, q, cidade, grupo, situ]);
+  }, [available, q, cidade, segmento, grupo, situ]);
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-xl">
+      <DialogContent className="max-h-[calc(100dvh-2.5rem)] max-w-xl overflow-y-auto overscroll-contain">
         <DialogHeader>
           <DialogTitle>Adicionar visita — {DAY_NAMES[day]}</DialogTitle>
           <DialogDescription>
-            Escolha um cliente para incluir manualmente na rota, ou crie uma prospecção.
+            Clique nos clientes para incluir na rota — pode selecionar quantos quiser. Use “Finalizar a
+            rota” para passar ao dia seguinte.
           </DialogDescription>
         </DialogHeader>
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-xs text-muted-foreground">
-            Prioridade A e coletas atrasadas vêm primeiro e ficam destacadas.
-          </p>
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <Button size="sm" variant="outline" onClick={() => setShowProsp(true)}>
             <UserPlus className="mr-1.5 h-4 w-4" /> Nova prospecção
+          </Button>
+          <Button size="sm" onClick={onAdvance}>
+            Finalizar a rota <ChevronRight className="ml-1.5 h-4 w-4" />
           </Button>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -653,6 +679,19 @@ function AddClientDialog({
               {cities.map(([name, n]) => (
                 <SelectItem key={name} value={name}>
                   {name || "(sem cidade)"} ({n})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={segmento} onValueChange={setSegmento}>
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="Segmento" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os segmentos</SelectItem>
+              {segments.map(([name, n]) => (
+                <SelectItem key={name} value={name}>
+                  {name} ({n})
                 </SelectItem>
               ))}
             </SelectContent>
@@ -695,7 +734,7 @@ function AddClientDialog({
               }`}
               onClick={() => {
                 if (route) addRouteVisit(route, c.id, day);
-                onClose();
+                toast.success(`"${c.name}" adicionada à ${DAY_NAMES[day]}.`);
               }}
             >
               <span className="min-w-0 flex-1">
