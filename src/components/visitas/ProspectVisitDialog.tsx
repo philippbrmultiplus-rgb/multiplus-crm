@@ -166,7 +166,9 @@ export function ProspectVisitDialog({
         <DialogHeader>
           <DialogTitle>Nova prospecção</DialogTitle>
           <DialogDescription>
-            Registre um cliente novo prospectado e a visita feita a ele. O coordenador recebe na hora.
+            Registre um cliente novo prospectado e a visita feita a ele. Ele entra na aba{" "}
+            <b>Prospecções</b> já como <b>Em negociação</b> — a situação (fechado/perdido) é definida
+            depois, nessa aba. O coordenador recebe na hora.
           </DialogDescription>
         </DialogHeader>
 
