@@ -20,7 +20,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
-  GripVertical,
   Plus,
   Rocket,
   Search,
@@ -326,18 +325,6 @@ export default function RotaSemanal() {
       <AddClientDialog
         open={addDay !== null}
         onClose={() => setAddDay(null)}
-        onAdvance={() => {
-          const days = [...settings.workingDays].sort((a, b) => a - b);
-          const idx = days.indexOf(addDay ?? days[0]);
-          const next = days[idx + 1];
-          if (next != null) {
-            setAddDay(next);
-            toast.success(`Agora incluindo clientes na ${DAY_NAMES[next]}.`);
-          } else {
-            setAddDay(null);
-            toast.success("Rota finalizada para a semana.");
-          }
-        }}
         route={route}
         day={addDay ?? 1}
         routeClients={visits.map((rv) => rv.clientId)}
@@ -488,6 +475,8 @@ function RouteCard({
   const missed = scheduled.routeVisit.status === "nao_realizada";
   const days = coletaDays(scheduled.client);
   const status = coletaStatus(scheduled.client);
+  const vDays = lastVisitDays(scheduled.client);
+  const vStatus = visitaStatus(scheduled.client);
 
   return (
     <div
@@ -495,81 +484,94 @@ function RouteCard({
       style={style}
       {...attributes}
       {...listeners}
-      className={`flex cursor-grab items-start gap-2 rounded-lg border bg-card p-2 text-sm shadow-sm active:cursor-grabbing ${
+      className={`flex cursor-grab flex-col rounded-lg border bg-card p-2 text-sm shadow-sm active:cursor-grabbing ${
         isDragging ? "opacity-60" : ""
       } ${done ? "opacity-70" : ""}`}
     >
-      <div className="mt-0.5 flex flex-col items-center gap-1">
-        <GripVertical className="h-4 w-4 text-muted-foreground" />
-        <span className="flex items-center gap-0.5 text-[11px] text-muted-foreground">
+      {/* Cabeçalho: nome + horário */}
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5">
+            <span className="truncate font-semibold">{scheduled.client.name}</span>
+            {done && <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-primary" />}
+          </div>
+          <div className="truncate text-xs text-muted-foreground">
+            {scheduled.client.city || "—"}
+            {scheduled.client.segment ? ` · ${scheduled.client.segment}` : ""}
+          </div>
+        </div>
+        <span className="flex shrink-0 items-center gap-1 rounded-md bg-secondary px-1.5 py-0.5 text-[11px] font-medium text-secondary-foreground">
           <Clock className="h-3 w-3" />
           {scheduled.arrivalClock}
         </span>
       </div>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1.5">
-          <span className="truncate font-medium">{scheduled.client.name}</span>
-          {done && <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-primary" />}
-          {missed && <span className="shrink-0 rounded bg-slate-500/15 px-1 text-[10px] text-slate-500">não realizada</span>}
+
+      {missed && (
+        <span className="mt-1 inline-block w-fit rounded bg-slate-500/15 px-1.5 text-[10px] text-slate-500">
+          não realizada
+        </span>
+      )}
+
+      {/* Detalhes com rótulos */}
+      <div className="mt-2 space-y-1 border-t pt-2 text-[11px]">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-muted-foreground">Última troca</span>
+          {days != null ? (
+            <span className={`${COLETA_TEXT_TONE[status]} ${status === "late" ? "font-medium" : ""}`}>
+              há {days} {days === 1 ? "dia" : "dias"}
+              {status === "late" ? " (atrasada)" : ""}
+            </span>
+          ) : (
+            <span className="text-muted-foreground">sem data</span>
+          )}
         </div>
-        <div className="truncate text-xs text-muted-foreground">
-          {scheduled.client.city} · ~{scheduled.travelMin} min de deslocamento
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-muted-foreground">Última visita</span>
+          {vDays != null ? (
+            <span className={`${VISITA_TEXT_TONE[vStatus]} ${vStatus === "late" ? "font-medium" : ""}`}>
+              há {vDays} {vDays === 1 ? "dia" : "dias"}
+            </span>
+          ) : (
+            <span className="text-muted-foreground">sem visita</span>
+          )}
         </div>
-        {days != null && (
-          <div
-            className={`mt-0.5 text-[11px] ${COLETA_TEXT_TONE[status]} ${
-              status === "late" ? "font-medium" : ""
-            }`}
-          >
-            última troca há {days} {days === 1 ? "dia" : "dias"}
-            {status === "late" ? " (atrasada)" : ""}
-          </div>
-        )}
-        <VisitaLine client={scheduled.client} />
-        {scheduled.client.tier === "A" && <Badge className="tier-badge-a mt-1">Grupo A</Badge>}
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-muted-foreground">Deslocamento</span>
+          <span>~{scheduled.travelMin} min</span>
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-muted-foreground">Grupo</span>
+          <TierBadge tier={scheduled.client.tier} />
+        </div>
       </div>
-      {!done && !missed && (
+
+      {/* Ações */}
+      <div className="mt-2 flex items-center gap-1.5 border-t pt-2">
+        {!done && !missed && (
+          <button
+            title="Registrar/finalizar esta visita"
+            className="flex flex-1 items-center justify-center gap-1 rounded-md bg-secondary px-2 py-1 text-[11px] font-medium text-secondary-foreground hover:bg-primary hover:text-primary-foreground"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              onFinalize(scheduled);
+            }}
+          >
+            <CheckCircle2 className="h-3.5 w-3.5" /> Finalizar
+          </button>
+        )}
         <button
-          title="Registrar/finalizar esta visita"
-          className="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-secondary text-secondary-foreground hover:bg-primary hover:text-primary-foreground"
+          title="Remover este cliente da rota"
+          className="ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => {
             e.stopPropagation();
-            onFinalize(scheduled);
+            onRemove();
           }}
         >
-          <CheckCircle2 className="h-4 w-4" />
+          <Trash2 className="h-3.5 w-3.5" />
         </button>
-      )}
-      <button
-        title="Remover este cliente da rota"
-        className="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-        onPointerDown={(e) => e.stopPropagation()}
-        onClick={(e) => {
-          e.stopPropagation();
-          onRemove();
-        }}
-      >
-        <Trash2 className="h-3.5 w-3.5" />
-      </button>
-    </div>
-  );
-}
-
-/** linha de detalhe "última visita do vendedor" (mesmas faixas de cor da coleta) */
-function VisitaLine({ client }: { client: Client }) {
-  const vDays = lastVisitDays(client);
-  if (vDays == null) {
-    return <div className="mt-0.5 text-[11px] text-muted-foreground">sem visita registrada</div>;
-  }
-  const vStatus = visitaStatus(client);
-  return (
-    <div
-      className={`mt-0.5 text-[11px] ${VISITA_TEXT_TONE[vStatus]} ${
-        vStatus === "late" ? "font-medium" : ""
-      }`}
-    >
-      última visita há {vDays} {vDays === 1 ? "dia" : "dias"}
+      </div>
     </div>
   );
 }
@@ -577,7 +579,6 @@ function VisitaLine({ client }: { client: Client }) {
 function AddClientDialog({
   open,
   onClose,
-  onAdvance,
   route,
   day,
   routeClients,
@@ -585,7 +586,6 @@ function AddClientDialog({
 }: {
   open: boolean;
   onClose: () => void;
-  onAdvance: () => void;
   route: WeeklyRoute | null;
   day: number;
   routeClients: string[];
@@ -648,15 +648,15 @@ function AddClientDialog({
         <DialogHeader>
           <DialogTitle>Adicionar visita — {DAY_NAMES[day]}</DialogTitle>
           <DialogDescription>
-            Clique nos clientes para incluir na rota — pode selecionar quantos quiser. Use “Finalizar a
-            rota” para passar ao dia seguinte.
+            Clique nos clientes para incluir na rota — pode selecionar quantos quiser. Ao terminar este
+            dia, clique em “Finalizar a rota”.
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <Button size="sm" variant="outline" onClick={() => setShowProsp(true)}>
             <UserPlus className="mr-1.5 h-4 w-4" /> Nova prospecção
           </Button>
-          <Button size="sm" onClick={onAdvance}>
+          <Button size="sm" onClick={onClose}>
             Finalizar a rota <ChevronRight className="ml-1.5 h-4 w-4" />
           </Button>
         </div>
