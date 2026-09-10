@@ -75,8 +75,7 @@ import {
 } from "@/components/clients/clientBits";
 import { ColetaBadge, TierBadge } from "@/components/clients/clientBadges";
 import { LeafletMap } from "@/components/map/LeafletMap";
-import { VisitForm } from "@/components/visitas/VisitForm";
-import type { Client, RouteVisit, ScheduledVisit, Settings, WeeklyRoute } from "@/lib/types";
+import type { Client, RouteVisit, Settings, WeeklyRoute } from "@/lib/types";
 
 const DAY_COLORS: Record<number, string> = {
   1: "#0f766e",
@@ -102,7 +101,6 @@ export default function RotaSemanal() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [addDay, setAddDay] = useState<number | null>(null);
-  const [finalize, setFinalize] = useState<ScheduledVisit | null>(null);
   const [removeTarget, setRemoveTarget] = useState<RouteVisit | null>(null);
   const [askPublishEmpty, setAskPublishEmpty] = useState(false);
   const [, setNow] = useState(0);
@@ -295,7 +293,6 @@ export default function RotaSemanal() {
                   clients={clients}
                   settings={settings}
                   onAdd={() => setAddDay(day)}
-                  onFinalize={(s) => setFinalize(s)}
                   onRemove={(rv) => setRemoveTarget(rv)}
                 />
               ))}
@@ -378,14 +375,6 @@ export default function RotaSemanal() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {finalize && (
-        <VisitForm
-          client={finalize.client}
-          routeVisitId={finalize.routeVisit.id}
-          onClose={() => setFinalize(null)}
-        />
-      )}
     </div>
   );
 }
@@ -397,7 +386,6 @@ function DayColumn({
   clients,
   settings,
   onAdd,
-  onFinalize,
   onRemove,
 }: {
   day: number;
@@ -406,7 +394,6 @@ function DayColumn({
   clients: Client[];
   settings: Settings;
   onAdd: () => void;
-  onFinalize: (s: ScheduledVisit) => void;
   onRemove: (rv: RouteVisit) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: `day-${day}` });
@@ -439,12 +426,7 @@ function DayColumn({
       >
         <SortableContext items={visits.map((v) => v.id)} strategy={verticalListSortingStrategy}>
           {scheduled.map((s) => (
-            <RouteCard
-              key={s.routeVisit.id}
-              scheduled={s}
-              onFinalize={onFinalize}
-              onRemove={() => onRemove(s.routeVisit)}
-            />
+            <RouteCard key={s.routeVisit.id} scheduled={s} onRemove={() => onRemove(s.routeVisit)} />
           ))}
         </SortableContext>
         {scheduled.length === 0 && (
@@ -460,11 +442,9 @@ function DayColumn({
 
 function RouteCard({
   scheduled,
-  onFinalize,
   onRemove,
 }: {
   scheduled: ScheduledVisit;
-  onFinalize: (s: ScheduledVisit) => void;
   onRemove: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -484,85 +464,60 @@ function RouteCard({
       style={style}
       {...attributes}
       {...listeners}
-      className={`flex cursor-grab flex-col rounded-lg border bg-card p-2 text-sm shadow-sm active:cursor-grabbing ${
+      className={`flex cursor-grab flex-col rounded-lg border bg-card p-2.5 shadow-sm active:cursor-grabbing ${
         isDragging ? "opacity-60" : ""
       } ${done ? "opacity-70" : ""}`}
     >
-      {/* Cabeçalho: nome + horário */}
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5">
-            <span className="truncate font-semibold">{scheduled.client.name}</span>
-            {done && <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-primary" />}
-          </div>
-          <div className="truncate text-xs text-muted-foreground">
-            {scheduled.client.city || "—"}
-            {scheduled.client.segment ? ` · ${scheduled.client.segment}` : ""}
-          </div>
-        </div>
-        <span className="flex shrink-0 items-center gap-1 rounded-md bg-secondary px-1.5 py-0.5 text-[11px] font-medium text-secondary-foreground">
-          <Clock className="h-3 w-3" />
-          {scheduled.arrivalClock}
+      {/* Nome completo do cliente */}
+      <div className="flex items-start gap-1.5">
+        <span className="min-w-0 flex-1 break-words font-semibold leading-tight">
+          {scheduled.client.name}
         </span>
+        {done && <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />}
+        {missed && (
+          <span className="mt-0.5 shrink-0 rounded bg-slate-500/15 px-1.5 text-[10px] text-slate-500">
+            não realizada
+          </span>
+        )}
       </div>
 
-      {missed && (
-        <span className="mt-1 inline-block w-fit rounded bg-slate-500/15 px-1.5 text-[10px] text-slate-500">
-          não realizada
+      {/* Segmento em destaque */}
+      {scheduled.client.segment && (
+        <span className="mt-1.5 w-fit rounded bg-secondary px-1.5 py-0.5 text-[11px] font-medium text-secondary-foreground">
+          {scheduled.client.segment}
         </span>
       )}
 
-      {/* Detalhes com rótulos */}
-      <div className="mt-2 space-y-1 border-t pt-2 text-[11px]">
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-muted-foreground">Última troca</span>
+      {/* Última troca e última visita em destaque */}
+      <div className="mt-2 space-y-1.5 border-t pt-2">
+        <div className="flex items-baseline justify-between gap-2">
+          <span className="text-[11px] uppercase tracking-wide text-muted-foreground">Últ. troca</span>
           {days != null ? (
-            <span className={`${COLETA_TEXT_TONE[status]} ${status === "late" ? "font-medium" : ""}`}>
+            <span className={`text-sm font-semibold ${COLETA_TEXT_TONE[status]}`}>
               há {days} {days === 1 ? "dia" : "dias"}
-              {status === "late" ? " (atrasada)" : ""}
+              {status === "late" ? " · atrasada" : ""}
             </span>
           ) : (
-            <span className="text-muted-foreground">sem data</span>
+            <span className="text-sm font-semibold text-muted-foreground">sem data</span>
           )}
         </div>
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-muted-foreground">Última visita</span>
+        <div className="flex items-baseline justify-between gap-2">
+          <span className="text-[11px] uppercase tracking-wide text-muted-foreground">Últ. visita</span>
           {vDays != null ? (
-            <span className={`${VISITA_TEXT_TONE[vStatus]} ${vStatus === "late" ? "font-medium" : ""}`}>
+            <span className={`text-sm font-semibold ${VISITA_TEXT_TONE[vStatus]}`}>
               há {vDays} {vDays === 1 ? "dia" : "dias"}
             </span>
           ) : (
-            <span className="text-muted-foreground">sem visita</span>
+            <span className="text-sm font-semibold text-muted-foreground">sem visita</span>
           )}
-        </div>
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-muted-foreground">Deslocamento</span>
-          <span>~{scheduled.travelMin} min</span>
-        </div>
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-muted-foreground">Grupo</span>
-          <TierBadge tier={scheduled.client.tier} />
         </div>
       </div>
 
-      {/* Ações */}
-      <div className="mt-2 flex items-center gap-1.5 border-t pt-2">
-        {!done && !missed && (
-          <button
-            title="Registrar/finalizar esta visita"
-            className="flex flex-1 items-center justify-center gap-1 rounded-md bg-secondary px-2 py-1 text-[11px] font-medium text-secondary-foreground hover:bg-primary hover:text-primary-foreground"
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={(e) => {
-              e.stopPropagation();
-              onFinalize(scheduled);
-            }}
-          >
-            <CheckCircle2 className="h-3.5 w-3.5" /> Finalizar
-          </button>
-        )}
+      {/* Remover apenas este cliente */}
+      <div className="mt-2 flex justify-end border-t pt-2">
         <button
           title="Remover este cliente da rota"
-          className="ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => {
             e.stopPropagation();
