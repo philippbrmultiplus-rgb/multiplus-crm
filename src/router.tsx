@@ -4,6 +4,7 @@ import { AuthScreen } from "@/components/layout/AuthScreen";
 import Dashboard from "./pages/Dashboard";
 import Clientes from "./pages/Clientes";
 import MapaClientes from "./pages/MapaClientes";
+import Prospeccoes from "./pages/Prospeccoes";
 import RotaSemanal from "./pages/RotaSemanal";
 import MinhaRota from "./pages/MinhaRota";
 import MinhaRotaSemana from "./pages/MinhaRotaSemana";
@@ -42,6 +43,15 @@ export const routers = [
     element: (
       <AppShell>
         <MapaClientes />
+      </AppShell>
+    ),
+  },
+  {
+    path: "/prospeccoes",
+    name: "prospeccoes",
+    element: (
+      <AppShell>
+        <Prospeccoes />
       </AppShell>
     ),
   },

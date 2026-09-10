@@ -23,6 +23,7 @@ import type {
   VisitStatus,
   WeeklyRoute,
   ProspectVisitInput,
+  ProspeccaoStatus,
 } from "./types";
 import { generateWeekRoute, mergeWeekRoute } from "./route";
 import { applySegmentData } from "./segmentMerge";
@@ -139,6 +140,8 @@ function clientFromRow(r: Record<string, any>): Client {
     lastVisitAt: r.last_visit_at ?? null,
     isProspecao: r.is_prospecao ?? false,
     contato: r.contato ?? null,
+    responsavel: r.responsavel ?? null,
+    prospeccaoStatus: r.prospeccao_status ?? null,
     lat: r.lat,
     lng: r.lng,
     geocodeStatus: r.geocode_status ?? "pendente",
@@ -164,6 +167,8 @@ function clientToRow(c: Client): Record<string, any> {
     last_visit_at: c.lastVisitAt ?? null,
     is_prospecao: c.isProspecao ?? false,
     contato: c.contato ?? null,
+    responsavel: c.responsavel ?? null,
+    prospeccao_status: c.prospeccaoStatus ?? null,
     lat: c.lat,
     lng: c.lng,
     geocode_status: c.geocodeStatus,
@@ -335,6 +340,7 @@ interface DataContextValue {
   publishRoute: (routeId: string) => void;
   addVisit: (visit: Visit, opts?: { uploadPhoto?: boolean }) => void;
   registerProspectVisit: (args: ProspectVisitInput) => void;
+  setProspeccaoStatus: (clientId: string, status: ProspeccaoStatus) => void;
   updateVisit: (id: string, patch: Partial<Visit>) => void;
   deleteVisit: (id: string) => void;
   markRouteVisitStatus: (routeVisitId: string, status: RouteVisit["status"]) => void;
@@ -1351,18 +1357,22 @@ export function DataProvider({ children }: { children: ReactNode }) {
         freqMonth: 1,
         isProspecao: true,
         contato: args.contato?.trim() || null,
+        responsavel: args.responsavel?.trim() || null,
+        prospeccaoStatus: "em_negociacao",
+        obs: args.obs?.trim() || undefined,
         lastCollectAt: null,
         lastVisitAt: null,
         lat: null,
         lng: null,
         geocodeStatus: "pendente",
       };
-      const pos = state.routeVisits.filter(
-        (rv) => rv.routeId === args.routeId && rv.day === args.day,
-      ).length;
+      const withRoute = !!args.routeId;
+      const pos = withRoute
+        ? state.routeVisits.filter((rv) => rv.routeId === args.routeId && rv.day === args.day).length
+        : 0;
       const rv: RouteVisit = {
         id: rvId,
-        routeId: args.routeId,
+        routeId: args.routeId ?? "",
         clientId,
         day: args.day,
         position: pos,
@@ -1372,7 +1382,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       };
       const visit: Visit = {
         id: `v-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-        routeVisitId: rvId,
+        routeVisitId: withRoute ? rvId : null,
         clientId,
         visitedAt: nowIso,
         status: args.status,
@@ -1388,7 +1398,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setAppState((prev) => ({
         ...prev,
         clients: [...prev.clients, novo],
-        routeVisits: [...prev.routeVisits, rv],
+        routeVisits: withRoute ? [...prev.routeVisits, rv] : prev.routeVisits,
         visits: [visit, ...prev.visits],
       }));
       if (!uidRef.current) return;
@@ -1399,11 +1409,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
           toast.error("Não foi possível salvar a prospecção", { description: cErr.message });
           return;
         }
-        const { error: rErr } = await supabase.from("route_visits").insert(rvToRow(rv));
-        if (rErr) {
-          console.error("incluir prospecção na rota:", rErr.message);
-          toast.error("Não foi possível incluir a prospecção na rota", { description: rErr.message });
-          return;
+        if (withRoute) {
+          const { error: rErr } = await supabase.from("route_visits").insert(rvToRow(rv));
+          if (rErr) {
+            console.error("incluir prospecção na rota:", rErr.message);
+            toast.error("Não foi possível incluir a prospecção na rota", { description: rErr.message });
+          }
         }
         let photoUrl: string | null = null;
         if (visit.photoData?.startsWith("data:")) {
@@ -1424,6 +1435,32 @@ export function DataProvider({ children }: { children: ReactNode }) {
       })();
     },
     [setAppState, state.routeVisits, state.settings, uploadVisitPhoto],
+  );
+
+  /** muda a situação da prospecção (em negociação / fechado / perdido) */
+  const setProspeccaoStatus = useCallback(
+    (clientId: string, status: ProspeccaoStatus) => {
+      setAppState((prev) => ({
+        ...prev,
+        clients: prev.clients.map((c) =>
+          c.id === clientId ? { ...c, prospeccaoStatus: status } : c,
+        ),
+      }));
+      if (!uidRef.current) return;
+      void supabase
+        .from("clients")
+        .update({ prospeccao_status: status, updated_at: new Date().toISOString() })
+        .eq("id", clientId)
+        .then(({ error }) => {
+          if (error) {
+            console.error("atualizar prospecção:", error.message);
+            toast.error("Não foi possível atualizar a prospecção", { description: error.message });
+          } else {
+            toast.success("Situação da prospecção atualizada.");
+          }
+        });
+    },
+    [setAppState],
   );
 
   const updateVisit = useCallback(
@@ -1667,6 +1704,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     publishRoute,
     addVisit,
     registerProspectVisit,
+    setProspeccaoStatus,
     updateVisit,
     deleteVisit,
     markRouteVisitStatus,

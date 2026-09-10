@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { CalendarCheck2, CheckCircle2, ExternalLink, MapPin, Navigation } from "lucide-react";
+import { CalendarCheck2, CheckCircle2, ExternalLink, MapPin, Navigation, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +9,7 @@ import { computeSchedule } from "@/lib/route";
 import { ColetaBadge } from "@/components/clients/clientBadges";
 import { VisitForm } from "@/components/visitas/VisitForm";
 import { NotDoneDialog } from "@/components/visitas/NotDoneDialog";
+import { ProspectVisitDialog } from "@/components/visitas/ProspectVisitDialog";
 import type { Client, RouteVisit } from "@/lib/types";
 
 export default function MinhaRota() {
@@ -16,6 +17,7 @@ export default function MinhaRota() {
   const { routes, routeVisits, clients, visits } = state;
   const [formClient, setFormClient] = useState<{ client: Client; routeVisitId: string | null } | null>(null);
   const [notDone, setNotDone] = useState<{ client: Client; routeVisitId: string } | null>(null);
+  const [prospectOpen, setProspectOpen] = useState(false);
 
   const weekStart = mondayOf(todayKey());
   const today = new Date();
@@ -44,32 +46,62 @@ export default function MinhaRota() {
 
   if (day === 0) {
     return (
-      <div className="flex h-64 items-center justify-center">
-        <p className="text-muted-foreground">Domingo — sem visitas programadas.</p>
+      <div className="space-y-4">
+        <div className="flex justify-end">
+          <Button variant="outline" onClick={() => setProspectOpen(true)}>
+            <UserPlus className="mr-2 h-4 w-4" /> Nova prospecção
+          </Button>
+        </div>
+        <div className="flex h-40 items-center justify-center">
+          <p className="text-muted-foreground">Domingo — sem visitas programadas.</p>
+        </div>
+        {prospectOpen && (
+          <ProspectVisitDialog open day={1} routeId={null} onClose={() => setProspectOpen(false)} />
+        )}
       </div>
     );
   }
 
   if (!route) {
     return (
-      <div className="card-soft flex flex-col items-center gap-2 p-12 text-center">
-        <CalendarCheck2 className="h-8 w-8 text-muted-foreground" />
-        <h2 className="text-lg font-semibold">Sem rota publicada</h2>
-        <p className="max-w-md text-sm text-muted-foreground">
-          O coordenador ainda não publicou a rota desta semana ({formatDateBR(weekStart)}). Assim que
-          publicar, suas visitas de hoje aparecerão aqui.
-        </p>
+      <div className="space-y-4">
+        <div className="flex justify-end">
+          <Button variant="outline" onClick={() => setProspectOpen(true)}>
+            <UserPlus className="mr-2 h-4 w-4" /> Nova prospecção
+          </Button>
+        </div>
+        <div className="card-soft flex flex-col items-center gap-2 p-12 text-center">
+          <CalendarCheck2 className="h-8 w-8 text-muted-foreground" />
+          <h2 className="text-lg font-semibold">Sem rota publicada</h2>
+          <p className="max-w-md text-sm text-muted-foreground">
+            O coordenador ainda não publicou a rota desta semana ({formatDateBR(weekStart)}). Você ainda
+            pode registrar uma prospecção normalmente.
+          </p>
+        </div>
+        {prospectOpen && (
+          <ProspectVisitDialog
+            open
+            day={[1, 2, 3, 4, 5].includes(day) ? day : 1}
+            routeId={null}
+            onClose={() => setProspectOpen(false)}
+          />
+        )}
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Minha rota de hoje</h1>
-        <p className="text-sm text-muted-foreground">
-          {DAY_NAMES[day]}, {formatDateBR(todayIso)} · {scheduled.length} visitas
-        </p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Minha rota de hoje</h1>
+          <p className="text-sm text-muted-foreground">
+            {DAY_NAMES[day]}, {formatDateBR(todayIso)} · {scheduled.length} visitas
+          </p>
+        </div>
+        <Button variant="outline" onClick={() => setProspectOpen(true)}>
+          <UserPlus className="mr-2 h-4 w-4" /> Nova prospecção
+        </Button>
       </div>
 
       {scheduled.length === 0 ? (
@@ -213,6 +245,15 @@ export default function MinhaRota() {
           clientName={notDone.client.name}
           onClose={() => setNotDone(null)}
           onConfirm={(reason) => markRouteVisitStatus(notDone.routeVisitId, "nao_realizada", reason)}
+        />
+      )}
+
+      {prospectOpen && (
+        <ProspectVisitDialog
+          open
+          day={[1, 2, 3, 4, 5].includes(day) ? day : 1}
+          routeId={route?.id ?? null}
+          onClose={() => setProspectOpen(false)}
         />
       )}
     </div>

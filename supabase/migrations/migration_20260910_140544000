@@ -1,0 +1,9 @@
+ALTER TABLE public.clients ADD COLUMN IF NOT EXISTS responsavel text;
+ALTER TABLE public.clients ADD COLUMN IF NOT EXISTS prospeccao_status text;
+
+COMMENT ON COLUMN public.clients.responsavel IS 'Nome do responsável do cliente (contato principal).';
+COMMENT ON COLUMN public.clients.prospeccao_status IS 'Status da prospecção: em_negociacao | fechado | perdido.';
+
+-- vendedor e coordenador podem atualizar clientes que sejam prospecção
+CREATE POLICY "clients_update_prospect" ON public.clients
+  FOR UPDATE USING (is_prospecao = true) WITH CHECK (is_prospecao = true);

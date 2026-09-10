@@ -4,6 +4,9 @@ export type Tier = "A" | "B" | "C" | "D";
 
 export type GeocodeStatus = "pendente" | "ok" | "falha";
 
+/** situação de uma prospecção */
+export type ProspeccaoStatus = "em_negociacao" | "fechado" | "perdido";
+
 export interface Client {
   id: string;
   name: string;
@@ -26,6 +29,10 @@ export interface Client {
   isProspecao: boolean;
   /** telefone/whatsapp de contato */
   contato?: string | null;
+  /** nome do responsável (contato principal) */
+  responsavel?: string | null;
+  /** situação da prospecção (só para clientes de prospecção) */
+  prospeccaoStatus?: ProspeccaoStatus | null;
   lat: number | null;
   lng: number | null;
   geocodeStatus: GeocodeStatus;
@@ -72,13 +79,15 @@ export type VisitStatus = "realizada" | "nao_encontrado" | "recusada" | "nao_rea
 
 /** dados de uma "visita prospecção" registrada pelo vendedor (cliente novo + visita) */
 export interface ProspectVisitInput {
-  routeId: string;
+  routeId?: string | null;
   day: number;
   nome: string;
+  responsavel?: string;
   contato?: string;
   endereco?: string;
   cidade?: string;
   segmento?: string;
+  obs?: string;
   status: VisitStatus;
   comments: string;
   nextActions: string;

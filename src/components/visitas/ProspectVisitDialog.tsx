@@ -41,20 +41,30 @@ export function ProspectVisitDialog({
   open: boolean;
   onClose: () => void;
   day: number;
-  routeId: string;
+  routeId: string | null;
 }) {
   const { state, registerProspectVisit } = useData();
   const days = useMemo(
     () => [...(state.settings.workingDays as number[])].sort((a, b) => a - b),
     [state.settings.workingDays],
   );
+  const segmentOptions = useMemo(
+    () =>
+      [...new Set(state.clients.map((c) => c.segment).filter(Boolean))].sort((a, b) =>
+        a.localeCompare(b, "pt-BR"),
+      ),
+    [state.clients],
+  );
 
+  const SEG_NONE = "__none__";
   const [dia, setDia] = useState(day);
   const [nome, setNome] = useState("");
+  const [responsavel, setResponsavel] = useState("");
   const [contato, setContato] = useState("");
   const [endereco, setEndereco] = useState("");
   const [cidade, setCidade] = useState("");
   const [segmento, setSegmento] = useState("");
+  const [obs, setObs] = useState("");
   const [status, setStatus] = useState<VisitStatus>("realizada");
   const [comments, setComments] = useState("");
   const [nextActions, setNextActions] = useState("");
@@ -129,10 +139,12 @@ export function ProspectVisitDialog({
       routeId,
       day: dia,
       nome,
+      responsavel,
       contato,
       endereco,
       cidade,
       segmento,
+      obs,
       status,
       comments,
       nextActions,
@@ -189,8 +201,12 @@ export function ProspectVisitDialog({
               </Select>
             </div>
             <div className="space-y-1.5 sm:col-span-2">
-              <Label>Nome do cliente novo</Label>
+              <Label>Nome do cliente</Label>
               <Input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: Construtora Horizonte" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Nome do responsável</Label>
+              <Input value={responsavel} onChange={(e) => setResponsavel(e.target.value)} placeholder="Ex.: João da Silva" />
             </div>
             <div className="space-y-1.5">
               <Label>Contato</Label>
@@ -198,15 +214,27 @@ export function ProspectVisitDialog({
             </div>
             <div className="space-y-1.5">
               <Label>Segmento</Label>
-              <Input value={segmento} onChange={(e) => setSegmento(e.target.value)} placeholder="Construção civil…" />
+              <Select value={segmento || SEG_NONE} onValueChange={(v) => setSegmento(v === SEG_NONE ? "" : v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecionar segmento" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={SEG_NONE}>—</SelectItem>
+                  {segmentOptions.map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {s}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Cidade</Label>
+              <Input value={cidade} onChange={(e) => setCidade(e.target.value)} placeholder="Porto Alegre" />
             </div>
             <div className="space-y-1.5 sm:col-span-2">
               <Label>Endereço</Label>
               <Input value={endereco} onChange={(e) => setEndereco(e.target.value)} placeholder="Rua, número, bairro" />
-            </div>
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label>Cidade</Label>
-              <Input value={cidade} onChange={(e) => setCidade(e.target.value)} placeholder="Porto Alegre" />
             </div>
           </div>
 
@@ -276,6 +304,16 @@ export function ProspectVisitDialog({
                 GPS salvo na visita. A distância ao endereço cadastrado (se houver) é conferida depois.
               </p>
             )}
+          </div>
+
+          <div className="space-y-2">
+            <Label>Observações</Label>
+            <Textarea
+              rows={2}
+              placeholder="Anotações gerais sobre o cliente/prospecção…"
+              value={obs}
+              onChange={(e) => setObs(e.target.value)}
+            />
           </div>
 
           <div className="space-y-2">
