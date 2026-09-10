@@ -6,6 +6,7 @@ import {
   CalendarCheck2,
   MapPinOff,
   Route as RouteIcon,
+  Target,
   Users,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -49,6 +50,33 @@ export default function Dashboard() {
     });
     return counts;
   }, [activeClients]);
+
+  // Prospecções (atualiza sozinho: os clientes vêm em tempo real)
+  const prospectStats = useMemo(() => {
+    const all = clients.filter((c) => c.isProspecao);
+    const em = all.filter((c) => (c.prospeccaoStatus ?? "em_negociacao") === "em_negociacao").length;
+    const fechado = all.filter((c) => c.prospeccaoStatus === "fechado").length;
+    const perdido = all.filter((c) => c.prospeccaoStatus === "perdido").length;
+    const total = all.length;
+    const pct = (n: number) => (total ? (n / total) * 100 : 0);
+    const pEm = pct(em);
+    const pFe = pct(fechado);
+    return {
+      total,
+      em,
+      fechado,
+      perdido,
+      taxa: total ? Math.round((fechado / total) * 100) : 0,
+      gradient: `conic-gradient(#f59e0b 0% ${pEm}%, #10b981 ${pEm}% ${pEm + pFe}%, #ef4444 ${
+        pEm + pFe
+      }% 100%)`,
+      rows: [
+        { label: "Em negociação", value: em, color: "#f59e0b" },
+        { label: "Fechadas", value: fechado, color: "#10b981" },
+        { label: "Perdidas", value: perdido, color: "#ef4444" },
+      ],
+    };
+  }, [clients]);
 
   const stats = [
     {
@@ -115,6 +143,64 @@ export default function Dashboard() {
           </Card>
         ))}
       </div>
+
+      <Card className="card-soft">
+        <CardHeader className="pb-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Target className="h-4 w-4 text-primary" /> Prospecções
+              </CardTitle>
+              <CardDescription>
+                Prospecções registradas e taxa de conversão — atualiza automaticamente.
+              </CardDescription>
+            </div>
+            <Button asChild variant="link" size="sm" className="h-auto p-0">
+              <Link to="/prospeccoes">
+                Abrir prospecções <ArrowRight className="ml-1 h-3 w-3" />
+              </Link>
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {prospectStats.total === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Nenhuma prospecção registrada ainda. Assim que o vendedor (ou você) registrar uma, o
+              gráfico aparece aqui automaticamente.
+            </p>
+          ) : (
+            <div className="flex flex-wrap items-center gap-6">
+              <div
+                className="relative h-40 w-40 shrink-0 rounded-full"
+                style={{ background: prospectStats.gradient }}
+              >
+                <div className="absolute inset-4 flex flex-col items-center justify-center rounded-full bg-card text-center">
+                  <span className="text-3xl font-bold">{prospectStats.taxa}%</span>
+                  <span className="text-[11px] leading-tight text-muted-foreground">
+                    taxa de conversão
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid min-w-56 flex-1 gap-3 sm:grid-cols-2">
+                <div className="rounded-lg border p-3">
+                  <div className="text-xs text-muted-foreground">Total de prospecções</div>
+                  <div className="text-2xl font-bold">{prospectStats.total}</div>
+                </div>
+                {prospectStats.rows.map((r) => (
+                  <div key={r.label} className="rounded-lg border p-3">
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <span className="h-2.5 w-2.5 rounded-full" style={{ background: r.color }} />
+                      {r.label}
+                    </div>
+                    <div className="text-2xl font-bold">{r.value}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="card-soft lg:col-span-2">
