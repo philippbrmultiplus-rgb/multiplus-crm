@@ -77,15 +77,15 @@ const FREQ_OPTIONS: Array<{ value: string; label: string }> = [
 
 function ColetaCell({ c, onDate }: { c: Client; onDate: (v: string | null) => void }) {
   return (
-    <div className="flex flex-wrap items-center gap-1">
+    <div className="flex items-center gap-1 whitespace-nowrap">
       <input
         type="date"
         aria-label="Data da última troca"
-        className="h-8 w-24 rounded-md border bg-transparent px-1 text-xs text-foreground"
+        className="h-8 w-20 rounded-md border bg-transparent px-1 text-xs text-foreground"
         value={c.lastCollectAt ?? ""}
         onChange={(e) => onDate(e.target.value || null)}
       />
-      {c.lastCollectAt && <ColetaBadge c={c} />}
+      <ColetaBadge c={c} />
     </div>
   );
 }
@@ -462,14 +462,14 @@ export default function Clientes() {
         <div className="card-soft overflow-x-auto">
           <Table className="table-fixed [&_th]:px-2 [&_th]:py-1.5 [&_td]:px-2 [&_td]:py-1.5">
             <colgroup>
+              <col className="w-[19%]" />
+              <col className="w-[8%]" />
+              <col className="w-[10%]" />
+              <col className="w-[7%]" />
+              <col className="w-[9%]" />
               <col className="w-[21%]" />
               <col className="w-[9%]" />
-              <col className="w-[11%]" />
-              <col className="w-[7%]" />
-              <col className="w-[10%]" />
-              <col className="w-[15%]" />
-              <col className="w-[9%]" />
-              <col className="w-[9%]" />
+              <col className="w-[8%]" />
               <col className="w-[9%]" />
             </colgroup>
             <TableHeader>
