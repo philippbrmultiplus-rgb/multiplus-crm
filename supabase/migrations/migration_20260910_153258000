@@ -1,0 +1,6 @@
+WITH mapping(client_key, dt) AS (VALUES
+('CAPITAL TRANSPORTE DE', '2026-09-09'),('CASA DO GESSO', '2026-09-08'),('DIVISAO SUL GESSO', '2026-09-08'),('DRYWOOD', '2026-09-09'),('ECOPONTO CACHOEIRINHA', '2026-09-09'),('GESSO DIAS', '2026-09-09'),('GESSO PIA', '2026-09-08'),('GESSO SAO LEO', '2026-09-09'),('GM GESSO NOVA PRATA', '2026-09-09'),('MACACO MOLDURAS', '2026-09-09'),('MARINO GESSO', '2026-09-08'),('MBS ENTULHOS', '2026-09-09'),('MOVE SOLUCOES EM', '2026-09-09'),('PESSOA FISICA', '2026-09-08'),('SCM GESSOS', '2026-09-08'),('SELAU ENTULHOS', '2026-09-09'),('SULMODULOS', '2026-09-09'),('ZUTRITO TELE ENTULHOS', '2026-09-08'))
+UPDATE public.clients c
+SET last_collect_at = GREATEST(COALESCE(c.last_collect_at, '0001-01-01'::date), m.dt::date)
+FROM mapping m
+WHERE btrim(regexp_replace(regexp_replace(upper(translate(c.name, 'ÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇ', 'AAAAAEEEEIIIIOOOOOUUUUC')), '[^A-Z0-9 ]', ' ', 'g'), ' +', ' ', 'g')) = m.client_key;
