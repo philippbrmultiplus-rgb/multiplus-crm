@@ -57,6 +57,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { LeafletMap } from "@/components/map/LeafletMap";
 import { cadenceLabel, tierOfFreq } from "@/lib/cadence";
 import {
+  coletaDays,
   compareClients,
   isColetaOverdue,
   type ClientSort,
@@ -171,7 +172,21 @@ export default function Clientes() {
       .filter((c) =>
         q ? `${c.name} ${c.address} ${c.city} ${c.segment}`.toLowerCase().includes(q) : true,
       )
-      .sort((a, b) => compareClients(a, b, sortBy))
+      .sort((a, b) => {
+        // a situação escolhida define a ordem: atrasada = da mais atrasada para baixo;
+        // em dia = da mais em dia (menos dias sem coleta) para baixo
+        if (situ === "atrasada") {
+          const da = coletaDays(a) ?? -1;
+          const db = coletaDays(b) ?? -1;
+          return db - da || compareClients(a, b, "grupo");
+        }
+        if (situ === "em_dia") {
+          const da = coletaDays(a) ?? Number.POSITIVE_INFINITY;
+          const db = coletaDays(b) ?? Number.POSITIVE_INFINITY;
+          return da - db || compareClients(a, b, "grupo");
+        }
+        return compareClients(a, b, sortBy);
+      })
       .slice(0, 300);
   }, [clients, search, city, tier, segment, freqF, situ, sortBy, onlyActive]);
 
