@@ -32,6 +32,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
@@ -552,6 +553,7 @@ function AddClientDialog({
   const [segmento, setSegmento] = useState("all");
   const [grupo, setGrupo] = useState("all");
   const [situ, setSitu] = useState("todas");
+  const [onlyActive, setOnlyActive] = useState(true);
   const [showProsp, setShowProsp] = useState(false);
 
   const available = useMemo(
@@ -580,6 +582,7 @@ function AddClientDialog({
   const options = useMemo(() => {
     const term = q.trim().toLowerCase();
     return available
+      .filter((c) => (onlyActive ? c.active : true))
       .filter((c) => (grupo === "all" ? true : c.tier === grupo))
       .filter((c) => (cidade === "all" ? true : (c.city || "(sem cidade)") === cidade))
       .filter((c) => (segmento === "all" ? true : (c.segment || "(sem segmento)") === segmento))
@@ -595,7 +598,7 @@ function AddClientDialog({
           : true,
       )
       .sort((a, b) => compareClients(a, b, "grupo"));
-  }, [available, q, cidade, segmento, grupo, situ]);
+  }, [available, q, cidade, segmento, grupo, situ, onlyActive]);
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
@@ -674,6 +677,10 @@ function AddClientDialog({
               <SelectItem value="sem_data">Sem data de coleta</SelectItem>
             </SelectContent>
           </Select>
+          <label className="flex h-9 items-center gap-2 text-sm text-muted-foreground">
+            <Checkbox checked={onlyActive} onCheckedChange={(v) => setOnlyActive(!!v)} />
+            Só ativos
+          </label>
         </div>
         <p className="text-xs text-muted-foreground">
           {available.length > 0
