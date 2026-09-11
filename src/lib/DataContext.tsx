@@ -1139,13 +1139,23 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const removeRouteVisit = useCallback(
     (id: string) => {
-      setAppState((prev) => {
-        const routeVisits = prev.routeVisits.filter((r) => r.id !== id);
-        if (canWriteClientData()) {
-          void supabase.from("route_visits").delete().eq("id", id);
-        }
-        return { ...prev, routeVisits };
-      });
+      setAppState((prev) => ({
+        ...prev,
+        routeVisits: prev.routeVisits.filter((r) => r.id !== id),
+        // mantém o histórico da visita, apenas desvinculando do item removido
+        visits: prev.visits.map((v) => (v.routeVisitId === id ? { ...v, routeVisitId: null } : v)),
+      }));
+      if (!canWriteClientData()) return;
+      void supabase
+        .from("route_visits")
+        .delete()
+        .eq("id", id)
+        .then(({ error }) => {
+          if (error) {
+            console.error("remover cliente da rota:", error.message);
+            toast.error("Não foi possível remover o cliente da rota", { description: error.message });
+          }
+        });
     },
     [setAppState],
   );
