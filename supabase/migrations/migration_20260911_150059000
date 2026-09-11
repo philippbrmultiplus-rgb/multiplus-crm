@@ -1,0 +1,3 @@
+UPDATE public.clients
+SET segment = 'Roll-on', updated_at = now()
+WHERE name IN ('MAGNIFICA GESSOS','NICHELE ENTULHOS','BELMIRO MULLER','FORMA COMERCIAL LTDA','ECOSANTA','SEPARE','FONTOURA');
