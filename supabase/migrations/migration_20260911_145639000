@@ -1,0 +1,13 @@
+INSERT INTO public.clients (id, name, segment, address, city, state, active, tier, freq_month, geocode_status, total_2025, total_2026, avg_monthly, last_collect_at, is_prospecao)
+VALUES
+('cli-entrada-29', 'NICHELE ENTULHOS', '40', 'Rua Atilio Supertti, 847, no bairro Vila Nova, em Porto Alegre (RS)', 'PORTO ALEGRE', 'RS', true, 'D', 1, 'pendente', 0, 0, 0, '2026-07-16', false),
+('cli-entrada-30', 'BELMIRO MULLER', '291', 'Rua Senador Salgado Filho, 1018 – Conceição, Carazinho – RS', 'CARRAZINHO', 'RS', true, 'D', 1, 'pendente', 0, 0, 0, '2026-07-17', false),
+('cli-entrada-31', 'FONTOURA', '52', 'Av dos Municipios Centro', 'CAMPO BOM', 'RS', true, 'D', 1, 'pendente', 0, 0, 0, '2026-07-30', false);
+
+UPDATE public.clients SET address = 'R. Isidóro Farinon - Primeiro de Maio, Farroupilha - RS, 95180-000', city = 'FARROUPILHA', last_collect_at = GREATEST(COALESCE(last_collect_at, '0001-01-01'::date), '2026-07-14'::date), updated_at = now() WHERE name = 'MAGNIFICA GESSOS';
+
+UPDATE public.clients SET address = 'RODOVIA ERS 444, KM1, 3, Bento Gonçalves - RS', city = 'BENTO GONÇALVES', segment = CASE WHEN COALESCE(segment, '') = '' THEN '123' ELSE segment END, last_collect_at = GREATEST(COALESCE(last_collect_at, '0001-01-01'::date), '2026-07-10'::date), updated_at = now() WHERE name = 'FORMA COMERCIAL LTDA';
+
+UPDATE public.clients SET address = 'Rodovia BR470, KM232 – Santa Clara, Carlos Barbosa – RS', city = 'CARLOS BARBOSA', segment = CASE WHEN COALESCE(segment, '') = '' THEN '105' ELSE segment END, last_collect_at = GREATEST(COALESCE(last_collect_at, '0001-01-01'::date), '2026-07-16'::date), updated_at = now() WHERE name = 'SEPARE';
+
+UPDATE public.clients SET address = 'BR-158, 440 - Renascença, Santa Maria - RS, 97060-660', city = 'SANTA MARIA', segment = CASE WHEN COALESCE(segment, '') = '' THEN '291' ELSE segment END, last_collect_at = GREATEST(COALESCE(last_collect_at, '0001-01-01'::date), '2026-08-06'::date), updated_at = now() WHERE name = 'ECOSANTA';

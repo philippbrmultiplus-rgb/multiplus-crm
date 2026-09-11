@@ -1,10 +1,20 @@
 import { useMemo, useState } from "react";
-import { Building2, Lock, Phone, Search, Target, User } from "lucide-react";
+import { Building2, Lock, Phone, Search, Target, Trash2, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Select,
   SelectContent,
@@ -37,12 +47,14 @@ const STATUS_TONE: Record<ProspeccaoStatus, string> = {
 };
 
 export default function Prospeccoes() {
-  const { state, setProspeccaoStatus } = useData();
+  const { state, setProspeccaoStatus, deleteClient, role } = useData();
   const { clients, visits } = state;
+  const podeExcluir = role === "coordenador";
 
   const [search, setSearch] = useState("");
   const [situ, setSitu] = useState("todas");
   const [lostTarget, setLostTarget] = useState<Client | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Client | null>(null);
 
   const lastVisitOf = useMemo(() => {
     const map = new Map<string, Visit>();
@@ -133,9 +145,11 @@ export default function Prospeccoes() {
               key={c.id}
               client={c}
               visit={lastVisitOf.get(c.id)}
+              canDelete={podeExcluir}
               onFinalize={(s) =>
                 s === "fechado" ? setProspeccaoStatus(c.id, "fechado") : setLostTarget(c)
               }
+              onDelete={() => setDeleteTarget(c)}
             />
           ))}
         </div>
@@ -151,6 +165,31 @@ export default function Prospeccoes() {
           }}
         />
       )}
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir prospecção definitivamente?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget
+                ? `"${deleteTarget.name}" será removido de TODAS as bases (prospecções, visitas, rotas e cadastro). Essa ação não pode ser desfeita.`
+                : ""}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-white hover:bg-destructive/90"
+              onClick={() => {
+                if (deleteTarget) deleteClient(deleteTarget.id);
+                setDeleteTarget(null);
+              }}
+            >
+              Excluir permanentemente
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -158,11 +197,15 @@ export default function Prospeccoes() {
 function ProspectCard({
   client,
   visit,
+  canDelete,
   onFinalize,
+  onDelete,
 }: {
   client: Client;
   visit?: Visit;
+  canDelete: boolean;
   onFinalize: (s: "fechado" | "perdido") => void;
+  onDelete: () => void;
 }) {
   const status: ProspeccaoStatus = client.prospeccaoStatus ?? "em_negociacao";
   const finalizada = status === "fechado" || status === "perdido";
@@ -217,7 +260,7 @@ function ProspectCard({
         )}
       </div>
 
-      <div className="mt-auto border-t pt-3">
+      <div className="mt-auto flex items-center justify-between gap-2 border-t pt-3">
         {finalizada ? (
           <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <Lock className="h-3.5 w-3.5" />
@@ -232,6 +275,17 @@ function ProspectCard({
               Perdido
             </Button>
           </div>
+        )}
+        {canDelete && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="shrink-0 text-muted-foreground hover:text-destructive"
+            title="Excluir esta prospecção definitivamente"
+            onClick={onDelete}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
         )}
       </div>
     </div>
