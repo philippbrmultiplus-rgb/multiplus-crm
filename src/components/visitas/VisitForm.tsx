@@ -57,7 +57,7 @@ export function VisitForm({
   const [status, setStatus] = useState<VisitStatus>("realizada");
   const [comments, setComments] = useState("");
   const [nextActions, setNextActions] = useState("");
-  const [photo, setPhoto] = useState<string | null>(null);
+  const [photos, setPhotos] = useState<string[]>([]);
   const [photoKb, setPhotoKb] = useState(0);
   const [geo, setGeo] = useState<GeoFix | null>(null);
   const [geoError, setGeoError] = useState<string | null>(null);
@@ -128,8 +128,8 @@ export function VisitForm({
     if (!file) return;
     try {
       const dataUrl = await compressImage(file);
-      setPhoto(dataUrl);
-      setPhotoKb(estimateKb(dataUrl));
+      setPhotos((prev) => [...prev, dataUrl]);
+      setPhotoKb((kb) => kb + estimateKb(dataUrl));
       setError(null);
     } catch {
       setError(
@@ -140,9 +140,17 @@ export function VisitForm({
     }
   };
 
+  const removePhoto = (idx: number) => {
+    setPhotos((prev) => {
+      const next = prev.filter((_, i) => i !== idx);
+      setPhotoKb(next.reduce((acc, d) => acc + estimateKb(d), 0));
+      return next;
+    });
+  };
+
   const submit = async () => {
-    if (photoRequired && !photo) {
-      setError("Foto de comprovação obrigatória — registre a visita só depois de fotografar o local.");
+    if (photoRequired && photos.length === 0) {
+      setError("Foto de comprovação obrigatória — registre ao menos uma foto do local.");
       return;
     }
     setError(null);
@@ -162,9 +170,10 @@ export function VisitForm({
       gpsAccuracyM: geo ? Math.round(geo.acc) : null,
       distanceFromClientM: distance != null ? Math.round(distance) : null,
       withinRadius: withinRadius ?? true,
-      photoData: photo ?? undefined,
+      photoData: photos[0],
+      photoDataList: photos,
     };
-    addVisit(visit, { uploadPhoto: !!photo?.startsWith("data:") });
+    addVisit(visit, { uploadPhoto: photos.some((p) => p.startsWith("data:")) });
     if (routeVisitId) markRouteVisitStatus(routeVisitId, "concluida");
     setSaving(false);
     onClose();
@@ -181,47 +190,58 @@ export function VisitForm({
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Foto */}
+          {/* Fotos */}
           <div className="space-y-2">
             <Label>
-              Foto de comprovação{" "}
+              Fotos de comprovação{" "}
               <span className="font-normal text-muted-foreground">
-                {photoRequired ? "(obrigatória)" : "(opcional)"}
+                {photoRequired ? "(ao menos 1 obrigatória)" : "(opcional)"}
               </span>
             </Label>
-            {photo ? (
-              <div className="relative">
-                <img
-                  src={photo}
-                  alt="Comprovante"
-                  className="h-40 w-full rounded-lg object-cover"
-                  crossOrigin="anonymous"
-                />
-                <span className="absolute bottom-2 right-2 rounded bg-black/60 px-1.5 py-0.5 text-[11px] text-white">
-                  {photoKb} KB
-                </span>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="absolute right-2 top-2 h-7 w-7"
-                  onClick={() => setPhoto(null)}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
+            {photos.length > 0 && (
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {photos.map((p, i) => (
+                  <div key={i} className="relative">
+                    <img
+                      src={p}
+                      alt={`Comprovante ${i + 1}`}
+                      className="h-28 w-full rounded-lg object-cover"
+                      crossOrigin="anonymous"
+                    />
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="absolute right-1.5 top-1.5 h-6 w-6"
+                      onClick={() => removePhoto(i)}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                    <span className="absolute bottom-1.5 left-1.5 rounded bg-black/60 px-1.5 py-0.5 text-[10px] text-white">
+                      {estimateKb(p)} KB
+                    </span>
+                  </div>
+                ))}
               </div>
-            ) : (
-              <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-5 text-center text-sm text-muted-foreground hover:border-primary hover:text-primary">
-                <Camera className="h-6 w-6" />
-                Tirar foto do local (câmera)
-                <input
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  className="hidden"
-                  onChange={(e) => handlePhoto(e.target.files?.[0] ?? null)}
-                />
-              </label>
             )}
+            {photos.length > 0 && (
+              <p className="text-xs text-muted-foreground">
+                {photos.length} foto(s) · total ~{photoKb} KB
+              </p>
+            )}
+            <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-4 text-center text-sm text-muted-foreground hover:border-primary hover:text-primary">
+              <Camera className="h-5 w-5" />
+              {photos.length === 0 ? "Tirar foto do local (câmera)" : "Adicionar outra foto"}
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={(e) => {
+                  void handlePhoto(e.target.files?.[0] ?? null);
+                  e.target.value = "";
+                }}
+              />
+            </label>
           </div>
 
           {/* GPS (opcional) */}

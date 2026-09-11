@@ -33,6 +33,12 @@ const STATUS_LABEL: Record<Visit["status"], string> = {
   nao_realizada: "Não realizada",
 };
 
+/** lista de fotos da visita (novas em `photos`, antigas em `photoData`) */
+function fotosOf(v: Visit): string[] {
+  if (v.photos && v.photos.length > 0) return v.photos;
+  return v.photoData ? [v.photoData] : [];
+}
+
 export default function Visitas() {
   const { state, deleteVisit } = useData();
   const { clients, visits, settings } = state;
@@ -98,16 +104,21 @@ export default function Visitas() {
         <div className="space-y-3">
           {filtered.map((v) => {
             const c = clientOf(v.clientId);
+            const fotos = fotosOf(v);
             return (
               <div key={v.id} className="card-soft flex flex-col gap-3 p-4 sm:flex-row sm:items-start">
-                {v.photoData ? (
-                  <button onClick={() => setViewing(v)} className="shrink-0">
+                {fotos.length > 0 ? (
+                  <button onClick={() => setViewing(v)} className="relative shrink-0">
                     <img
-                      src={v.photoData}
+                      src={fotos[0]}
                       alt="Comprovante"
                       className="h-24 w-32 rounded-lg object-cover"
-                     
                     />
+                    {fotos.length > 1 && (
+                      <span className="absolute bottom-1.5 right-1.5 rounded bg-black/65 px-1.5 py-0.5 text-[10px] text-white">
+                        +{fotos.length - 1} foto(s)
+                      </span>
+                    )}
                   </button>
                 ) : (
                   <div className="flex h-24 w-32 items-center justify-center rounded-lg bg-secondary text-xs text-muted-foreground">
@@ -157,9 +168,9 @@ export default function Visitas() {
                   </p>
                 </div>
                 <div className="flex shrink-0 gap-2">
-                  {v.photoData && (
+                  {fotos.length > 0 && (
                     <Button variant="outline" size="sm" asChild>
-                      <a href={v.photoData} target="_blank" rel="noreferrer">
+                      <a href={fotos[0]} target="_blank" rel="noreferrer">
                         <ExternalLink className="h-4 w-4" />
                       </a>
                     </Button>
@@ -183,13 +194,18 @@ export default function Visitas() {
               {viewing ? formatDateBR(viewing.visitedAt.slice(0, 10)) : ""}
             </DialogDescription>
           </DialogHeader>
-          {viewing?.photoData && (
-            <img
-              src={viewing.photoData}
-              alt="Comprovante"
-              className="w-full rounded-lg"
-             
-            />
+          {viewing && fotosOf(viewing).length > 0 && (
+            <div className="space-y-2">
+              {fotosOf(viewing).map((f, i) => (
+                <a key={i} href={f} target="_blank" rel="noreferrer">
+                  <img
+                    src={f}
+                    alt={`Comprovante ${i + 1}`}
+                    className="w-full rounded-lg"
+                  />
+                </a>
+              ))}
+            </div>
           )}
         </DialogContent>
       </Dialog>

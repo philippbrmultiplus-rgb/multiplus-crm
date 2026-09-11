@@ -94,6 +94,7 @@ export interface ProspectVisitInput {
   comments: string;
   nextActions: string;
   photoData?: string;
+  photoDataList?: string[];
   gpsLat?: number | null;
   gpsLng?: number | null;
   gpsAccuracyM?: number | null;
@@ -116,6 +117,10 @@ export interface Visit {
   photoData?: string;
   /** URL pública quando a foto está na nuvem */
   photoUrl?: string | null;
+  /** lista (local, base64) das fotos escolhidas antes de subir */
+  photoDataList?: string[];
+  /** lista de URLs públicas das fotos na nuvem */
+  photos?: string[] | null;
   createdBy?: string;
 }
 

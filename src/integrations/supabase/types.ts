@@ -3598,6 +3598,7 @@ export type Database = {
           id: string
           next_actions: string | null
           photo_url: string | null
+          photos: Json | null
           result_comments: string | null
           route_visit_id: string | null
           status: string | null
@@ -3615,6 +3616,7 @@ export type Database = {
           id: string
           next_actions?: string | null
           photo_url?: string | null
+          photos?: Json | null
           result_comments?: string | null
           route_visit_id?: string | null
           status?: string | null
@@ -3632,6 +3634,7 @@ export type Database = {
           id?: string
           next_actions?: string | null
           photo_url?: string | null
+          photos?: Json | null
           result_comments?: string | null
           route_visit_id?: string | null
           status?: string | null

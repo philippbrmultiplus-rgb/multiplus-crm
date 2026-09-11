@@ -274,6 +274,7 @@ function visitFromRow(r: Record<string, any>): Visit {
     withinRadius: r.within_radius ?? true,
     photoData: r.photo_url ?? undefined,
     photoUrl: r.photo_url ?? null,
+    photos: Array.isArray(r.photos) ? (r.photos as string[]) : r.photo_url ? [r.photo_url] : [],
     createdBy: r.created_by ?? undefined,
   };
 }
@@ -292,7 +293,8 @@ function visitToRow(v: Visit): Record<string, any> {
     gps_accuracy_m: v.gpsAccuracyM,
     distance_from_client_m: v.distanceFromClientM,
     within_radius: v.withinRadius,
-    photo_url: v.photoUrl ?? null,
+    photo_url: (v.photos && v.photos.length > 0 ? v.photos[0] : v.photoUrl) ?? null,
+    photos: v.photos ?? null,
   };
 }
 
@@ -1314,6 +1316,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const uploadVisitPhotos = useCallback(
+    async (visit: Visit, dataUrls: string[]): Promise<string[]> => {
+      const urls: string[] = [];
+      for (let i = 0; i < dataUrls.length; i++) {
+        const url = await uploadVisitPhoto({ ...visit, id: `${visit.id}-${i}` }, dataUrls[i]);
+        if (url) urls.push(url);
+      }
+      return urls;
+    },
+    [uploadVisitPhoto],
+  );
+
   const addVisit = useCallback(
     (visit: Visit, opts?: { uploadPhoto?: boolean }) => {
       const localDate = toLocalDateKey(visit.visitedAt);
@@ -1326,12 +1340,21 @@ export function DataProvider({ children }: { children: ReactNode }) {
       });
       if (!uidRef.current) return;
       void (async () => {
-        let photoUrl: string | null = null;
-        if (opts?.uploadPhoto && visit.photoData?.startsWith("data:")) {
-          photoUrl = await uploadVisitPhoto(visit, visit.photoData);
-        }
-        const synced: Visit = { ...visit, photoUrl };
-        if (photoUrl) {
+        const list = visit.photoDataList?.length
+          ? visit.photoDataList
+          : visit.photoData
+            ? [visit.photoData]
+            : [];
+        const uploaded = opts?.uploadPhoto
+          ? await uploadVisitPhotos(visit, list.filter((d) => d.startsWith("data:")))
+          : [];
+        const synced: Visit = {
+          ...visit,
+          photos: uploaded.length ? uploaded : (visit.photos ?? []),
+          photoUrl: uploaded[0] ?? visit.photoUrl ?? null,
+          photoData: uploaded[0] ?? visit.photoData,
+        };
+        if (uploaded.length) {
           setAppState((prev) => ({
             ...prev,
             visits: prev.visits.map((v) => (v.id === visit.id ? synced : v)),
@@ -1343,7 +1366,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }
       })();
     },
-    [setAppState, uploadVisitPhoto],
+    [setAppState, uploadVisitPhotos],
   );
 
   /**
@@ -1408,6 +1431,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         distanceFromClientM: null,
         withinRadius: true,
         photoData: args.photoData,
+        photoDataList: args.photoDataList,
       };
       setAppState((prev) => ({
         ...prev,
@@ -1431,10 +1455,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
           }
         }
         let photoUrl: string | null = null;
-        if (visit.photoData?.startsWith("data:")) {
-          photoUrl = await uploadVisitPhoto(visit, visit.photoData);
-        }
-        const synced: Visit = { ...visit, photoUrl };
+        const lista = args.photoDataList?.length
+          ? args.photoDataList
+          : args.photoData
+            ? [args.photoData]
+            : [];
+        const uploaded = await uploadVisitPhotos(visit, lista.filter((d) => d.startsWith("data:")));
+        photoUrl = uploaded[0] ?? null;
+        const synced: Visit = {
+          ...visit,
+          photos: uploaded,
+          photoUrl,
+          photoData: photoUrl ?? args.photoData,
+        };
         const { error: vErr } = await supabase.from("visits").insert(visitToRow(synced));
         if (vErr) {
           console.error("salvar visita prospecção:", vErr.message);
@@ -1448,7 +1481,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }
       })();
     },
-    [setAppState, state.routeVisits, state.settings, uploadVisitPhoto],
+    [setAppState, state.routeVisits, state.settings, uploadVisitPhotos],
   );
 
   /** finaliza a prospecção (fechado ou perdido) — trava depois de decidido */
