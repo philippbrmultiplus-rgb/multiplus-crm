@@ -1,0 +1,2 @@
+CREATE POLICY "rv_write_vendor" ON public.route_visits
+  FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);

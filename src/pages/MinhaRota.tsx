@@ -1,23 +1,36 @@
 import { useMemo, useState } from "react";
-import { CalendarCheck2, CheckCircle2, ExternalLink, MapPin, Navigation, UserPlus } from "lucide-react";
+import { CalendarCheck2, CheckCircle2, ExternalLink, MapPin, Navigation, Plus, Search, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useData } from "@/lib/DataContext";
 import { addDays, DAY_NAMES, formatDateBR, mondayOf, todayKey } from "@/lib/geo";
 import { computeSchedule } from "@/lib/route";
-import { ColetaBadge } from "@/components/clients/clientBadges";
+import { cadenceLabel } from "@/lib/cadence";
+import { ColetaBadge, TierBadge, VisitaBadge } from "@/components/clients/clientBadges";
 import { VisitForm } from "@/components/visitas/VisitForm";
 import { NotDoneDialog } from "@/components/visitas/NotDoneDialog";
 import { ProspectVisitDialog } from "@/components/visitas/ProspectVisitDialog";
-import type { Client, RouteVisit } from "@/lib/types";
+import { toast } from "sonner";
+import type { Client, RouteVisit, WeeklyRoute } from "@/lib/types";
 
 export default function MinhaRota() {
-  const { state, markRouteVisitStatus } = useData();
+  const { state, markRouteVisitStatus, addRouteVisit } = useData();
   const { routes, routeVisits, clients, visits } = state;
   const [formClient, setFormClient] = useState<{ client: Client; routeVisitId: string | null } | null>(null);
   const [notDone, setNotDone] = useState<{ client: Client; routeVisitId: string } | null>(null);
   const [prospectOpen, setProspectOpen] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
 
   const weekStart = mondayOf(todayKey());
   const today = new Date();
@@ -99,9 +112,14 @@ export default function MinhaRota() {
             {DAY_NAMES[day]}, {formatDateBR(todayIso)} · {scheduled.length} visitas
           </p>
         </div>
-        <Button variant="outline" onClick={() => setProspectOpen(true)}>
-          <UserPlus className="mr-2 h-4 w-4" /> Nova prospecção
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" onClick={() => setAddOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" /> Adicionar cliente
+          </Button>
+          <Button variant="outline" onClick={() => setProspectOpen(true)}>
+            <UserPlus className="mr-2 h-4 w-4" /> Nova prospecção
+          </Button>
+        </div>
       </div>
 
       {scheduled.length === 0 ? (
@@ -256,6 +274,124 @@ export default function MinhaRota() {
           onClose={() => setProspectOpen(false)}
         />
       )}
+
+      {addOpen && route && (
+        <AddExistingDialog
+          route={route}
+          day={day}
+          usedIds={new Set(dayVisits.map((rv) => rv.clientId))}
+          clients={clients}
+          onClose={() => setAddOpen(false)}
+        />
+      )}
     </div>
+  );
+}
+
+/** Vendedor inclui clientes JÁ EXISTENTES na rota do dia (não pode excluir) */
+function AddExistingDialog({
+  route,
+  day,
+  usedIds,
+  clients,
+  onClose,
+}: {
+  route: WeeklyRoute;
+  day: number;
+  usedIds: Set<string>;
+  clients: Client[];
+  onClose: () => void;
+}) {
+  const { addRouteVisit } = useData();
+  const [q, setQ] = useState("");
+  const [onlyActive, setOnlyActive] = useState(true);
+
+  const options = useMemo(() => {
+    const term = q.trim().toLowerCase();
+    return clients
+      .filter((c) => !usedIds.has(c.id))
+      .filter((c) => (onlyActive ? c.active : true))
+      .filter((c) =>
+        term ? `${c.name} ${c.city} ${c.segment} ${c.address}`.toLowerCase().includes(term) : true,
+      )
+      .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
+      .slice(0, 200);
+  }, [clients, usedIds, onlyActive, q]);
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-h-[calc(100dvh-2.5rem)] max-w-xl overflow-y-auto overscroll-contain">
+        <DialogHeader>
+          <DialogTitle>Adicionar cliente à {DAY_NAMES[day]}</DialogTitle>
+          <DialogDescription>
+            Inclua clientes já cadastrados na sua rota de hoje. Pode adicionar quantos quiser — a
+            exclusão de clientes é feita somente pelo coordenador.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative min-w-52 flex-1">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              className="pl-8"
+              placeholder="Buscar cliente por nome, cidade ou segmento…"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+            />
+          </div>
+          <label className="flex h-9 items-center gap-2 text-sm text-muted-foreground">
+            <Checkbox checked={onlyActive} onCheckedChange={(v) => setOnlyActive(!!v)} />
+            Só ativos
+          </label>
+        </div>
+
+        <p className="text-xs text-muted-foreground">
+          {options.length} cliente(s) disponível(is)
+        </p>
+
+        <div className="max-h-96 space-y-1 overflow-y-auto">
+          {options.map((c) => (
+            <button
+              key={c.id}
+              className="flex w-full items-center justify-between gap-2 rounded-lg border p-2 text-left text-sm hover:bg-secondary"
+              onClick={() => {
+                addRouteVisit(route, c.id, day);
+                toast.success(`"${c.name}" adicionada à ${DAY_NAMES[day]}.`);
+              }}
+            >
+              <span className="min-w-0 flex-1">
+                <span className="flex items-center gap-1.5">
+                  <span className="truncate font-medium">{c.name}</span>
+                  <TierBadge tier={c.tier} />
+                  {!c.active && <Badge variant="secondary">inativo</Badge>}
+                </span>
+                <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+                  <span className="truncate">
+                    {c.city}
+                    {c.segment ? ` · ${c.segment}` : ""}
+                  </span>
+                  <span>{cadenceLabel(c.freqMonth)}</span>
+                </span>
+              </span>
+              <span className="flex shrink-0 flex-col items-end gap-1">
+                <ColetaBadge c={c} />
+                {c.lastVisitAt && <VisitaBadge c={c} />}
+              </span>
+            </button>
+          ))}
+          {options.length === 0 && (
+            <p className="py-4 text-center text-sm text-muted-foreground">
+              Nenhum cliente disponível com os filtros atuais.
+            </p>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Concluir
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

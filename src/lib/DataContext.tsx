@@ -1167,24 +1167,27 @@ export function DataProvider({ children }: { children: ReactNode }) {
           estVisitMin: prev.settings.visitTimeMin,
           status: "pendente",
         };
-        if (canWriteClientData()) {
-          void (async () => {
-            // garante a rota na nuvem ANTES da visita (evita erro de chave estrangeira)
+        if (!uidRef.current) {
+          toast.error("Faça login para adicionar visitas à rota.");
+          return { ...prev, routeVisits: [...prev.routeVisits, nv] };
+        }
+        void (async () => {
+          // o coordenador garante a rota na nuvem antes da visita (evita chave estrangeira);
+          // o vendedor já tem a rota publicada, então só insere o item
+          if (canWriteClientData()) {
             const { error: rErr } = await supabase.from("weekly_routes").upsert(routeToRow(route));
             if (rErr) {
               console.error("garantir rota:", rErr.message);
               toast.error("Não foi possível salvar a rota antes da visita", { description: rErr.message });
               return;
             }
-            const { error: vErr } = await supabase.from("route_visits").upsert(rvToRow(nv));
-            if (vErr) {
-              console.error("salvar visita:", vErr.message);
-              toast.error("Não foi possível salvar a visita do cliente", { description: vErr.message });
-            }
-          })();
-        } else {
-          toast.error("Sem permissão para adicionar visitas. Entre como coordenador.");
-        }
+          }
+          const { error: vErr } = await supabase.from("route_visits").upsert(rvToRow(nv));
+          if (vErr) {
+            console.error("salvar visita:", vErr.message);
+            toast.error("Não foi possível salvar a visita do cliente", { description: vErr.message });
+          }
+        })();
         return { ...prev, routeVisits: [...prev.routeVisits, nv] };
       });
     },
