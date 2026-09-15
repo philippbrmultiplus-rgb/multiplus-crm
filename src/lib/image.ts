@@ -1,8 +1,8 @@
 /** Comprime uma imagem (câmera/galeria) para base64 JPEG pequeno. */
 export function compressImage(
   file: File,
-  maxWidth = 800,
-  quality = 0.62,
+  maxWidth = 640,
+  quality = 0.55,
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();

@@ -1353,6 +1353,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
           photos: uploaded.length ? uploaded : (visit.photos ?? []),
           photoUrl: uploaded[0] ?? visit.photoUrl ?? null,
           photoData: uploaded[0] ?? visit.photoData,
+          // depois de subir, não mantém o base64 pesado no estado (evita estourar o armazenamento)
+          photoDataList: uploaded.length ? undefined : visit.photoDataList?.slice(0, 1),
         };
         if (uploaded.length) {
           setAppState((prev) => ({
@@ -1467,6 +1469,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           photos: uploaded,
           photoUrl,
           photoData: photoUrl ?? args.photoData,
+          photoDataList: uploaded.length ? undefined : args.photoDataList?.slice(0, 1),
         };
         const { error: vErr } = await supabase.from("visits").insert(visitToRow(synced));
         if (vErr) {

@@ -148,6 +148,13 @@ export function VisitForm({
     });
   };
 
+  const handlePhotos = async (files: FileList | null) => {
+    if (!files) return;
+    for (const f of Array.from(files)) {
+      await handlePhoto(f);
+    }
+  };
+
   const submit = async () => {
     if (photoRequired && photos.length === 0) {
       setError("Foto de comprovação obrigatória — registre ao menos uma foto do local.");
@@ -228,20 +235,36 @@ export function VisitForm({
                 {photos.length} foto(s) · total ~{photoKb} KB
               </p>
             )}
-            <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-4 text-center text-sm text-muted-foreground hover:border-primary hover:text-primary">
-              <Camera className="h-5 w-5" />
-              {photos.length === 0 ? "Tirar foto do local (câmera)" : "Adicionar outra foto"}
-              <input
-                type="file"
-                accept="image/*"
-                capture="environment"
-                className="hidden"
-                onChange={(e) => {
-                  void handlePhoto(e.target.files?.[0] ?? null);
-                  e.target.value = "";
-                }}
-              />
-            </label>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-4 text-center text-sm text-muted-foreground hover:border-primary hover:text-primary">
+                <Camera className="h-5 w-5" />
+                {photos.length === 0 ? "Tirar foto (câmera)" : "Tirar outra foto"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={(e) => {
+                    void handlePhoto(e.target.files?.[0] ?? null);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+              <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-4 text-center text-sm text-muted-foreground hover:border-primary hover:text-primary">
+                <Camera className="h-5 w-5" />
+                Escolher da galeria
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => {
+                    void handlePhotos(e.target.files);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+            </div>
           </div>
 
           {/* GPS (opcional) */}
