@@ -46,6 +46,11 @@ function fotosOf(v: Visit): string[] {
   return v.photoData ? [v.photoData] : [];
 }
 
+/** hora local do registro (o banco guarda em UTC) */
+function horaOf(v: Visit): string {
+  return new Date(v.visitedAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+}
+
 export default function Visitas() {
   const { state, deleteVisit } = useData();
   const { clients, visits, settings } = state;
@@ -167,7 +172,8 @@ export default function Visitas() {
                   return (
                     <div
                       key={v.id}
-                      className={`card-soft flex flex-col gap-3 p-4 sm:flex-row sm:items-start ${
+                      onClick={() => setViewing(v)}
+                      className={`card-soft flex cursor-pointer flex-col gap-3 p-4 transition-colors hover:bg-secondary/40 sm:flex-row sm:items-start ${
                         isProsp ? "border-violet-500/40" : ""
                       }`}
                     >
@@ -218,7 +224,7 @@ export default function Visitas() {
                           )}
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          {formatDateBR(v.visitedAt.slice(0, 10))} às {v.visitedAt.slice(11, 16)} · {c?.city}
+                          {formatDateBR(v.visitedAt.slice(0, 10))} às {horaOf(v)} · {c?.city}
                         </p>
                         <div className="mt-2 grid gap-2 text-sm sm:grid-cols-2">
                           <div>
@@ -247,13 +253,25 @@ export default function Visitas() {
                       </div>
                       <div className="flex shrink-0 gap-2">
                         {fotos.length > 0 && (
-                          <Button variant="outline" size="sm" asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            asChild
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             <a href={fotos[0]} target="_blank" rel="noreferrer">
                               <ExternalLink className="h-4 w-4" />
                             </a>
                           </Button>
                         )}
-                        <Button variant="ghost" size="icon" onClick={() => setToDelete(v)}>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setToDelete(v);
+                          }}
+                        >
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       </div>
@@ -267,27 +285,131 @@ export default function Visitas() {
       )}
 
       <Dialog open={!!viewing} onOpenChange={(o) => !o && setViewing(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Comprovante</DialogTitle>
-            <DialogDescription>
-              {viewing && clientOf(viewing.clientId)?.name} —{" "}
-              {viewing ? formatDateBR(viewing.visitedAt.slice(0, 10)) : ""}
-            </DialogDescription>
-          </DialogHeader>
-          {viewing && fotosOf(viewing).length > 0 && (
-            <div className="space-y-2">
-              {fotosOf(viewing).map((f, i) => (
-                <a key={i} href={f} target="_blank" rel="noreferrer">
-                  <img
-                    src={f}
-                    alt={`Comprovante ${i + 1}`}
-                    className="w-full rounded-lg"
-                  />
-                </a>
-              ))}
-            </div>
-          )}
+        <DialogContent className="max-h-[calc(100dvh-2.5rem)] max-w-2xl overflow-y-auto overscroll-contain">
+          {viewing &&
+            (() => {
+              const v = viewing;
+              const c = clientOf(v.clientId);
+              const isProsp = c?.isProspecao;
+              const fotos = fotosOf(v);
+              return (
+                <>
+                  <DialogHeader>
+                    <DialogTitle>{c?.name ?? "Cliente removido"}</DialogTitle>
+                    <DialogDescription>
+                      {formatDateBR(v.visitedAt.slice(0, 10))} às {horaOf(v)} · {c?.city}
+                    </DialogDescription>
+                  </DialogHeader>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    {isProsp && (
+                      <Badge
+                        variant="outline"
+                        className="border-violet-500/40 text-violet-600 dark:text-violet-300"
+                      >
+                        Prospecção
+                      </Badge>
+                    )}
+                    <Badge
+                      className={
+                        v.status === "realizada"
+                          ? "bg-primary/10 text-primary"
+                          : v.status === "nao_encontrado"
+                            ? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+                            : v.status === "nao_realizada"
+                              ? "bg-slate-500/15 text-slate-600 dark:text-slate-300"
+                              : "bg-destructive/10 text-destructive"
+                      }
+                    >
+                      {STATUS_LABEL[v.status]}
+                    </Badge>
+                    {v.withinRadius === false && (
+                      <Badge className="bg-destructive/10 text-destructive">Fora do raio</Badge>
+                    )}
+                  </div>
+
+                  {c && (
+                    <div className="grid gap-2 rounded-lg border p-3 text-sm sm:grid-cols-2">
+                      {c.segment && (
+                        <div>
+                          <div className="text-xs font-medium text-muted-foreground">Segmento</div>
+                          <div>{c.segment}</div>
+                        </div>
+                      )}
+                      {c.responsavel && (
+                        <div>
+                          <div className="text-xs font-medium text-muted-foreground">Responsável</div>
+                          <div>{c.responsavel}</div>
+                        </div>
+                      )}
+                      {c.contato && (
+                        <div>
+                          <div className="text-xs font-medium text-muted-foreground">Contato</div>
+                          <div>{c.contato}</div>
+                        </div>
+                      )}
+                      {c.city && (
+                        <div>
+                          <div className="text-xs font-medium text-muted-foreground">Cidade</div>
+                          <div>{c.city}</div>
+                        </div>
+                      )}
+                      {c.address && (
+                        <div className="sm:col-span-2">
+                          <div className="text-xs font-medium text-muted-foreground">Endereço</div>
+                          <div>{c.address}</div>
+                        </div>
+                      )}
+                      {c.obs && (
+                        <div className="sm:col-span-2">
+                          <div className="text-xs font-medium text-muted-foreground">Observações</div>
+                          <div>{c.obs}</div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="grid gap-2 text-sm sm:grid-cols-2">
+                    <div>
+                      <div className="text-xs font-medium text-muted-foreground">
+                        {v.status === "nao_realizada" ? "Justificativa" : "O que foi feito"}
+                      </div>
+                      <p className="mt-0.5">{v.resultComments || "—"}</p>
+                    </div>
+                    <div>
+                      <div className="text-xs font-medium text-muted-foreground">Próxima visita</div>
+                      <p className="mt-0.5">{v.nextActions || "—"}</p>
+                    </div>
+                  </div>
+
+                  {v.withinRadius === false && v.distanceFromClientM != null && (
+                    <p className="text-sm text-destructive">
+                      {formatDistanceM(v.distanceFromClientM)} do endereço cadastrado (raio{" "}
+                      {settings.visitRadiusM} m)
+                    </p>
+                  )}
+
+                  {fotos.length > 0 && (
+                    <div>
+                      <div className="mb-1 text-xs font-medium text-muted-foreground">
+                        Fotos ({fotos.length})
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                        {fotos.map((f, i) => (
+                          <a key={i} href={f} target="_blank" rel="noreferrer">
+                            <img
+                              src={f}
+                              alt={`Foto ${i + 1}`}
+                              className="h-32 w-full rounded-lg object-cover"
+                            />
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
         </DialogContent>
       </Dialog>
 

@@ -55,6 +55,7 @@ export default function Prospeccoes() {
   const [situ, setSitu] = useState("todas");
   const [lostTarget, setLostTarget] = useState<Client | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Client | null>(null);
+  const [detailTarget, setDetailTarget] = useState<Client | null>(null);
 
   const lastVisitOf = useMemo(() => {
     const map = new Map<string, Visit>();
@@ -146,6 +147,7 @@ export default function Prospeccoes() {
               client={c}
               visit={lastVisitOf.get(c.id)}
               canDelete={podeExcluir}
+              onOpen={() => setDetailTarget(c)}
               onFinalize={(s) =>
                 s === "fechado" ? setProspeccaoStatus(c.id, "fechado") : setLostTarget(c)
               }
@@ -190,6 +192,10 @@ export default function Prospeccoes() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {detailTarget && (
+        <DetailDialog client={detailTarget} visit={lastVisitOf.get(detailTarget.id)} onClose={() => setDetailTarget(null)} />
+      )}
     </div>
   );
 }
@@ -198,12 +204,14 @@ function ProspectCard({
   client,
   visit,
   canDelete,
+  onOpen,
   onFinalize,
   onDelete,
 }: {
   client: Client;
   visit?: Visit;
   canDelete: boolean;
+  onOpen: () => void;
   onFinalize: (s: "fechado" | "perdido") => void;
   onDelete: () => void;
 }) {
@@ -212,7 +220,10 @@ function ProspectCard({
   const photo = visit?.photoUrl ?? visit?.photoData ?? null;
 
   return (
-    <div className="card-soft flex flex-col gap-3 p-4">
+    <div
+      onClick={onOpen}
+      className="card-soft flex cursor-pointer flex-col gap-3 p-4 transition-colors hover:bg-secondary/40"
+    >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="truncate font-semibold leading-tight">{client.name}</div>
@@ -268,10 +279,10 @@ function ProspectCard({
           </p>
         ) : (
           <div className="flex flex-wrap gap-2">
-            <Button size="sm" onClick={() => onFinalize("fechado")}>
+            <Button size="sm" onClick={(e) => { e.stopPropagation(); onFinalize("fechado"); }}>
               Fechar negócio
             </Button>
-            <Button size="sm" variant="outline" onClick={() => onFinalize("perdido")}>
+            <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); onFinalize("perdido"); }}>
               Perdido
             </Button>
           </div>
@@ -282,7 +293,10 @@ function ProspectCard({
             size="sm"
             className="shrink-0 text-muted-foreground hover:text-destructive"
             title="Excluir esta prospecção definitivamente"
-            onClick={onDelete}
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
           >
             <Trash2 className="h-4 w-4" />
           </Button>
@@ -345,6 +359,125 @@ function LostDialog({
           </Button>
           <Button variant="destructive" onClick={confirm} disabled={!reason.trim()}>
             Confirmar perdido
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** janela com TODAS as informações da prospecção, incluindo fotos */
+function DetailDialog({
+  client,
+  visit,
+  onClose,
+}: {
+  client: Client;
+  visit?: Visit;
+  onClose: () => void;
+}) {
+  const status: ProspeccaoStatus = client.prospeccaoStatus ?? "em_negociacao";
+  const fotos = visit
+    ? visit.photos && visit.photos.length > 0
+      ? visit.photos
+      : visit.photoData
+        ? [visit.photoData]
+        : []
+    : [];
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-h-[calc(100dvh-2.5rem)] max-w-lg overflow-y-auto overscroll-contain">
+        <DialogHeader>
+          <DialogTitle>{client.name}</DialogTitle>
+          <DialogDescription>
+            {visit
+              ? `Prospecção registrada em ${formatDateBR(visit.visitedAt.slice(0, 10))}`
+              : "Prospecção"}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge className={STATUS_TONE[status]}>{STATUS_LABEL[status]}</Badge>
+        </div>
+
+        <div className="space-y-1.5 text-sm">
+          {client.responsavel && (
+            <div>
+              <span className="block text-xs font-medium text-muted-foreground">Responsável</span>
+              {client.responsavel}
+            </div>
+          )}
+          {client.contato && (
+            <div>
+              <span className="block text-xs font-medium text-muted-foreground">Contato</span>
+              {client.contato}
+            </div>
+          )}
+          {client.segment && (
+            <div>
+              <span className="block text-xs font-medium text-muted-foreground">Segmento</span>
+              {client.segment}
+            </div>
+          )}
+          {client.city && (
+            <div>
+              <span className="block text-xs font-medium text-muted-foreground">Cidade</span>
+              {client.city}
+            </div>
+          )}
+          {client.address && (
+            <div>
+              <span className="block text-xs font-medium text-muted-foreground">Endereço</span>
+              {client.address}
+            </div>
+          )}
+          {client.obs && (
+            <div>
+              <span className="block text-xs font-medium text-muted-foreground">Observações</span>
+              {client.obs}
+            </div>
+          )}
+          {visit?.resultComments && (
+            <div>
+              <span className="block text-xs font-medium text-muted-foreground">
+                O que foi realizado
+              </span>
+              {visit.resultComments}
+            </div>
+          )}
+          {visit?.nextActions && (
+            <div>
+              <span className="block text-xs font-medium text-muted-foreground">Próxima visita</span>
+              {visit.nextActions}
+            </div>
+          )}
+        </div>
+
+        {status === "perdido" && client.prospeccaoJustificativa && (
+          <p className="rounded-md bg-destructive/5 p-2 text-sm text-destructive">
+            <b>Justificativa:</b> {client.prospeccaoJustificativa}
+          </p>
+        )}
+
+        {fotos.length > 0 && (
+          <div>
+            <div className="mb-1 text-xs font-medium text-muted-foreground">
+              Fotos ({fotos.length})
+            </div>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {fotos.map((f, i) => (
+                <a key={i} href={f} target="_blank" rel="noreferrer">
+                  <img src={f} alt={`Foto ${i + 1}`} className="h-32 w-full rounded-lg object-cover" />
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Fechar
           </Button>
         </DialogFooter>
       </DialogContent>
