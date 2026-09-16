@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   closestCorners,
   DndContext,
@@ -564,23 +564,55 @@ function AddClientDialog({
     [clients, routeClients],
   );
 
+  // confere se o cliente passa em TODOS os filtros atuais, exceto o informado em "ignore"
+  const matchOutros = useCallback(
+    (c: Client, ignore: "cidade" | "segmento" | "grupo") => {
+      if (ignore !== "cidade" && cidade !== "all" && (c.city || "(sem cidade)") !== cidade) return false;
+      if (ignore !== "segmento" && segmento !== "all" && (c.segment || "(sem segmento)") !== segmento)
+        return false;
+      if (ignore !== "grupo" && grupo !== "all" && c.tier !== grupo) return false;
+      if (onlyActive && !c.active) return false;
+      if (situ === "atrasada" && !isColetaOverdue(c)) return false;
+      if (situ === "em_dia" && (c.lastCollectAt == null || isColetaOverdue(c))) return false;
+      if (situ === "sem_data" && c.lastCollectAt != null) return false;
+      if (situVisita === "atrasada" && visitaStatus(c) !== "late") return false;
+      if (situVisita === "em_dia" && (c.lastVisitAt == null || visitaStatus(c) === "late")) return false;
+      if (situVisita === "sem_visita" && c.lastVisitAt != null) return false;
+      return true;
+    },
+    [cidade, segmento, grupo, onlyActive, situ, situVisita],
+  );
+
   const cities = useMemo(() => {
     const map = new Map<string, number>();
-    clients.forEach((c) => {
+    for (const c of clients) {
+      if (!matchOutros(c, "cidade")) continue;
       const k = c.city || "(sem cidade)";
       map.set(k, (map.get(k) ?? 0) + 1);
-    });
+    }
+    if (cidade !== "all" && !map.has(cidade)) map.set(cidade, 0);
     return [...map.entries()].sort((a, b) => b[1] - a[1]);
-  }, [clients]);
+  }, [clients, matchOutros, cidade]);
 
   const segments = useMemo(() => {
     const map = new Map<string, number>();
-    clients.forEach((c) => {
+    for (const c of clients) {
+      if (!matchOutros(c, "segmento")) continue;
       const k = c.segment || "(sem segmento)";
       map.set(k, (map.get(k) ?? 0) + 1);
-    });
+    }
+    if (segmento !== "all" && !map.has(segmento)) map.set(segmento, 0);
     return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0], "pt-BR"));
-  }, [clients]);
+  }, [clients, matchOutros, segmento]);
+
+  const grupoOptions = useMemo(() => {
+    const tiers = new Set<string>();
+    for (const c of clients) {
+      if (matchOutros(c, "grupo")) tiers.add(c.tier);
+    }
+    const base = ["A", "B", "C", "D"] as const;
+    return base.filter((t) => tiers.has(t) || grupo === t);
+  }, [clients, matchOutros, grupo]);
 
   const options = useMemo(() => {
     const term = q.trim().toLowerCase();
@@ -669,10 +701,12 @@ function AddClientDialog({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos os grupos</SelectItem>
-              <SelectItem value="A">Grupo A (4x/mês)</SelectItem>
-              <SelectItem value="B">Grupo B (3x/mês)</SelectItem>
-              <SelectItem value="C">Grupo C (2x/mês)</SelectItem>
-              <SelectItem value="D">Grupo D (&lt;2x/mês)</SelectItem>
+              {grupoOptions.map((t) => (
+                <SelectItem key={t} value={t}>
+                  Grupo {t}
+                  {t === "A" ? " (4x/mês)" : t === "B" ? " (3x/mês)" : t === "C" ? " (2x/mês)" : " (<2x/mês)"}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
           <Select value={situ} onValueChange={setSitu}>
