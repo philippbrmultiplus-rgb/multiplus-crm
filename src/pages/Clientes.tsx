@@ -60,6 +60,7 @@ import {
   coletaDays,
   compareClients,
   isColetaOverdue,
+  visitaStatus,
   type ClientSort,
 } from "@/components/clients/clientBits";
 import { ColetaBadge, TierBadge, VisitaBadge } from "@/components/clients/clientBadges";
@@ -128,6 +129,7 @@ export default function Clientes() {
   const [segment, setSegment] = useState("all");
   const [freqF, setFreqF] = useState("all");
   const [situ, setSitu] = useState("todas");
+  const [situVisita, setSituVisita] = useState("todas");
   const [sortBy, setSortBy] = useState<ClientSort>("grupo");
   const [onlyActive, setOnlyActive] = useState(true);
   const [editing, setEditing] = useState<Client | null>(null);
@@ -169,6 +171,12 @@ export default function Clientes() {
         if (situ === "em_dia") return c.lastCollectAt != null && !isColetaOverdue(c);
         return isColetaOverdue(c);
       })
+      .filter((c) => {
+        if (situVisita === "todas") return true;
+        if (situVisita === "sem_visita") return c.lastVisitAt == null;
+        if (situVisita === "em_dia") return c.lastVisitAt != null && visitaStatus(c) !== "late";
+        return visitaStatus(c) === "late";
+      })
       .filter((c) =>
         q ? `${c.name} ${c.address} ${c.city} ${c.segment}`.toLowerCase().includes(q) : true,
       )
@@ -188,7 +196,7 @@ export default function Clientes() {
         return compareClients(a, b, sortBy);
       })
       .slice(0, 300);
-  }, [clients, search, city, tier, segment, freqF, situ, sortBy, onlyActive]);
+  }, [clients, search, city, tier, segment, freqF, situ, situVisita, sortBy, onlyActive]);
 
   const segmentOptions = useMemo(
     () =>
@@ -354,6 +362,17 @@ export default function Clientes() {
             <SelectItem value="atrasada">Coleta atrasada</SelectItem>
             <SelectItem value="em_dia">Em dia</SelectItem>
             <SelectItem value="sem_data">Sem data de coleta</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={situVisita} onValueChange={setSituVisita}>
+          <SelectTrigger className="w-48">
+            <SelectValue placeholder="Situação da visita" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todas">Todas as visitas</SelectItem>
+            <SelectItem value="atrasada">Visita atrasada (&gt;30 dias)</SelectItem>
+            <SelectItem value="em_dia">Visita em dia</SelectItem>
+            <SelectItem value="sem_visita">Sem visita registrada</SelectItem>
           </SelectContent>
         </Select>
         <Select value={sortBy} onValueChange={(v) => setSortBy(v as ClientSort)}>

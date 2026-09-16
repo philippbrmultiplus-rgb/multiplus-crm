@@ -555,6 +555,7 @@ function AddClientDialog({
   const [segmento, setSegmento] = useState("all");
   const [grupo, setGrupo] = useState("all");
   const [situ, setSitu] = useState("todas");
+  const [situVisita, setSituVisita] = useState("todas");
   const [onlyActive, setOnlyActive] = useState(true);
   const [showProsp, setShowProsp] = useState(false);
 
@@ -594,13 +595,19 @@ function AddClientDialog({
         if (situ === "em_dia") return c.lastCollectAt != null && !isColetaOverdue(c);
         return isColetaOverdue(c);
       })
+      .filter((c) => {
+        if (situVisita === "todas") return true;
+        if (situVisita === "sem_visita") return c.lastVisitAt == null;
+        if (situVisita === "em_dia") return c.lastVisitAt != null && visitaStatus(c) !== "late";
+        return visitaStatus(c) === "late";
+      })
       .filter((c) =>
         term
           ? `${c.name} ${c.city} ${c.segment} ${c.address}`.toLowerCase().includes(term)
           : true,
       )
       .sort((a, b) => compareClients(a, b, "grupo"));
-  }, [available, q, cidade, segmento, grupo, situ, onlyActive]);
+  }, [available, q, cidade, segmento, grupo, situ, situVisita, onlyActive]);
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
@@ -677,6 +684,17 @@ function AddClientDialog({
               <SelectItem value="atrasada">Coleta atrasada</SelectItem>
               <SelectItem value="em_dia">Em dia</SelectItem>
               <SelectItem value="sem_data">Sem data de coleta</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={situVisita} onValueChange={setSituVisita}>
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="Situação da visita" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todas">Todas as visitas</SelectItem>
+              <SelectItem value="atrasada">Visita atrasada (&gt;30 dias)</SelectItem>
+              <SelectItem value="em_dia">Visita em dia</SelectItem>
+              <SelectItem value="sem_visita">Sem visita registrada</SelectItem>
             </SelectContent>
           </Select>
           <label className="flex h-9 items-center gap-2 text-sm text-muted-foreground">
