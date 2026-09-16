@@ -325,7 +325,9 @@ export default function RotaSemanal() {
         onClose={() => setAddDay(null)}
         route={route}
         day={addDay ?? 1}
-        routeClients={visits.map((rv) => rv.clientId)}
+        routeClients={visits
+          .filter((rv) => rv.day === (addDay ?? 1))
+          .map((rv) => rv.clientId)}
         clients={clients}
       />
 

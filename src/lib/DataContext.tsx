@@ -1166,6 +1166,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
     (route: WeeklyRoute, clientId: string, day: number) => {
       const routeId = route.id;
       setAppState((prev) => {
+        // não permite incluir o mesmo cliente mais de uma vez NO MESMO dia
+        const jaExiste = prev.routeVisits.some(
+          (r) => r.routeId === routeId && r.clientId === clientId && r.day === day,
+        );
+        if (jaExiste) {
+          toast.error("Este cliente já está incluído neste dia da rota.");
+          return prev;
+        }
         const maxPos = prev.routeVisits
           .filter((r) => r.routeId === routeId && r.day === day)
           .reduce((m, r) => Math.max(m, r.position), -1);
