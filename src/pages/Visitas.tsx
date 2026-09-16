@@ -232,11 +232,17 @@ export default function Visitas() {
                             <p className="line-clamp-2">{v.nextActions || "—"}</p>
                           </div>
                         </div>
-                        <p className="mt-2 text-xs text-muted-foreground">
-                          {v.gpsLat != null &&
-                            `GPS ${v.gpsLat.toFixed(5)}, ${v.gpsLng?.toFixed(5)}`}
-                          {v.distanceFromClientM != null &&
-                            ` · ${formatDistanceM(v.distanceFromClientM)} do endereço (raio ${settings.visitRadiusM} m)`}
+                        <p className="mt-2 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
+                          <span>
+                            Visita em:{" "}
+                            <span className="font-medium text-foreground">{c?.city || "—"}</span>
+                          </span>
+                          {v.withinRadius === false && v.distanceFromClientM != null && (
+                            <span className="text-destructive">
+                              {formatDistanceM(v.distanceFromClientM)} do endereço cadastrado (raio{" "}
+                              {settings.visitRadiusM} m)
+                            </span>
+                          )}
                         </p>
                       </div>
                       <div className="flex shrink-0 gap-2">
