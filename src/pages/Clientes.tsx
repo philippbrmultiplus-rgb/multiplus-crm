@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import {
   CheckCircle2,
+  Download,
   Loader2,
   Map as MapIcon,
   MapPin,
@@ -56,10 +57,12 @@ import { useData } from "@/lib/DataContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { LeafletMap } from "@/components/map/LeafletMap";
 import { cadenceLabel, tierOfFreq } from "@/lib/cadence";
+import { formatDateBR } from "@/lib/geo";
 import {
   coletaDays,
   compareClients,
   isColetaOverdue,
+  lastVisitDays,
   visitaStatus,
   type ClientSort,
 } from "@/components/clients/clientBits";
@@ -119,7 +122,7 @@ function CadenceSelect({ value, onValue }: { value: number; onValue: (f: number)
 }
 
 export default function Clientes() {
-  const { state, updateClient, geocodeAll, recomputeTiers, deleteClient } = useData();
+  const { state, updateClient, geocodeAll, deleteClient } = useData();
   const { clients } = state;
   const isMobile = useIsMobile();
 
@@ -226,6 +229,53 @@ export default function Clientes() {
 
   const pendingGeocode = clients.filter((c) => c.lat == null || c.geocodeStatus !== "ok").length;
 
+  /** extrai a lista (respeitando os filtros atuais) para Excel, com colunas separadas */
+  const exportExcel = async () => {
+    const XLSX = await import("xlsx");
+    const situacaoTroca = (c: Client) => {
+      const d = coletaDays(c);
+      if (d == null) return "Sem data de troca";
+      if (d > 30) return "Atrasada";
+      if (d > 20) return "Atenção";
+      return "Em dia";
+    };
+    const situacaoVisita = (c: Client) => {
+      const d = lastVisitDays(c);
+      if (d == null) return "Sem visita";
+      if (d > 30) return "Atrasada";
+      if (d > 20) return "Atenção";
+      return "Em dia";
+    };
+    const rows = filtered.map((c) => ({
+      Nome: c.name,
+      Segmento: c.segment || "",
+      Cidade: c.city || "",
+      Endereço: c.address || "",
+      Contato: c.contato ?? "",
+      Responsável: c.responsavel ?? "",
+      Grupo: c.tier,
+      Cadência: cadenceLabel(c.freqMonth),
+      "Frequência (visitas/mês)": c.freqMonth,
+      "Última troca": c.lastCollectAt ? formatDateBR(c.lastCollectAt) : "",
+      "Dias sem troca": coletaDays(c) ?? "",
+      "Situação da troca": situacaoTroca(c),
+      "Última visita": c.lastVisitAt ? formatDateBR(c.lastVisitAt) : "",
+      "Dias sem visita": lastVisitDays(c) ?? "",
+      "Situação da visita": situacaoVisita(c),
+      Ativo: c.active ? "Sim" : "Não",
+      Prospecção: c.isProspecao ? "Sim" : "Não",
+      Observações: c.obs ?? "",
+      Latitude: c.lat ?? "",
+      Longitude: c.lng ?? "",
+      Geocodificação: c.geocodeStatus,
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Clientes");
+    XLSX.writeFile(wb, `clientes-${new Date().toISOString().slice(0, 10)}.xlsx`);
+    toast.success(`${rows.length} cliente(s) exportado(s) para Excel.`);
+  };
+
   const handleGeocode = async () => {
     setGeocoding({ done: 0, total: 0, current: "" });
     const res = await geocodeAll((done, total, current) =>
@@ -255,8 +305,8 @@ export default function Clientes() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={recomputeTiers}>
-            Recalcular prioridades
+          <Button variant="outline" onClick={() => void exportExcel()}>
+            <Download className="mr-2 h-4 w-4" /> Exportar Excel
           </Button>
           <Button variant="outline" asChild>
             <Link to="/mapa">
