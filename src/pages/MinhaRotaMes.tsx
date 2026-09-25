@@ -13,6 +13,7 @@ import { DaySchedule } from "@/components/rota/DaySchedule";
 import { rotaStatusDot } from "@/components/clients/clientBits";
 import { VisitForm } from "@/components/visitas/VisitForm";
 import { NotDoneDialog } from "@/components/visitas/NotDoneDialog";
+import { VisitDetailsDialog } from "@/components/visitas/VisitDetailsDialog";
 import { DAY_NAMES, mondayOf, todayKey } from "@/lib/geo";import type { Client, RouteVisit, Visit } from "@/lib/types";
 
 const MONTHS = [
@@ -36,6 +37,7 @@ export default function MinhaRotaMes() {
   const [openDate, setOpenDate] = useState<string | null>(null);
   const [formClient, setFormClient] = useState<{ client: Client; routeVisitId: string } | null>(null);
   const [notDone, setNotDone] = useState<{ routeVisitId: string; clientName: string } | null>(null);
+  const [detail, setDetail] = useState<{ client: Client; visit: Visit } | null>(null);
 
   const gridDates = useMemo(() => {
     const first = new Date(ym.y, ym.m, 1);
@@ -231,6 +233,7 @@ export default function MinhaRotaMes() {
                 setOpenDate(null);
               }}
               onNotDone={toggleNotDone}
+              onOpenDetails={(client, visit) => setDetail({ client, visit })}
             />
           ) : (
             <p className="py-4 text-sm text-muted-foreground">Sem visitas neste dia.</p>
@@ -252,6 +255,15 @@ export default function MinhaRotaMes() {
           clientName={notDone.clientName}
           onClose={() => setNotDone(null)}
           onConfirm={(reason) => markRouteVisitStatus(notDone.routeVisitId, "nao_realizada", reason)}
+        />
+      )}
+
+      {detail && (
+        <VisitDetailsDialog
+          client={detail.client}
+          visit={detail.visit}
+          radiusM={settings.visitRadiusM}
+          onClose={() => setDetail(null)}
         />
       )}
     </div>

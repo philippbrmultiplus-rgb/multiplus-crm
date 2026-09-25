@@ -7,6 +7,7 @@ import { DaySchedule } from "@/components/rota/DaySchedule";
 import { VisitForm } from "@/components/visitas/VisitForm";
 import { ProspectVisitDialog } from "@/components/visitas/ProspectVisitDialog";
 import { NotDoneDialog } from "@/components/visitas/NotDoneDialog";
+import { VisitDetailsDialog } from "@/components/visitas/VisitDetailsDialog";
 import {
   addDays,
   DAY_NAMES,
@@ -24,6 +25,7 @@ export default function MinhaRotaSemana() {
   const [formClient, setFormClient] = useState<{ client: Client; routeVisitId: string } | null>(null);
   const [prospectDay, setProspectDay] = useState<number | null>(null);
   const [notDone, setNotDone] = useState<{ routeVisitId: string; clientName: string } | null>(null);
+  const [detail, setDetail] = useState<{ client: Client; visit: Visit } | null>(null);
 
   const route = useMemo(() => {
     const week = routes.filter((r) => r.weekStart === weekStart && r.status === "publicada");
@@ -147,6 +149,7 @@ export default function MinhaRotaSemana() {
                   canAct={canAct}
                   onRegister={(c, rv) => setFormClient({ client: c, routeVisitId: rv.id })}
                   onNotDone={toggleNotDone}
+                  onOpenDetails={(client, visit) => setDetail({ client, visit })}
                 />
               </section>
             );
@@ -177,6 +180,15 @@ export default function MinhaRotaSemana() {
           clientName={notDone.clientName}
           onClose={() => setNotDone(null)}
           onConfirm={(reason) => markRouteVisitStatus(notDone.routeVisitId, "nao_realizada", reason)}
+        />
+      )}
+
+      {detail && (
+        <VisitDetailsDialog
+          client={detail.client}
+          visit={detail.visit}
+          radiusM={settings.visitRadiusM}
+          onClose={() => setDetail(null)}
         />
       )}
     </div>

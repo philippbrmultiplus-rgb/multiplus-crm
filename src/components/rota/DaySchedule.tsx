@@ -15,6 +15,8 @@ export interface ScheduleRowProps {
   canAct: boolean;
   onRegister: (client: Client, routeVisit: RouteVisit) => void;
   onNotDone: (routeVisitId: string) => void;
+  /** abre os detalhes da visita já registrada naquele cliente */
+  onOpenDetails?: (client: Client, visit: Visit) => void;
 }
 
 export function DaySchedule({
@@ -27,6 +29,7 @@ export function DaySchedule({
   canAct,
   onRegister,
   onNotDone,
+  onOpenDetails,
 }: ScheduleRowProps) {
   const scheduled = computeSchedule(visits, clients, settings, day);
   if (scheduled.length === 0) {
@@ -47,7 +50,10 @@ export function DaySchedule({
               <Clock className="mb-0.5 h-3.5 w-3.5" />
               {s.arrivalClock}
             </span>
-            <div className="min-w-0 flex-1">
+            <div
+              className={`min-w-0 flex-1 ${rec && onOpenDetails ? "cursor-pointer" : ""}`}
+              onClick={rec && onOpenDetails ? () => onOpenDetails(s.client, rec) : undefined}
+            >
               <div className="flex flex-wrap items-center gap-1.5">
                 <span className="truncate font-medium">{s.client.name}</span>
                 {done ? (
@@ -83,6 +89,9 @@ export function DaySchedule({
                   <CheckCircle2 className="h-3 w-3" />
                   {rec.status === "nao_realizada" ? "Não realizada em" : "Visita registrada em"}{" "}
                   {new Date(rec.visitedAt).toLocaleDateString("pt-BR")}
+                  {onOpenDetails && (
+                    <span className="ml-1 underline underline-offset-2">ver detalhes</span>
+                  )}
                 </p>
               )}
             </div>
