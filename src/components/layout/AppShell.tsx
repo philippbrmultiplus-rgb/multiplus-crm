@@ -10,7 +10,6 @@ import {
   Map as MapIcon,
   MapPin,
   Route as RouteIcon,
-  Recycle,
   Target,
   Users,
 } from "lucide-react";
@@ -63,9 +62,11 @@ const HOME_BY_ROLE: Record<string, string> = {
 function Brand() {
   return (
     <div className="flex items-center gap-2 px-2 py-1">
-      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-        <Recycle className="h-5 w-5" />
-      </div>
+      <img
+        src="/rota-logo.png"
+        alt="RotaSul"
+        className="h-8 w-8 shrink-0 rounded-lg border bg-white object-contain p-0.5"
+      />
       <div className="leading-tight">
         <div className="text-sm font-semibold text-sidebar-foreground">RotaSul</div>
         <div className="text-[11px] text-sidebar-foreground/60">Visitas comerciais</div>

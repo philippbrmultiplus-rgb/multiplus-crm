@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { Loader2, Lock, Mail, Recycle, User as UserIcon } from "lucide-react";
+import { Loader2, Lock, Mail, User as UserIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -49,8 +49,8 @@ export function AuthScreen({ embedded = false }: { embedded?: boolean }) {
     >
       <div className="w-full max-w-sm">
         <div className="mb-6 text-center">
-          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/25">
-            <Recycle className="h-7 w-7" />
+          <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl border bg-white p-1 shadow-lg">
+            <img src="/rota-logo.png" alt="RotaSul" className="h-full w-full object-contain" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight">RotaSul</h1>
           <p className="mt-1 text-sm text-muted-foreground">
