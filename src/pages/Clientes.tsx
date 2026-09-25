@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import {
@@ -145,20 +145,59 @@ export default function Clientes() {
     return () => clearInterval(t);
   }, []);
 
+  // confere se o cliente passa em TODOS os filtros atuais, exceto o informado em "ignore"
+  const matchOutros = useCallback(
+    (c: Client, ignore: "cidade" | "segmento" | "grupo" | "freq") => {
+      if (ignore !== "cidade" && city !== "all" && (c.city || "(sem cidade)") !== city) return false;
+      if (ignore !== "segmento" && segment !== "all" && (c.segment || "(sem segmento)") !== segment)
+        return false;
+      if (ignore !== "grupo" && tier !== "all" && c.tier !== tier) return false;
+      if (ignore !== "freq" && freqF !== "all" && String(c.freqMonth) !== freqF) return false;
+      if (onlyActive && !c.active) return false;
+      if (situ === "atrasada" && !isColetaOverdue(c)) return false;
+      if (situ === "em_dia" && (c.lastCollectAt == null || isColetaOverdue(c))) return false;
+      if (situ === "sem_data" && c.lastCollectAt != null) return false;
+      if (situVisita === "atrasada" && visitaStatus(c) !== "late") return false;
+      if (situVisita === "em_dia" && (c.lastVisitAt == null || visitaStatus(c) === "late")) return false;
+      if (situVisita === "sem_visita" && c.lastVisitAt != null) return false;
+      return true;
+    },
+    [city, segment, tier, freqF, onlyActive, situ, situVisita],
+  );
+
   const cities = useMemo(() => {
     const map = new Map<string, number>();
-    clients.forEach((c) => {
+    for (const c of clients) {
+      if (!matchOutros(c, "cidade")) continue;
       const k = c.city || "(sem cidade)";
       map.set(k, (map.get(k) ?? 0) + 1);
-    });
+    }
+    if (city !== "all" && !map.has(city)) map.set(city, 0);
     return [...map.entries()].sort((a, b) => b[1] - a[1]);
-  }, [clients]);
+  }, [clients, matchOutros, city]);
 
   const segments = useMemo(() => {
     const map = new Map<string, number>();
-    clients.forEach((c) => map.set(c.segment || "(sem segmento)", (map.get(c.segment || "(sem segmento)") ?? 0) + 1));
-    return [...map.entries()].sort((a, b) => b[1] - a[1]);
-  }, [clients]);
+    for (const c of clients) {
+      if (!matchOutros(c, "segmento")) continue;
+      const k = c.segment || "(sem segmento)";
+      map.set(k, (map.get(k) ?? 0) + 1);
+    }
+    if (segment !== "all" && !map.has(segment)) map.set(segment, 0);
+    return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0], "pt-BR"));
+  }, [clients, matchOutros, segment]);
+
+  const grupoOptions = useMemo(() => {
+    const tiers = new Set<string>();
+    for (const c of clients) if (matchOutros(c, "grupo")) tiers.add(c.tier);
+    return (["A", "B", "C", "D"] as const).filter((t) => tiers.has(t) || tier === t);
+  }, [clients, matchOutros, tier]);
+
+  const freqOptions = useMemo(() => {
+    const freqs = new Set<string>();
+    for (const c of clients) if (matchOutros(c, "freq")) freqs.add(String(c.freqMonth));
+    return FREQ_OPTIONS.filter((o) => freqs.has(o.value) || freqF === o.value);
+  }, [clients, matchOutros, freqF]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -384,10 +423,12 @@ export default function Clientes() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos os grupos</SelectItem>
-            <SelectItem value="A">Grupo A (4x/mês)</SelectItem>
-            <SelectItem value="B">Grupo B (3x/mês)</SelectItem>
-            <SelectItem value="C">Grupo C (2x/mês)</SelectItem>
-            <SelectItem value="D">Grupo D (&lt;2x/mês)</SelectItem>
+            {grupoOptions.map((t) => (
+              <SelectItem key={t} value={t}>
+                Grupo {t}
+                {t === "A" ? " (4x/mês)" : t === "B" ? " (3x/mês)" : t === "C" ? " (2x/mês)" : " (<2x/mês)"}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
         <Select value={freqF} onValueChange={setFreqF}>
@@ -396,7 +437,7 @@ export default function Clientes() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todas as cadências</SelectItem>
-            {FREQ_OPTIONS.map((o) => (
+            {freqOptions.map((o) => (
               <SelectItem key={o.value} value={o.value}>
                 {o.label}
               </SelectItem>
