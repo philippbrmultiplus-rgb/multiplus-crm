@@ -71,15 +71,8 @@ import { ColetaBadge, TierBadge, VisitaBadge } from "@/components/clients/client
 import { PhotoZoom } from "@/components/visitas/PhotoZoom";
 import type { Client, Visit } from "@/lib/types";
 
-const FREQ_OPTIONS: Array<{ value: string; label: string }> = [
-  { value: "0", label: cadenceLabel(0) },
-  { value: "0.33", label: cadenceLabel(0.33) },
-  { value: "0.5", label: cadenceLabel(0.5) },
-  { value: "1", label: cadenceLabel(1) },
-  { value: "2", label: cadenceLabel(2) },
-  { value: "3", label: cadenceLabel(3) },
-  { value: "4", label: cadenceLabel(4) },
-];
+const PROSPECTA = "__prospecao__";
+
 
 function ColetaCell({ c, onDate }: { c: Client; onDate: (v: string | null) => void }) {
   return (
@@ -116,7 +109,6 @@ export default function Clientes() {
   const [city, setCity] = useState("all");
   const [tier, setTier] = useState("all");
   const [segment, setSegment] = useState("all");
-  const [freqF, setFreqF] = useState("all");
   const [situ, setSitu] = useState("todas");
   const [situVisita, setSituVisita] = useState("todas");
   const [sortBy, setSortBy] = useState<ClientSort>("grupo");
@@ -133,12 +125,17 @@ export default function Clientes() {
 
   // confere se o cliente passa em TODOS os filtros atuais, exceto o informado em "ignore"
   const matchOutros = useCallback(
-    (c: Client, ignore: "cidade" | "segmento" | "grupo" | "freq") => {
+    (c: Client, ignore: "cidade" | "segmento" | "grupo") => {
+      // as prospecções ficam separadas da lista normal de clientes
+      if (segment === PROSPECTA) {
+        if (!c.isProspecao) return false;
+      } else if (c.isProspecao) {
+        return false;
+      }
       if (ignore !== "cidade" && city !== "all" && (c.city || "(sem cidade)") !== city) return false;
       if (ignore !== "segmento" && segment !== "all" && (c.segment || "(sem segmento)") !== segment)
         return false;
       if (ignore !== "grupo" && tier !== "all" && c.tier !== tier) return false;
-      if (ignore !== "freq" && freqF !== "all" && String(c.freqMonth) !== freqF) return false;
       if (onlyActive && !c.active) return false;
       if (situ === "atrasada" && !isColetaOverdue(c)) return false;
       if (situ === "em_dia" && (c.lastCollectAt == null || isColetaOverdue(c))) return false;
@@ -148,7 +145,7 @@ export default function Clientes() {
       if (situVisita === "sem_visita" && c.lastVisitAt != null) return false;
       return true;
     },
-    [city, segment, tier, freqF, onlyActive, situ, situVisita],
+    [city, segment, tier, onlyActive, situ, situVisita],
   );
 
   const cities = useMemo(() => {
@@ -179,20 +176,17 @@ export default function Clientes() {
     return (["A", "B", "C", "D"] as const).filter((t) => tiers.has(t) || tier === t);
   }, [clients, matchOutros, tier]);
 
-  const freqOptions = useMemo(() => {
-    const freqs = new Set<string>();
-    for (const c of clients) if (matchOutros(c, "freq")) freqs.add(String(c.freqMonth));
-    return FREQ_OPTIONS.filter((o) => freqs.has(o.value) || freqF === o.value);
-  }, [clients, matchOutros, freqF]);
-
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return clients
       .filter((c) => (onlyActive ? c.active : true))
       .filter((c) => (tier === "all" ? true : c.tier === tier))
       .filter((c) => (city === "all" ? true : (c.city || "(sem cidade)") === city))
-      .filter((c) => (segment === "all" ? true : (c.segment || "(sem segmento)") === segment))
-      .filter((c) => (freqF === "all" ? true : String(c.freqMonth) === freqF))
+      .filter((c) => {
+        if (segment === PROSPECTA) return c.isProspecao;
+        if (c.isProspecao) return false;
+        return segment === "all" ? true : (c.segment || "(sem segmento)") === segment;
+      })
       .filter((c) => {
         if (situ === "todas") return true;
         if (situ === "sem_data") return c.lastCollectAt == null;
@@ -224,7 +218,7 @@ export default function Clientes() {
         return compareClients(a, b, sortBy);
       })
       .slice(0, 300);
-  }, [clients, search, city, tier, segment, freqF, situ, situVisita, sortBy, onlyActive]);
+  }, [clients, search, city, tier, segment, situ, situVisita, sortBy, onlyActive]);
 
   const segmentOptions = useMemo(
     () =>
@@ -235,12 +229,13 @@ export default function Clientes() {
     [segments],
   );
 
+  const prospectCount = useMemo(() => clients.filter((c) => c.isProspecao).length, [clients]);
+
   const anyFilter =
     search.trim() !== "" ||
     city !== "all" ||
     tier !== "all" ||
     segment !== "all" ||
-    freqF !== "all" ||
     situ !== "todas";
 
   const resetFilters = () => {
@@ -248,7 +243,6 @@ export default function Clientes() {
     setCity("all");
     setTier("all");
     setSegment("all");
-    setFreqF("all");
     setSitu("todas");
   };
 
@@ -326,7 +320,9 @@ export default function Clientes() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Clientes</h1>
           <p className="text-sm text-muted-foreground">
-            {clients.length} na carteira · {clients.filter((c) => c.active).length} ativos
+            {clients.filter((c) => !c.isProspecao).length} clientes ·{" "}
+            {clients.filter((c) => c.active && !c.isProspecao).length} ativos · {prospectCount}{" "}
+            prospecção(ões)
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -391,11 +387,14 @@ export default function Clientes() {
           </SelectContent>
         </Select>
         <Select value={segment} onValueChange={setSegment}>
-          <SelectTrigger className="w-44">
+          <SelectTrigger className="w-48">
             <SelectValue placeholder="Segmento" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos os segmentos</SelectItem>
+            {prospectCount > 0 && (
+              <SelectItem value={PROSPECTA}>Prospecção ({prospectCount})</SelectItem>
+            )}
             {segments.map(([name, n]) => (
               <SelectItem key={name} value={name}>
                 {name} ({n})
@@ -413,19 +412,6 @@ export default function Clientes() {
               <SelectItem key={t} value={t}>
                 Grupo {t}
                 {t === "A" ? " (4x/mês)" : t === "B" ? " (3x/mês)" : t === "C" ? " (2x/mês)" : " (<2x/mês)"}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={freqF} onValueChange={setFreqF}>
-          <SelectTrigger className="w-44">
-            <SelectValue placeholder="Cadência" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todas as cadências</SelectItem>
-            {freqOptions.map((o) => (
-              <SelectItem key={o.value} value={o.value}>
-                {o.label}
               </SelectItem>
             ))}
           </SelectContent>
