@@ -329,6 +329,7 @@ interface DataContextValue {
   updateClient: (id: string, patch: Partial<Client>) => void;
   createClient: (c: Client) => void;
   deleteClient: (id: string) => void;
+  loadClientColetas: (clientId: string) => Promise<Array<{ date: string; note: string }>>;
   recomputeTiers: () => void;
   updateSettings: (patch: Partial<Settings>) => void;
   generateRoute: (weekStart: string) => RoutePlanResult;
@@ -867,12 +868,38 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const changed = clients.find((c) => c.id === id);
         if (changed && canWriteClientData()) {
           void supabase.from("clients").upsert(clientToRow(changed));
+          // registra a data da troca/coleta informada no histórico do cliente
+          if (patch.lastCollectAt) {
+            void supabase
+              .from("coletas")
+              .upsert(
+                { client_id: id, collect_date: patch.lastCollectAt },
+                { onConflict: "client_id,collect_date" },
+              );
+          }
         }
         return { ...prev, clients };
       });
     },
     [setAppState],
   );
+
+  /** histórico de trocas/coletas de um cliente */
+  const loadClientColetas = useCallback(async (clientId: string) => {
+    const { data, error } = await supabase
+      .from("coletas")
+      .select("collect_date, note")
+      .eq("client_id", clientId)
+      .order("collect_date", { ascending: false });
+    if (error) {
+      console.warn("histórico de coletas:", error.message);
+      return [];
+    }
+    return (data ?? []).map((r) => {
+      const row = r as Record<string, unknown>;
+      return { date: String(row.collect_date ?? ""), note: (row.note as string) ?? "" };
+    });
+  }, []);
 
   /** cria um cliente novo (ex.: prospecção) no estado e na nuvem quando for coordenador */
   const createClient = useCallback(
@@ -1763,6 +1790,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     updateClient,
     createClient,
     deleteClient,
+    loadClientColetas,
     recomputeTiers,
     updateSettings,
     generateRoute,

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Building2, Lock, Phone, Search, Target, Trash2, User } from "lucide-react";
+import { Building2, ChevronDown, Lock, Phone, Search, Target, Trash2, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -31,8 +31,29 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useData } from "@/lib/DataContext";
-import { formatDateBR } from "@/lib/geo";
+import { addDays, DAY_NAMES, formatDateBR, mondayOf } from "@/lib/geo";
 import type { Client, ProspeccaoStatus, Visit } from "@/lib/types";
+
+const MESES = [
+  "Janeiro",
+  "Fevereiro",
+  "Março",
+  "Abril",
+  "Maio",
+  "Junho",
+  "Julho",
+  "Agosto",
+  "Setembro",
+  "Outubro",
+  "Novembro",
+  "Dezembro",
+];
+
+/** "2026-09" -> "Setembro 2026" */
+function mesLabel(ym: string): string {
+  const [y, m] = ym.split("-").map(Number);
+  return `${MESES[(m || 1) - 1]} ${y}`;
+}
 
 const STATUS_LABEL: Record<ProspeccaoStatus, string> = {
   em_negociacao: "Em negociação",
@@ -56,6 +77,11 @@ export default function Prospeccoes() {
   const [lostTarget, setLostTarget] = useState<Client | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Client | null>(null);
   const [detailTarget, setDetailTarget] = useState<Client | null>(null);
+  // seções abertas/fechadas (mês e semana)
+  const [toggled, setToggled] = useState<Record<string, boolean>>({});
+  const isOpen = (key: string, defaultOpen: boolean) => toggled[key] ?? defaultOpen;
+  const toggle = (key: string, current: boolean) =>
+    setToggled((t) => ({ ...t, [key]: !current }));
 
   const lastVisitOf = useMemo(() => {
     const map = new Map<string, Visit>();
@@ -89,6 +115,57 @@ export default function Prospeccoes() {
       perdido: all.filter((c) => c.prospeccaoStatus === "perdido").length,
     };
   }, [clients]);
+
+  /** agrupa por mês > semana > dia (data do registro da prospecção); sem data vai no fim */
+  const { hierarchy, semData } = useMemo(() => {
+    const months = new Map<string, Map<string, Map<string, Client[]>>>();
+    const sem: Client[] = [];
+    for (const c of prospects) {
+      const v = lastVisitOf.get(c.id);
+      if (!v) {
+        sem.push(c);
+        continue;
+      }
+      const date = v.visitedAt.slice(0, 10);
+      const month = date.slice(0, 7);
+      const week = mondayOf(date);
+      const byWeek = months.get(month) ?? new Map<string, Map<string, Client[]>>();
+      const byDay = byWeek.get(week) ?? new Map<string, Client[]>();
+      const list = byDay.get(date) ?? [];
+      list.push(c);
+      byDay.set(date, list);
+      byWeek.set(week, byDay);
+      months.set(month, byWeek);
+    }
+    const hier = [...months.entries()]
+      .sort((a, b) => (a[0] < b[0] ? 1 : -1))
+      .map(([month, weeks]) => {
+        const weeksArr = [...weeks.entries()]
+          .sort((a, b) => (a[0] < b[0] ? 1 : -1))
+          .map(([week, days]) => {
+            const daysArr = [...days.entries()]
+              .sort((a, b) => (a[0] < b[0] ? 1 : -1))
+              .map(([date, items]) => ({ date, items }));
+            return { week, days: daysArr, total: daysArr.reduce((n, d) => n + d.items.length, 0) };
+          });
+        return { month, weeks: weeksArr, total: weeksArr.reduce((n, w) => n + w.total, 0) };
+      });
+    return { hierarchy: hier, semData: sem };
+  }, [prospects, lastVisitOf]);
+
+  const renderCard = (c: Client) => (
+    <ProspectCard
+      key={c.id}
+      client={c}
+      visit={lastVisitOf.get(c.id)}
+      canDelete={podeExcluir}
+      onOpen={() => setDetailTarget(c)}
+      onFinalize={(s) =>
+        s === "fechado" ? setProspeccaoStatus(c.id, "fechado") : setLostTarget(c)
+      }
+      onDelete={() => setDeleteTarget(c)}
+    />
+  );
 
   return (
     <div className="space-y-4">
@@ -140,20 +217,91 @@ export default function Prospeccoes() {
           </p>
         </div>
       ) : (
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {prospects.map((c) => (
-            <ProspectCard
-              key={c.id}
-              client={c}
-              visit={lastVisitOf.get(c.id)}
-              canDelete={podeExcluir}
-              onOpen={() => setDetailTarget(c)}
-              onFinalize={(s) =>
-                s === "fechado" ? setProspeccaoStatus(c.id, "fechado") : setLostTarget(c)
-              }
-              onDelete={() => setDeleteTarget(c)}
-            />
-          ))}
+        <div className="space-y-3">
+          {hierarchy.map((m, mi) => {
+            const monthOpen = isOpen(`m:${m.month}`, mi === 0);
+            return (
+              <section key={m.month} className="card-soft overflow-hidden">
+                <button
+                  onClick={() => toggle(`m:${m.month}`, monthOpen)}
+                  className="flex w-full items-center justify-between gap-2 p-3 text-left transition-colors hover:bg-secondary/40"
+                >
+                  <span className="flex items-center gap-2 font-semibold">
+                    <ChevronDown
+                      className={`h-4 w-4 shrink-0 transition-transform ${monthOpen ? "rotate-180" : ""}`}
+                    />
+                    {mesLabel(m.month)}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {m.total} prospecção(ões) · {m.weeks.length} semana(s)
+                  </span>
+                </button>
+
+                {monthOpen && (
+                  <div className="space-y-3 border-t p-3">
+                    {m.weeks.map((w, wi) => {
+                      const weekOpen = isOpen(`w:${w.week}`, mi === 0 && wi === 0);
+                      return (
+                        <div key={w.week} className="rounded-lg border">
+                          <button
+                            onClick={() => toggle(`w:${w.week}`, weekOpen)}
+                            className="flex w-full items-center justify-between gap-2 p-2.5 text-left transition-colors hover:bg-secondary/40"
+                          >
+                            <span className="flex items-center gap-2 text-sm font-medium">
+                              <ChevronDown
+                                className={`h-3.5 w-3.5 shrink-0 transition-transform ${
+                                  weekOpen ? "rotate-180" : ""
+                                }`}
+                              />
+                              Semana {formatDateBR(w.week)} a {formatDateBR(addDays(w.week, 6))}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {w.total} prospecção(ões) · {w.days.length} dia(s)
+                            </span>
+                          </button>
+
+                          {weekOpen && (
+                            <div className="space-y-4 border-t p-2.5">
+                              {w.days.map((d) => (
+                                <div key={d.date}>
+                                  <div className="mb-1.5 flex items-baseline gap-2">
+                                    <h3 className="text-sm font-semibold">
+                                      {DAY_NAMES[new Date(`${d.date}T12:00:00`).getDay()]} ·{" "}
+                                      {formatDateBR(d.date)}
+                                    </h3>
+                                    <span className="text-xs text-muted-foreground">
+                                      · {d.items.length} prospecção(ões)
+                                    </span>
+                                  </div>
+                                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                                    {d.items.map(renderCard)}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+            );
+          })}
+
+          {semData.length > 0 && (
+            <section className="card-soft overflow-hidden">
+              <div className="flex items-center justify-between gap-2 p-3">
+                <span className="font-semibold">Sem data de registro</span>
+                <span className="text-xs text-muted-foreground">
+                  {semData.length} prospecção(ões)
+                </span>
+              </div>
+              <div className="grid gap-3 border-t p-3 md:grid-cols-2 xl:grid-cols-3">
+                {semData.map(renderCard)}
+              </div>
+            </section>
+          )}
         </div>
       )}
 

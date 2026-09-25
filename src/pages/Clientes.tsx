@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import {
   CheckCircle2,
   Download,
+  History,
   Loader2,
   Map as MapIcon,
   MapPin,
@@ -67,7 +68,7 @@ import {
   type ClientSort,
 } from "@/components/clients/clientBits";
 import { ColetaBadge, TierBadge, VisitaBadge } from "@/components/clients/clientBadges";
-import type { Client } from "@/lib/types";
+import type { Client, Visit } from "@/lib/types";
 
 const FREQ_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "0", label: cadenceLabel(0) },
@@ -122,9 +123,10 @@ function CadenceSelect({ value, onValue }: { value: number; onValue: (f: number)
 }
 
 export default function Clientes() {
-  const { state, updateClient, geocodeAll, deleteClient } = useData();
+  const { state, updateClient, geocodeAll, deleteClient, loadClientColetas } = useData();
   const { clients } = state;
   const isMobile = useIsMobile();
+  const [history, setHistory] = useState<Client | null>(null);
 
   const [search, setSearch] = useState("");
   const [city, setCity] = useState("all");
@@ -506,6 +508,15 @@ export default function Clientes() {
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
                   <GeocodeStatus c={c} />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 w-7 p-0"
+                    onClick={() => setHistory(c)}
+                    title="Histórico de visitas e trocas"
+                  >
+                    <History className="h-4 w-4" />
+                  </Button>
                   <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setEditing(c)}>
                     <Pencil className="h-4 w-4" />
                   </Button>
@@ -648,6 +659,14 @@ export default function Clientes() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setHistory(c)}
+                        title="Histórico de visitas e trocas"
+                      >
+                        <History className="h-4 w-4" />
+                      </Button>
                       <Button variant="ghost" size="sm" onClick={() => setEditing(c)}>
                         <Pencil className="h-4 w-4" />
                       </Button>
@@ -690,6 +709,12 @@ export default function Clientes() {
           if (editing) updateClient(editing.id, patch);
           setEditing(null);
         }}
+      />
+
+      <ClientHistoryDialog
+        key={`h-${history?.id ?? "none"}`}
+        client={history}
+        onClose={() => setHistory(null)}
       />
 
       <AlertDialog open={!!toDelete} onOpenChange={(o) => !o && setToDelete(null)}>
@@ -844,6 +869,146 @@ function EditClientDialog({
             }
           >
             Salvar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+const HIST_STATUS_LABEL: Record<Visit["status"], string> = {
+  realizada: "Visita realizada",
+  nao_encontrado: "Não encontrado",
+  recusada: "Recusado",
+  nao_realizada: "Não realizada",
+};
+
+/** histórico do cliente: visitas registradas pelo vendedor + trocas/coletas */
+function ClientHistoryDialog({ client, onClose }: { client: Client | null; onClose: () => void }) {
+  const { state, loadClientColetas } = useData();
+  const [coletas, setColetas] = useState<Array<{ date: string; note: string }>>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!client) {
+      setColetas([]);
+      return;
+    }
+    setLoading(true);
+    void loadClientColetas(client.id).then((rows) => {
+      setColetas(rows);
+      setLoading(false);
+    });
+  }, [client, loadClientColetas]);
+
+  if (!client) return null;
+
+  const visitas = state.visits
+    .filter((v) => v.clientId === client.id)
+    .sort((a, b) => (a.visitedAt < b.visitedAt ? 1 : -1));
+
+  type Linha =
+    | { kind: "visita"; key: string; date: string; visit: Visit }
+    | { kind: "troca"; key: string; date: string; note: string };
+
+  const linhas: Linha[] = [
+    ...visitas.map((v) => ({
+      kind: "visita" as const,
+      key: `v-${v.id}`,
+      date: v.visitedAt.slice(0, 10),
+      visit: v,
+    })),
+    ...coletas.map((k) => ({ kind: "troca" as const, key: `c-${k.date}`, date: k.date, note: k.note })),
+  ].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-h-[calc(100dvh-2.5rem)] max-w-lg overflow-y-auto overscroll-contain">
+        <DialogHeader>
+          <DialogTitle>{client.name}</DialogTitle>
+          <DialogDescription>
+            Histórico de visitas e trocas/coletas · última troca:{" "}
+            {client.lastCollectAt ? formatDateBR(client.lastCollectAt) : "—"}
+          </DialogDescription>
+        </DialogHeader>
+
+        {loading && <p className="text-sm text-muted-foreground">Carregando histórico…</p>}
+
+        {!loading && linhas.length === 0 && (
+          <p className="text-sm text-muted-foreground">Nenhuma visita ou troca registrada ainda.</p>
+        )}
+
+        <div className="space-y-3">
+          {linhas.map((l) => {
+            if (l.kind === "troca") {
+              return (
+                <div key={l.key} className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium">{formatDateBR(l.date)}</span>
+                    <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
+                      Troca/coleta
+                    </Badge>
+                  </div>
+                  {l.note && <p className="mt-1 text-xs text-muted-foreground">{l.note}</p>}
+                </div>
+              );
+            }
+            const v = l.visit;
+            const fotos = v.photos && v.photos.length > 0 ? v.photos : v.photoData ? [v.photoData] : [];
+            return (
+              <div key={l.key} className="rounded-lg border p-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium">{formatDateBR(l.date)}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {new Date(v.visitedAt).toLocaleTimeString("pt-BR", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </span>
+                  <Badge
+                    className={
+                      v.status === "realizada"
+                        ? "bg-primary/10 text-primary"
+                        : v.status === "nao_encontrado"
+                          ? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+                          : v.status === "nao_realizada"
+                            ? "bg-slate-500/15 text-slate-600 dark:text-slate-300"
+                            : "bg-destructive/10 text-destructive"
+                    }
+                  >
+                    {HIST_STATUS_LABEL[v.status]}
+                  </Badge>
+                </div>
+                <div className="mt-1.5 text-sm">
+                  <div className="text-xs font-medium text-muted-foreground">
+                    {v.status === "nao_realizada" ? "Justificativa" : "O que foi feito"}
+                  </div>
+                  <p>{v.resultComments || "—"}</p>
+                </div>
+                {v.nextActions && (
+                  <p className="mt-1 text-xs text-muted-foreground">Próxima visita: {v.nextActions}</p>
+                )}
+                {fotos.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {fotos.map((f, i) => (
+                      <a key={i} href={f} target="_blank" rel="noreferrer">
+                        <img
+                          src={f}
+                          alt={`Foto ${i + 1}`}
+                          className="h-16 w-20 rounded-md object-cover"
+                        />
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Fechar
           </Button>
         </DialogFooter>
       </DialogContent>
