@@ -100,9 +100,10 @@ function GeocodeStatus({ c }: { c: Client }) {
 }
 
 export default function Clientes() {
-  const { state, updateClient, geocodeAll, deleteClient, loadClientColetas } = useData();
+  const { state, updateClient, geocodeAll, deleteClient, loadClientColetas, role } = useData();
   const { clients } = state;
   const isMobile = useIsMobile();
+  const podeEditar = role === "coordenador";
   const [history, setHistory] = useState<Client | null>(null);
 
   const [search, setSearch] = useState("");
@@ -334,17 +335,19 @@ export default function Clientes() {
               <MapIcon className="mr-2 h-4 w-4" /> Mapa
             </Link>
           </Button>
-          <Button onClick={handleGeocode} disabled={geocoding !== null || pendingGeocode === 0}>
-            {geocoding !== null ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Geocodificando…
-              </>
-            ) : (
-              <>
-                <MapPin className="mr-2 h-4 w-4" /> Geocodificar ({pendingGeocode})
-              </>
-            )}
-          </Button>
+          {podeEditar && (
+            <Button onClick={handleGeocode} disabled={geocoding !== null || pendingGeocode === 0}>
+              {geocoding !== null ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Geocodificando…
+                </>
+              ) : (
+                <>
+                  <MapPin className="mr-2 h-4 w-4" /> Geocodificar ({pendingGeocode})
+                </>
+              )}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -487,18 +490,22 @@ export default function Clientes() {
                   >
                     <History className="h-4 w-4" />
                   </Button>
-                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setEditing(c)}>
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
-                    onClick={() => setToDelete(c)}
-                    title="Excluir este cliente definitivamente"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  {podeEditar && (
+                    <>
+                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setEditing(c)}>
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                        onClick={() => setToDelete(c)}
+                        title="Excluir este cliente definitivamente"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </>
+                  )}
                 </div>
               </div>
               <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1.5 text-sm">
@@ -522,7 +529,16 @@ export default function Clientes() {
               <div className="mt-2 space-y-2 border-t pt-2">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="text-[11px] text-muted-foreground">Última troca</span>
-                  <ColetaCell c={c} onDate={(v) => updateClient(c.id, { lastCollectAt: v })} />
+                  {podeEditar ? (
+                    <ColetaCell c={c} onDate={(v) => updateClient(c.id, { lastCollectAt: v })} />
+                  ) : (
+                    <span className="flex items-center gap-1.5 whitespace-nowrap">
+                      <span className="text-xs tabular-nums text-muted-foreground">
+                        {c.lastCollectAt ? formatDateBR(c.lastCollectAt) : "sem data"}
+                      </span>
+                      <ColetaBadge c={c} />
+                    </span>
+                  )}
                 </div>
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[11px] text-muted-foreground">Última visita</span>
@@ -597,7 +613,16 @@ export default function Clientes() {
                     <TierBadge tier={c.tier} />
                   </TableCell>
                   <TableCell>
-                    <ColetaCell c={c} onDate={(v) => updateClient(c.id, { lastCollectAt: v })} />
+                    {podeEditar ? (
+                      <ColetaCell c={c} onDate={(v) => updateClient(c.id, { lastCollectAt: v })} />
+                    ) : (
+                      <span className="flex items-center gap-1.5 whitespace-nowrap">
+                        <span className="text-xs tabular-nums text-muted-foreground">
+                          {c.lastCollectAt ? formatDateBR(c.lastCollectAt) : "sem data"}
+                        </span>
+                        <ColetaBadge c={c} />
+                      </span>
+                    )}
                   </TableCell>
                   <TableCell>
                     <VisitaBadge c={c} />
@@ -622,18 +647,22 @@ export default function Clientes() {
                       >
                         <History className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="sm" onClick={() => setEditing(c)}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-muted-foreground hover:text-destructive"
-                        onClick={() => setToDelete(c)}
-                        title="Excluir este cliente definitivamente"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {podeEditar && (
+                        <>
+                          <Button variant="ghost" size="sm" onClick={() => setEditing(c)}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-muted-foreground hover:text-destructive"
+                            onClick={() => setToDelete(c)}
+                            title="Excluir este cliente definitivamente"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>

@@ -43,7 +43,7 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { to: "/dashboard", label: "Visão geral", icon: LayoutDashboard, roles: ["coordenador"] },
-  { to: "/clientes", label: "Clientes", icon: Users, roles: ["coordenador"] },
+  { to: "/clientes", label: "Clientes", icon: Users, roles: ["coordenador", "vendedor"] },
   { to: "/mapa", label: "Mapa de clientes", icon: MapIcon, roles: ["coordenador", "vendedor"] },
   { to: "/prospeccoes", label: "Prospecções", icon: Target, roles: ["coordenador", "vendedor"] },
   { to: "/rota", label: "Rota semanal", icon: RouteIcon, roles: ["coordenador"] },
