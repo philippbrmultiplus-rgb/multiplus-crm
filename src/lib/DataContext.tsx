@@ -1436,9 +1436,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
         obs: args.obs?.trim() || undefined,
         lastCollectAt: null,
         lastVisitAt: null,
-        lat: null,
-        lng: null,
-        geocodeStatus: "pendente",
+        lat: args.clientLat ?? null,
+        lng: args.clientLng ?? null,
+        geocodeStatus: args.clientLat != null && args.clientLng != null ? "ok" : "pendente",
       };
       const withRoute = !!args.routeId;
       const pos = withRoute

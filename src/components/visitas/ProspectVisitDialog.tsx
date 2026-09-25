@@ -56,9 +56,7 @@ export function ProspectVisitDialog({
     [state.clients],
   );
 
-  const SEG_NONE = "__none__";
-  const [dia, setDia] = useState(day);
-  const [nome, setNome] = useState("");
+  const [dia, setDia] = useState(day);  const [nome, setNome] = useState("");
   const [responsavel, setResponsavel] = useState("");
   const [contato, setContato] = useState("");
   const [endereco, setEndereco] = useState("");
@@ -81,6 +79,25 @@ export function ProspectVisitDialog({
     if (open) setDia(day);
   }, [open, day]);
 
+  /** preenche cidade/endereço a partir das coordenadas (sem digitação manual) */
+  const reverseFill = async (lat: number, lng: number) => {
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&addressdetails=1&accept-language=pt-BR&lat=${lat}&lon=${lng}`,
+      );
+      const data = (await res.json()) as {
+        address?: Record<string, string>;
+      };
+      const a = data?.address ?? {};
+      const city = a.city || a.town || a.village || a.municipality || a.county || "";
+      const road = [a.road, a.house_number].filter(Boolean).join(", ");
+      if (city) setCidade((c) => c || city);
+      if (road) setEndereco((e) => e || road);
+    } catch {
+      // sem preenchimento automático; as coordenadas seguem valendo
+    }
+  };
+
   const locate = () => {
     if (!navigator.geolocation) {
       setError("Este navegador não oferece geolocalização. Você pode salvar sem o GPS.");
@@ -95,6 +112,7 @@ export function ProspectVisitDialog({
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setGeo({ lat: pos.coords.latitude, lng: pos.coords.longitude, acc: pos.coords.accuracy });
+        void reverseFill(pos.coords.latitude, pos.coords.longitude);
         setLocating(false);
       },
       () => {
@@ -168,6 +186,9 @@ export function ProspectVisitDialog({
       gpsLat: geo?.lat ?? null,
       gpsLng: geo?.lng ?? null,
       gpsAccuracyM: geo ? Math.round(geo.acc) : null,
+      // já deixa o cliente prospectado geocodificado (aparece no mapa)
+      clientLat: geo?.lat ?? null,
+      clientLng: geo?.lng ?? null,
     });
     setTimeout(() => {
       setSaving(false);
@@ -232,12 +253,11 @@ export function ProspectVisitDialog({
             </div>
             <div className="space-y-1.5">
               <Label>Segmento</Label>
-              <Select value={segmento || SEG_NONE} onValueChange={(v) => setSegmento(v === SEG_NONE ? "" : v)}>
+              <Select value={segmento} onValueChange={setSegmento}>
                 <SelectTrigger>
                   <SelectValue placeholder="Selecionar segmento" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={SEG_NONE}>—</SelectItem>
                   {segmentOptions.map((s) => (
                     <SelectItem key={s} value={s}>
                       {s}
@@ -251,7 +271,9 @@ export function ProspectVisitDialog({
               <Input value={cidade} onChange={(e) => setCidade(e.target.value)} placeholder="Porto Alegre" />
             </div>
             <div className="space-y-1.5 sm:col-span-2">
-              <Label>Endereço</Label>
+              <Label>
+                Endereço <span className="font-normal text-muted-foreground">(opcional)</span>
+              </Label>
               <Input value={endereco} onChange={(e) => setEndereco(e.target.value)} placeholder="Rua, número, bairro" />
             </div>
           </div>
@@ -324,10 +346,13 @@ export function ProspectVisitDialog({
             </div>
           </div>
 
-          {/* GPS opcional */}
+          {/* Localização (geocodifica o cliente) */}
           <div className="space-y-2">
             <Label>
-              Localização GPS <span className="font-normal text-muted-foreground">(opcional)</span>
+              Localização{" "}
+              <span className="font-normal text-muted-foreground">
+                (use onde você está — preenche o endereço e já geocodifica o cliente)
+              </span>
             </Label>
             <div className="flex items-center justify-between gap-2 rounded-lg border p-3">
               {geo ? (
@@ -357,7 +382,8 @@ export function ProspectVisitDialog({
             </div>
             {geo && (
               <p className="text-xs text-muted-foreground">
-                GPS salvo na visita. A distância ao endereço cadastrado (se houver) é conferida depois.
+                Localização capturada — o cliente já entra <b>geocodificado</b> na lista de Clientes
+                (aparece no mapa). Cidade/endereço são preenchidos automaticamente.
               </p>
             )}
           </div>

@@ -98,6 +98,9 @@ export interface ProspectVisitInput {
   gpsLat?: number | null;
   gpsLng?: number | null;
   gpsAccuracyM?: number | null;
+  /** coordenadas do cliente prospectado (para já entrar geocodificado no cadastro) */
+  clientLat?: number | null;
+  clientLng?: number | null;
 }
 
 export interface Visit {
