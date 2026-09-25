@@ -102,7 +102,7 @@ export function LeafletMap({
   height = "420px",
   fit = true,
   selectedId,
-  routeColor = "#047857",
+  routeColor = "#2563eb",
   cluster = false,
 }: LeafletMapProps) {
   const fitPoints = fit ? points : [];
@@ -114,7 +114,7 @@ export function LeafletMap({
       <Marker
         key={key}
         position={[p.lat, p.lng]}
-        icon={dotIcon(p.color ?? "#0f766e", isSelected ? 22 : 15, p.isHome)}
+        icon={dotIcon(p.color ?? "#1e40af", isSelected ? 22 : 15, p.isHome)}
       >
         {p.tooltip && (
           <Tooltip direction="top" offset={[0, -(p.isHome ? 12 : 9)]} opacity={1}>

@@ -67,12 +67,12 @@ export default function Dashboard() {
       fechado,
       perdido,
       taxa: total ? Math.round((fechado / total) * 100) : 0,
-      gradient: `conic-gradient(#f59e0b 0% ${pEm}%, #10b981 ${pEm}% ${pEm + pFe}%, #ef4444 ${
+      gradient: `conic-gradient(#f59e0b 0% ${pEm}%, #3b82f6 ${pEm}% ${pEm + pFe}%, #ef4444 ${
         pEm + pFe
       }% 100%)`,
       rows: [
         { label: "Em negociação", value: em, color: "#f59e0b" },
-        { label: "Fechadas", value: fechado, color: "#10b981" },
+        { label: "Fechadas", value: fechado, color: "#3b82f6" },
         { label: "Perdidas", value: perdido, color: "#ef4444" },
       ],
     };

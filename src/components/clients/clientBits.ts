@@ -44,7 +44,7 @@ export function coletaStatus(c: Client): ColetaStatus {
 
 /** chip colorido (badge) para a situação da coleta */
 export const COLETA_BADGE_TONE: Record<ColetaStatus, string> = {
-  ok: "bg-emerald-500/15 text-emerald-700 ring-1 ring-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-300 dark:ring-emerald-500/30",
+  ok: "bg-blue-500/15 text-blue-700 ring-1 ring-blue-500/30 dark:bg-blue-500/15 dark:text-blue-300 dark:ring-blue-500/30",
   warn: "bg-amber-500/15 text-amber-700 ring-1 ring-amber-500/30 dark:bg-amber-500/15 dark:text-amber-300 dark:ring-amber-500/30",
   late: "bg-destructive/15 text-destructive ring-1 ring-destructive/30",
   sem: "",
@@ -52,7 +52,7 @@ export const COLETA_BADGE_TONE: Record<ColetaStatus, string> = {
 
 /** badge outline (borda + texto coloridos) */
 export const COLETA_OUTLINE_TONE: Record<ColetaStatus, string> = {
-  ok: "border-emerald-500/40 text-emerald-700 dark:text-emerald-300",
+  ok: "border-blue-500/40 text-blue-700 dark:text-blue-300",
   warn: "border-amber-500/40 text-amber-700 dark:text-amber-300",
   late: "border-destructive/40 text-destructive",
   sem: "",
@@ -60,7 +60,7 @@ export const COLETA_OUTLINE_TONE: Record<ColetaStatus, string> = {
 
 /** texto simples colorido (ex.: linha de detalhe do cartão) */
 export const COLETA_TEXT_TONE: Record<ColetaStatus, string> = {
-  ok: "text-emerald-700 dark:text-emerald-300",
+  ok: "text-blue-700 dark:text-blue-300",
   warn: "text-amber-600 dark:text-amber-400",
   late: "text-destructive",
   sem: "text-muted-foreground",
@@ -88,7 +88,7 @@ export function isColetaOverdue(c: Client): boolean {
 
 /** cor de "bolinha" para status de visita em calendários/listas */
 export function rotaStatusDot(status: string): string {
-  if (status === "concluida") return "bg-emerald-500";
+  if (status === "concluida") return "bg-blue-500";
   if (status === "nao_realizada") return "bg-slate-400";
   return "bg-amber-400";
 }

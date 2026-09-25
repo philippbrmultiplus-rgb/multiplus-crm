@@ -743,7 +743,7 @@ function EditClientDialog({
 
   if (!client) return null;
 
-  const points = lat != null && lng != null ? [{ lat, lng, label: client.name, color: "#047857" }] : [];
+  const points = lat != null && lng != null ? [{ lat, lng, label: client.name, color: "#2563eb" }] : [];
 
   return (
     <Dialog open={!!client} onOpenChange={(o) => !o && onClose()}>
@@ -910,10 +910,10 @@ function ClientHistoryDialog({ client, onClose }: { client: Client | null; onClo
           {linhas.map((l) => {
             if (l.kind === "troca") {
               return (
-                <div key={l.key} className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3">
+                <div key={l.key} className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-3">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-medium">{formatDateBR(l.date)}</span>
-                    <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
+                    <Badge className="bg-blue-500/15 text-blue-700 dark:text-blue-300">
                       Troca/coleta
                     </Badge>
                   </div>

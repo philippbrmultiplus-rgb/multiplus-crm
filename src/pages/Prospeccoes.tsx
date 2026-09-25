@@ -63,7 +63,7 @@ const STATUS_LABEL: Record<ProspeccaoStatus, string> = {
 
 const STATUS_TONE: Record<ProspeccaoStatus, string> = {
   em_negociacao: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
-  fechado: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
+  fechado: "bg-blue-500/15 text-blue-700 dark:text-blue-300",
   perdido: "bg-destructive/15 text-destructive",
 };
 

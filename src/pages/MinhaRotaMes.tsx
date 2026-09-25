@@ -187,7 +187,7 @@ export default function MinhaRotaMes() {
             <span className="h-1.5 w-1.5 rounded-full bg-amber-400" /> Pendente
           </span>
           <span className="flex items-center gap-1">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Concluída
+            <span className="h-1.5 w-1.5 rounded-full bg-blue-500" /> Concluída
           </span>
           <span className="flex items-center gap-1">
             <span className="h-1.5 w-1.5 rounded-full bg-slate-400" /> Não realizada

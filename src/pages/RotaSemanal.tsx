@@ -79,12 +79,12 @@ import { LeafletMap } from "@/components/map/LeafletMap";
 import type { Client, RouteVisit, Settings, WeeklyRoute } from "@/lib/types";
 
 const DAY_COLORS: Record<number, string> = {
-  1: "#0f766e",
+  1: "#1e40af",
   2: "#2563eb",
   3: "#7c3aed",
   4: "#db2777",
   5: "#d97706",
-  6: "#16a34a",
+  6: "#0ea5e9",
 };
 
 export default function RotaSemanal() {
@@ -155,7 +155,7 @@ export default function RotaSemanal() {
       visits.flatMap((rv) => {
         const c = clients.find((x) => x.id === rv.clientId);
         if (!c || c.lat == null) return [];
-        return [{ lat: c.lat, lng: c.lng, label: c.name, color: DAY_COLORS[rv.day] ?? "#0f766e" }];
+        return [{ lat: c.lat, lng: c.lng, label: c.name, color: DAY_COLORS[rv.day] ?? "#1e40af" }];
       }),
     [visits, clients],
   );
@@ -174,7 +174,7 @@ export default function RotaSemanal() {
           if (pts.length === 0) return null;
           return {
             points: [[settings.homeLat, settings.homeLng], ...pts] as [number, number][],
-            color: DAY_COLORS[day] ?? "#0f766e",
+            color: DAY_COLORS[day] ?? "#1e40af",
           };
         })
         .filter((x): x is { points: [number, number][]; color: string } => x !== null),

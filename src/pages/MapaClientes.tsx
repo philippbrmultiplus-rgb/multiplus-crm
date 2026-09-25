@@ -20,7 +20,7 @@ import type { Client } from "@/lib/types";
 function dotColor(c: Client): string {
   if (!c.active) return "#cbd5e1"; // inativo
   const s = coletaStatus(c);
-  if (s === "ok") return "#10b981";
+  if (s === "ok") return "#3b82f6";
   if (s === "warn") return "#f59e0b";
   if (s === "late") return "#ef4444";
   return "#94a3b8"; // sem data de última troca
@@ -81,7 +81,7 @@ function ClientPopup({
 }
 
 const LEGEND = [
-  { color: "#10b981", label: "Em dia (até 20 dias)" },
+  { color: "#3b82f6", label: "Em dia (até 20 dias)" },
   { color: "#f59e0b", label: "21 a 30 dias" },
   { color: "#ef4444", label: "Atrasada (>30 dias)" },
   { color: "#94a3b8", label: "Sem data de troca" },
