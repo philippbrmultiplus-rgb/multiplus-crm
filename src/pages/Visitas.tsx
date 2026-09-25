@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { CalendarX2, ExternalLink, Search, Trash2, X } from "lucide-react";
+import { CalendarX2, ChevronDown, ExternalLink, Search, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -30,8 +30,29 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useData } from "@/lib/DataContext";
-import { formatDateBR, formatDistanceM } from "@/lib/geo";
-import type { Visit } from "@/lib/types";
+import { addDays, DAY_NAMES, formatDateBR, formatDistanceM, mondayOf } from "@/lib/geo";
+import type { Client, Visit } from "@/lib/types";
+
+const MESES = [
+  "Janeiro",
+  "Fevereiro",
+  "Março",
+  "Abril",
+  "Maio",
+  "Junho",
+  "Julho",
+  "Agosto",
+  "Setembro",
+  "Outubro",
+  "Novembro",
+  "Dezembro",
+];
+
+/** "2026-09" -> "Setembro 2026" */
+function mesLabel(ym: string): string {
+  const [y, m] = ym.split("-").map(Number);
+  return `${MESES[(m || 1) - 1]} ${y}`;
+}
 
 const STATUS_LABEL: Record<Visit["status"], string> = {
   realizada: "Realizada",
@@ -51,6 +72,120 @@ function horaOf(v: Visit): string {
   return new Date(v.visitedAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 }
 
+/** cartão de uma visita (clique abre os detalhes) */
+function VisitCard({
+  v,
+  client,
+  radiusM,
+  onOpen,
+  onDelete,
+}: {
+  v: Visit;
+  client?: Client;
+  radiusM: number;
+  onOpen: () => void;
+  onDelete: () => void;
+}) {
+  const isProsp = client?.isProspecao;
+  const fotos = fotosOf(v);
+  return (
+    <div
+      onClick={onOpen}
+      className={`card-soft flex cursor-pointer flex-col gap-3 p-4 transition-colors hover:bg-secondary/40 sm:flex-row sm:items-start ${
+        isProsp ? "border-violet-500/40" : ""
+      }`}
+    >
+      {fotos.length > 0 ? (
+        <button onClick={onOpen} className="relative shrink-0">
+          <img src={fotos[0]} alt="Comprovante" className="h-24 w-32 rounded-lg object-cover" />
+          {fotos.length > 1 && (
+            <span className="absolute bottom-1.5 right-1.5 rounded bg-black/65 px-1.5 py-0.5 text-[10px] text-white">
+              +{fotos.length - 1} foto(s)
+            </span>
+          )}
+        </button>
+      ) : (
+        <div className="flex h-24 w-32 items-center justify-center rounded-lg bg-secondary text-xs text-muted-foreground">
+          Sem foto
+        </div>
+      )}
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-semibold">{client?.name ?? "Cliente removido"}</span>
+          {isProsp && (
+            <Badge
+              variant="outline"
+              className="border-violet-500/40 text-violet-600 dark:text-violet-300"
+            >
+              Prospecção
+            </Badge>
+          )}
+          <Badge
+            className={
+              v.status === "realizada"
+                ? "bg-primary/10 text-primary"
+                : v.status === "nao_encontrado"
+                  ? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+                  : v.status === "nao_realizada"
+                    ? "bg-slate-500/15 text-slate-600 dark:text-slate-300"
+                    : "bg-destructive/10 text-destructive"
+            }
+          >
+            {STATUS_LABEL[v.status]}
+          </Badge>
+          {v.withinRadius === false && (
+            <Badge className="bg-destructive/10 text-destructive">Fora do raio</Badge>
+          )}
+        </div>
+        <p className="text-xs text-muted-foreground">
+          {formatDateBR(v.visitedAt.slice(0, 10))} às {horaOf(v)} · {client?.city}
+        </p>
+        <div className="mt-2 grid gap-2 text-sm sm:grid-cols-2">
+          <div>
+            <div className="text-xs font-medium text-muted-foreground">
+              {v.status === "nao_realizada" ? "Justificativa" : "O que foi feito"}
+            </div>
+            <p className="line-clamp-2">{v.resultComments || "—"}</p>
+          </div>
+          <div>
+            <div className="text-xs font-medium text-muted-foreground">Próxima visita</div>
+            <p className="line-clamp-2">{v.nextActions || "—"}</p>
+          </div>
+        </div>
+        <p className="mt-2 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
+          <span>
+            Visita em: <span className="font-medium text-foreground">{client?.city || "—"}</span>
+          </span>
+          {v.withinRadius === false && v.distanceFromClientM != null && (
+            <span className="text-destructive">
+              {formatDistanceM(v.distanceFromClientM)} do endereço cadastrado (raio {radiusM} m)
+            </span>
+          )}
+        </p>
+      </div>
+      <div className="flex shrink-0 gap-2">
+        {fotos.length > 0 && (
+          <Button variant="outline" size="sm" asChild onClick={(e) => e.stopPropagation()}>
+            <a href={fotos[0]} target="_blank" rel="noreferrer">
+              <ExternalLink className="h-4 w-4" />
+            </a>
+          </Button>
+        )}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete();
+          }}
+        >
+          <Trash2 className="h-4 w-4 text-destructive" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export default function Visitas() {
   const { state, deleteVisit } = useData();
   const { clients, visits, settings } = state;
@@ -62,6 +197,11 @@ export default function Visitas() {
   const [viewing, setViewing] = useState<Visit | null>(null);
   const [toDelete, setToDelete] = useState<Visit | null>(null);
   const [photoView, setPhotoView] = useState<string | null>(null);
+  // seções abertas/fechadas (mês e semana); o que não estiver aqui usa o padrão
+  const [toggled, setToggled] = useState<Record<string, boolean>>({});
+  const isOpen = (key: string, defaultOpen: boolean) => toggled[key] ?? defaultOpen;
+  const toggle = (key: string, current: boolean) =>
+    setToggled((t) => ({ ...t, [key]: !current }));
 
   const clientOf = (id: string) => clients.find((c) => c.id === id);
   const prospectClientIds = useMemo(
@@ -87,18 +227,34 @@ export default function Visitas() {
       });
   }, [visits, search, onlyAlerta, onlyRealizadas, tipo, prospectClientIds, clients]);
 
-  // agrupa por dia (mais recente primeiro)
-  const groups = useMemo(() => {
-    const map = new Map<string, Visit[]>();
+  // agrupa por mês > semana > dia (mais recente primeiro)
+  const hierarchy = useMemo(() => {
+    const months = new Map<string, Map<string, Map<string, Visit[]>>>();
     for (const v of filtered) {
-      const k = v.visitedAt.slice(0, 10);
-      const list = map.get(k) ?? [];
+      const date = v.visitedAt.slice(0, 10);
+      const month = date.slice(0, 7);
+      const week = mondayOf(date);
+      const byWeek = months.get(month) ?? new Map<string, Map<string, Visit[]>>();
+      const byDay = byWeek.get(week) ?? new Map<string, Visit[]>();
+      const list = byDay.get(date) ?? [];
       list.push(v);
-      map.set(k, list);
+      byDay.set(date, list);
+      byWeek.set(week, byDay);
+      months.set(month, byWeek);
     }
-    return [...map.entries()]
+    return [...months.entries()]
       .sort((a, b) => (a[0] < b[0] ? 1 : -1))
-      .map(([date, items]) => ({ date, items }));
+      .map(([month, weeks]) => {
+        const weeksArr = [...weeks.entries()]
+          .sort((a, b) => (a[0] < b[0] ? 1 : -1))
+          .map(([week, days]) => {
+            const daysArr = [...days.entries()]
+              .sort((a, b) => (a[0] < b[0] ? 1 : -1))
+              .map(([date, items]) => ({ date, items }));
+            return { week, days: daysArr, total: daysArr.reduce((n, d) => n + d.items.length, 0) };
+          });
+        return { month, weeks: weeksArr, total: weeksArr.reduce((n, w) => n + w.total, 0) };
+      });
   }, [filtered]);
 
   const totalProsp = useMemo(
@@ -150,138 +306,92 @@ export default function Visitas() {
         </Select>
       </div>
 
-      {groups.length === 0 ? (
+      {hierarchy.length === 0 ? (
         <div className="card-soft flex flex-col items-center gap-2 p-12 text-center text-muted-foreground">
           <CalendarX2 className="h-8 w-8" />
           <p>Nenhuma visita encontrada.</p>
         </div>
       ) : (
-        <div className="space-y-6">
-          {groups.map(({ date, items }) => (
-            <section key={date}>
-              <div className="mb-2 flex items-baseline gap-2">
-                <h2 className="text-sm font-semibold">{formatDateBR(date)}</h2>
-                <span className="text-xs text-muted-foreground">
-                  · {items.length} {items.length === 1 ? "registro" : "registros"}
-                </span>
-              </div>
-              <div className="space-y-3">
-                {items.map((v) => {
-                  const c = clientOf(v.clientId);
-                  const isProsp = c?.isProspecao;
-                  const fotos = fotosOf(v);
-                  return (
-                    <div
-                      key={v.id}
-                      onClick={() => setViewing(v)}
-                      className={`card-soft flex cursor-pointer flex-col gap-3 p-4 transition-colors hover:bg-secondary/40 sm:flex-row sm:items-start ${
-                        isProsp ? "border-violet-500/40" : ""
-                      }`}
-                    >
-                      {fotos.length > 0 ? (
-                        <button onClick={() => setViewing(v)} className="relative shrink-0">
-                          <img
-                            src={fotos[0]}
-                            alt="Comprovante"
-                            className="h-24 w-32 rounded-lg object-cover"
-                          />
-                          {fotos.length > 1 && (
-                            <span className="absolute bottom-1.5 right-1.5 rounded bg-black/65 px-1.5 py-0.5 text-[10px] text-white">
-                              +{fotos.length - 1} foto(s)
-                            </span>
-                          )}
-                        </button>
-                      ) : (
-                        <div className="flex h-24 w-32 items-center justify-center rounded-lg bg-secondary text-xs text-muted-foreground">
-                          Sem foto
-                        </div>
-                      )}
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-semibold">{c?.name ?? "Cliente removido"}</span>
-                          {isProsp && (
-                            <Badge
-                              variant="outline"
-                              className="border-violet-500/40 text-violet-600 dark:text-violet-300"
-                            >
-                              Prospecção
-                            </Badge>
-                          )}
-                          <Badge
-                            className={
-                              v.status === "realizada"
-                                ? "bg-primary/10 text-primary"
-                                : v.status === "nao_encontrado"
-                                  ? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
-                                  : v.status === "nao_realizada"
-                                    ? "bg-slate-500/15 text-slate-600 dark:text-slate-300"
-                                    : "bg-destructive/10 text-destructive"
-                            }
+        <div className="space-y-3">
+          {hierarchy.map((m, mi) => {
+            const monthOpen = isOpen(`m:${m.month}`, mi === 0);
+            return (
+              <section key={m.month} className="card-soft overflow-hidden">
+                <button
+                  onClick={() => toggle(`m:${m.month}`, monthOpen)}
+                  className="flex w-full items-center justify-between gap-2 p-3 text-left transition-colors hover:bg-secondary/40"
+                >
+                  <span className="flex items-center gap-2 font-semibold">
+                    <ChevronDown
+                      className={`h-4 w-4 shrink-0 transition-transform ${monthOpen ? "rotate-180" : ""}`}
+                    />
+                    {mesLabel(m.month)}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {m.total} registro(s) · {m.weeks.length} semana(s)
+                  </span>
+                </button>
+
+                {monthOpen && (
+                  <div className="space-y-3 border-t p-3">
+                    {m.weeks.map((w, wi) => {
+                      const weekOpen = isOpen(`w:${w.week}`, mi === 0 && wi === 0);
+                      return (
+                        <div key={w.week} className="rounded-lg border">
+                          <button
+                            onClick={() => toggle(`w:${w.week}`, weekOpen)}
+                            className="flex w-full items-center justify-between gap-2 p-2.5 text-left transition-colors hover:bg-secondary/40"
                           >
-                            {STATUS_LABEL[v.status]}
-                          </Badge>
-                          {v.withinRadius === false && (
-                            <Badge className="bg-destructive/10 text-destructive">Fora do raio</Badge>
-                          )}
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          {formatDateBR(v.visitedAt.slice(0, 10))} às {horaOf(v)} · {c?.city}
-                        </p>
-                        <div className="mt-2 grid gap-2 text-sm sm:grid-cols-2">
-                          <div>
-                            <div className="text-xs font-medium text-muted-foreground">
-                              {v.status === "nao_realizada" ? "Justificativa" : "O que foi feito"}
+                            <span className="flex items-center gap-2 text-sm font-medium">
+                              <ChevronDown
+                                className={`h-3.5 w-3.5 shrink-0 transition-transform ${
+                                  weekOpen ? "rotate-180" : ""
+                                }`}
+                              />
+                              Semana {formatDateBR(w.week)} a {formatDateBR(addDays(w.week, 6))}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {w.total} registro(s) · {w.days.length} dia(s)
+                            </span>
+                          </button>
+
+                          {weekOpen && (
+                            <div className="space-y-4 border-t p-2.5">
+                              {w.days.map((d) => (
+                                <div key={d.date}>
+                                  <div className="mb-1.5 flex items-baseline gap-2">
+                                    <h3 className="text-sm font-semibold">
+                                      {DAY_NAMES[new Date(`${d.date}T12:00:00`).getDay()]} ·{" "}
+                                      {formatDateBR(d.date)}
+                                    </h3>
+                                    <span className="text-xs text-muted-foreground">
+                                      · {d.items.length} registro(s)
+                                    </span>
+                                  </div>
+                                  <div className="space-y-3">
+                                    {d.items.map((v) => (
+                                      <VisitCard
+                                        key={v.id}
+                                        v={v}
+                                        client={clientOf(v.clientId)}
+                                        radiusM={settings.visitRadiusM}
+                                        onOpen={() => setViewing(v)}
+                                        onDelete={() => setToDelete(v)}
+                                      />
+                                    ))}
+                                  </div>
+                                </div>
+                              ))}
                             </div>
-                            <p className="line-clamp-2">{v.resultComments || "—"}</p>
-                          </div>
-                          <div>
-                            <div className="text-xs font-medium text-muted-foreground">Próxima visita</div>
-                            <p className="line-clamp-2">{v.nextActions || "—"}</p>
-                          </div>
-                        </div>
-                        <p className="mt-2 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
-                          <span>
-                            Visita em:{" "}
-                            <span className="font-medium text-foreground">{c?.city || "—"}</span>
-                          </span>
-                          {v.withinRadius === false && v.distanceFromClientM != null && (
-                            <span className="text-destructive">
-                              {formatDistanceM(v.distanceFromClientM)} do endereço cadastrado (raio{" "}
-                              {settings.visitRadiusM} m)
-                            </span>
                           )}
-                        </p>
-                      </div>
-                      <div className="flex shrink-0 gap-2">
-                        {fotos.length > 0 && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            asChild
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <a href={fotos[0]} target="_blank" rel="noreferrer">
-                              <ExternalLink className="h-4 w-4" />
-                            </a>
-                          </Button>
-                        )}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setToDelete(v);
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-          ))}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+            );
+          })}
         </div>
       )}
 
