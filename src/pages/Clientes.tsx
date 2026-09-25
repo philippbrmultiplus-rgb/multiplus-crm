@@ -57,7 +57,7 @@ import {
 import { useData } from "@/lib/DataContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { LeafletMap } from "@/components/map/LeafletMap";
-import { cadenceLabel, tierOfFreq } from "@/lib/cadence";
+import { cadenceLabel } from "@/lib/cadence";
 import { formatDateBR } from "@/lib/geo";
 import {
   coletaDays,
@@ -103,23 +103,6 @@ function GeocodeStatus({ c }: { c: Client }) {
     return <MapPinOff className="h-4 w-4 text-destructive" />;
   }
   return <MapPin className="h-4 w-4 text-muted-foreground" />;
-}
-
-function CadenceSelect({ value, onValue }: { value: number; onValue: (f: number) => void }) {
-  return (
-    <Select value={String(value)} onValueChange={(v) => onValue(parseFloat(v))}>
-      <SelectTrigger className="h-8 w-24 text-xs">
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        {FREQ_OPTIONS.map((o) => (
-          <SelectItem key={o.value} value={o.value}>
-            {o.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  );
 }
 
 export default function Clientes() {
@@ -542,7 +525,7 @@ export default function Clientes() {
                 </div>
                 <div>
                   <span className="block text-[11px] text-muted-foreground">Grupo</span>
-                  <TierBadge tier={c.tier} showFreq />
+                  <TierBadge tier={c.tier} />
                 </div>
                 <div>
                   <span className="block text-[11px] text-muted-foreground">Status</span>
@@ -550,13 +533,6 @@ export default function Clientes() {
                 </div>
               </div>
               <div className="mt-2 space-y-2 border-t pt-2">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[11px] text-muted-foreground">Cadência</span>
-                  <CadenceSelect
-                    value={c.freqMonth}
-                    onValue={(f) => updateClient(c.id, { freqMonth: f, tier: tierOfFreq(f) })}
-                  />
-                </div>
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="text-[11px] text-muted-foreground">Última troca</span>
                   <ColetaCell c={c} onDate={(v) => updateClient(c.id, { lastCollectAt: v })} />
@@ -583,15 +559,14 @@ export default function Clientes() {
         <div className="card-soft overflow-x-auto">
           <Table className="table-fixed [&_th]:px-2 [&_th]:py-1.5 [&_td]:px-2 [&_td]:py-1.5">
             <colgroup>
-              <col className="w-[19%]" />
+              <col className="w-[20%]" />
+              <col className="w-[9%]" />
+              <col className="w-[11%]" />
               <col className="w-[8%]" />
+              <col className="w-[22%]" />
               <col className="w-[10%]" />
-              <col className="w-[7%]" />
-              <col className="w-[9%]" />
-              <col className="w-[21%]" />
-              <col className="w-[9%]" />
-              <col className="w-[8%]" />
-              <col className="w-[9%]" />
+              <col className="w-[10%]" />
+              <col className="w-[10%]" />
             </colgroup>
             <TableHeader>
               <TableRow>
@@ -599,7 +574,6 @@ export default function Clientes() {
                 <TableHead>Cidade</TableHead>
                 <TableHead>Segmento</TableHead>
                 <TableHead>Grupo</TableHead>
-                <TableHead>Cadência</TableHead>
                 <TableHead>Últ. troca / dias</TableHead>
                 <TableHead>Últ. visita</TableHead>
                 <TableHead>Status</TableHead>
@@ -633,13 +607,7 @@ export default function Clientes() {
                     )}
                   </TableCell>
                   <TableCell>
-                    <TierBadge tier={c.tier} showFreq />
-                  </TableCell>
-                  <TableCell>
-                    <CadenceSelect
-                      value={c.freqMonth}
-                      onValue={(f) => updateClient(c.id, { freqMonth: f, tier: tierOfFreq(f) })}
-                    />
+                    <TierBadge tier={c.tier} />
                   </TableCell>
                   <TableCell>
                     <ColetaCell c={c} onDate={(v) => updateClient(c.id, { lastCollectAt: v })} />
@@ -685,7 +653,7 @@ export default function Clientes() {
               ))}
               {filtered.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={9} className="py-8 text-center text-muted-foreground">
+                  <TableCell colSpan={8} className="py-8 text-center text-muted-foreground">
                     Nenhum cliente encontrado com os filtros atuais.
                   </TableCell>
                 </TableRow>
