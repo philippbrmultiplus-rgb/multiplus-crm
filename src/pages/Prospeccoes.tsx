@@ -31,6 +31,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useData } from "@/lib/DataContext";
+import { PhotoZoom } from "@/components/visitas/PhotoZoom";
 import { addDays, DAY_NAMES, formatDateBR, mondayOf } from "@/lib/geo";
 import type { Client, ProspeccaoStatus, Visit } from "@/lib/types";
 
@@ -615,9 +616,12 @@ function DetailDialog({
             </div>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {fotos.map((f, i) => (
-                <a key={i} href={f} target="_blank" rel="noreferrer">
-                  <img src={f} alt={`Foto ${i + 1}`} className="h-32 w-full rounded-lg object-cover" />
-                </a>
+                <PhotoZoom
+                  key={i}
+                  src={f}
+                  alt={`Foto ${i + 1}`}
+                  imgClassName="h-32 w-full rounded-lg object-cover"
+                />
               ))}
             </div>
           </div>

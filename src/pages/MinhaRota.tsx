@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { CalendarCheck2, CheckCircle2, ExternalLink, MapPin, Navigation, Plus, Search, UserPlus } from "lucide-react";
+import { CalendarCheck2, CheckCircle2, MapPin, Navigation, Plus, Search, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -21,6 +21,7 @@ import { ColetaBadge, TierBadge, VisitaBadge } from "@/components/clients/client
 import { VisitForm } from "@/components/visitas/VisitForm";
 import { NotDoneDialog } from "@/components/visitas/NotDoneDialog";
 import { ProspectVisitDialog } from "@/components/visitas/ProspectVisitDialog";
+import { PhotoZoom } from "@/components/visitas/PhotoZoom";
 import { toast } from "sonner";
 import type { Client, RouteVisit, WeeklyRoute } from "@/lib/types";
 
@@ -230,17 +231,14 @@ export default function MinhaRota() {
                 )}
                 {recorded?.photoData && (
                   <CardContent className="pb-3">
-                    <a href={recorded.photoData} target="_blank" rel="noreferrer">
-                      <img
-                        src={recorded.photoData}
-                        alt="Comprovante"
-                        className="h-28 w-40 rounded-lg object-cover"
-                       
-                      />
-                      <span className="mt-1 flex items-center gap-1 text-xs text-primary">
-                        <ExternalLink className="h-3 w-3" /> Ver comprovante
-                      </span>
-                    </a>
+                    <PhotoZoom
+                      src={recorded.photoData}
+                      alt="Comprovante"
+                      imgClassName="h-28 w-40 rounded-lg object-cover"
+                    />
+                    <span className="mt-1 flex items-center gap-1 text-xs text-primary">
+                      Clique na foto para ampliar
+                    </span>
                   </CardContent>
                 )}
               </Card>

@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { CalendarX2, ChevronDown, ExternalLink, Search, Trash2, X } from "lucide-react";
+import { CalendarX2, ChevronDown, Search, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -30,6 +30,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useData } from "@/lib/DataContext";
+import { PhotoZoom } from "@/components/visitas/PhotoZoom";
 import { addDays, DAY_NAMES, formatDateBR, formatDistanceM, mondayOf } from "@/lib/geo";
 import type { Client, Visit } from "@/lib/types";
 
@@ -164,13 +165,6 @@ function VisitCard({
         </p>
       </div>
       <div className="flex shrink-0 gap-2">
-        {fotos.length > 0 && (
-          <Button variant="outline" size="sm" asChild onClick={(e) => e.stopPropagation()}>
-            <a href={fotos[0]} target="_blank" rel="noreferrer">
-              <ExternalLink className="h-4 w-4" />
-            </a>
-          </Button>
-        )}
         <Button
           variant="ghost"
           size="icon"
@@ -196,7 +190,6 @@ export default function Visitas() {
   const [tipo, setTipo] = useState<"todas" | "visitas" | "prospecoes">("todas");
   const [viewing, setViewing] = useState<Visit | null>(null);
   const [toDelete, setToDelete] = useState<Visit | null>(null);
-  const [photoView, setPhotoView] = useState<string | null>(null);
   // seções abertas/fechadas (mês e semana); o que não estiver aqui usa o padrão
   const [toggled, setToggled] = useState<Record<string, boolean>>({});
   const isOpen = (key: string, defaultOpen: boolean) => toggled[key] ?? defaultOpen;
@@ -507,18 +500,12 @@ export default function Visitas() {
                       </div>
                       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                         {fotos.map((f, i) => (
-                          <button
+                          <PhotoZoom
                             key={i}
-                            onClick={() => setPhotoView(f)}
-                            title="Clique para ampliar"
-                            className="cursor-zoom-in"
-                          >
-                            <img
-                              src={f}
-                              alt={`Foto ${i + 1}`}
-                              className="h-32 w-full rounded-lg object-cover"
-                            />
-                          </button>
+                            src={f}
+                            alt={`Foto ${i + 1}`}
+                            imgClassName="h-32 w-full rounded-lg object-cover"
+                          />
                         ))}
                       </div>
                     </div>
@@ -550,31 +537,6 @@ export default function Visitas() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {photoView && (
-        <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 p-4"
-          onClick={() => setPhotoView(null)}
-        >
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute right-4 top-4 text-white hover:bg-white/10 hover:text-white"
-            onClick={(e) => {
-              e.stopPropagation();
-              setPhotoView(null);
-            }}
-          >
-            <X className="h-6 w-6" />
-          </Button>
-          <img
-            src={photoView}
-            alt="Foto ampliada"
-            className="max-h-[90vh] max-w-full rounded-lg object-contain"
-            onClick={(e) => e.stopPropagation()}
-          />
-        </div>
-      )}
     </div>
   );
 }

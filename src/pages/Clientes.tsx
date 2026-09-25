@@ -68,6 +68,7 @@ import {
   type ClientSort,
 } from "@/components/clients/clientBits";
 import { ColetaBadge, TierBadge, VisitaBadge } from "@/components/clients/clientBadges";
+import { PhotoZoom } from "@/components/visitas/PhotoZoom";
 import type { Client, Visit } from "@/lib/types";
 
 const FREQ_OPTIONS: Array<{ value: string; label: string }> = [
@@ -959,13 +960,12 @@ function ClientHistoryDialog({ client, onClose }: { client: Client | null; onClo
                 {fotos.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-2">
                     {fotos.map((f, i) => (
-                      <a key={i} href={f} target="_blank" rel="noreferrer">
-                        <img
-                          src={f}
-                          alt={`Foto ${i + 1}`}
-                          className="h-16 w-20 rounded-md object-cover"
-                        />
-                      </a>
+                      <PhotoZoom
+                        key={i}
+                        src={f}
+                        alt={`Foto ${i + 1}`}
+                        imgClassName="h-16 w-20 rounded-md object-cover"
+                      />
                     ))}
                   </div>
                 )}
