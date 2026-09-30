@@ -13,8 +13,48 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useData } from "@/lib/DataContext";
-import { addDays, formatDateBR, mondayOf, todayKey } from "@/lib/geo";
+import { addDays, daysSinceToday, formatDateBR, mondayOf, todayKey } from "@/lib/geo";
+import {
+  coletaDays,
+  coletaStatus,
+  COLETA_BADGE_TONE,
+  isColetaOverdue,
+  lastVisitDays,
+  visitaStatus,
+  VISITA_BADGE_TONE,
+} from "@/components/clients/clientBits";
 import { newestRoute } from "@/lib/route";
+import type { Client } from "@/lib/types";
+
+/** lista compacta de clientes com dias sem coleta e sem visita */
+function AtencaoList({ items, total }: { items: Client[]; total: number }) {
+  return (
+    <div className="mt-2 space-y-1.5">
+      {items.map((c) => (
+        <div key={c.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+          <span className="min-w-0 flex-1">
+            <span className="truncate font-medium">{c.name}</span>
+            <span className="ml-1.5 text-xs text-muted-foreground">
+              {c.tier}
+              {c.city ? ` · ${c.city}` : ""}
+            </span>
+          </span>
+          <span className="flex shrink-0 items-center gap-1.5">
+            <Badge className={COLETA_BADGE_TONE[coletaStatus(c)]} title="Dias sem coleta">
+              {coletaDays(c) == null ? "sem coleta" : `${coletaDays(c)}d sem coleta`}
+            </Badge>
+            <Badge className={VISITA_BADGE_TONE[visitaStatus(c)]} title="Dias sem visita">
+              {lastVisitDays(c) == null ? "sem visita" : `${lastVisitDays(c)}d sem visita`}
+            </Badge>
+          </span>
+        </div>
+      ))}
+      {total > items.length && (
+        <p className="text-xs text-muted-foreground">… e mais {total - items.length} cliente(s).</p>
+      )}
+    </div>
+  );
+}
 
 export default function Dashboard() {
   const { state } = useData();
@@ -43,6 +83,26 @@ export default function Dashboard() {
   const noCoords = useMemo(() => activeClients.filter((c) => c.lat == null), [activeClients]);
   const drafts = useMemo(() => routes.filter((r) => r.status === "rascunho"), [routes]);
   const alertaVisits = useMemo(() => visits.filter((v) => v.alerta), [visits]);
+
+  // clientes que precisam de atenção (ativos, fora as prospecções)
+  const atencao = useMemo(() => {
+    const base = clients.filter((c) => c.active && !c.isProspecao);
+    const dv = (c: (typeof base)[number]) => (c.lastVisitAt ? daysSinceToday(c.lastVisitAt) : null);
+    const semVisita = base
+      .filter((c) => {
+        const d = dv(c);
+        return d == null || d > 30;
+      })
+      .sort((a, b) => (dv(b) ?? 9999) - (dv(a) ?? 9999));
+    const semColeta = base.filter((c) => isColetaOverdue(c)).sort((a, b) => (coletaDays(b) ?? 0) - (coletaDays(a) ?? 0));
+    const risco = base
+      .filter((c) => {
+        const d = dv(c);
+        return isColetaOverdue(c) && (d == null || d > 30);
+      })
+      .sort((a, b) => (coletaDays(b) ?? 0) - (coletaDays(a) ?? 0));
+    return { semVisita, semColeta, risco };
+  }, [clients]);
 
   const tierCount = useMemo(() => {
     const counts = { A: 0, B: 0, C: 0, D: 0 };
@@ -144,6 +204,68 @@ export default function Dashboard() {
           </Card>
         ))}
       </div>
+
+      <Card className="card-soft">
+        <CardHeader className="pb-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <AlertTriangle className="h-4 w-4 text-destructive" /> Clientes que precisam de atenção
+              </CardTitle>
+              <CardDescription>
+                Clientes ativos sem visita recente, com coleta atrasada ou nas duas situações (risco).
+              </CardDescription>
+            </div>
+            <Button asChild variant="link" size="sm" className="h-auto p-0">
+              <Link to="/clientes">
+                Abrir clientes <ArrowRight className="ml-1 h-3 w-3" />
+              </Link>
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Em risco */}
+          <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-sm font-semibold text-destructive">
+                Em risco — coleta atrasada + sem visita há mais de 30 dias
+              </span>
+              <span className="text-lg font-bold text-destructive">{atencao.risco.length}</span>
+            </div>
+            {atencao.risco.length > 0 ? (
+              <AtencaoList items={atencao.risco.slice(0, 6)} total={atencao.risco.length} />
+            ) : (
+              <p className="mt-1 text-xs text-muted-foreground">Nenhum cliente nesta situação. </p>
+            )}
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className="rounded-lg border p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-sm font-semibold">Sem visita há mais de 30 dias</span>
+                <span className="text-lg font-bold">{atencao.semVisita.length}</span>
+              </div>
+              {atencao.semVisita.length > 0 ? (
+                <AtencaoList items={atencao.semVisita.slice(0, 6)} total={atencao.semVisita.length} />
+              ) : (
+                <p className="mt-1 text-xs text-muted-foreground">Todos visitados recentemente.</p>
+              )}
+            </div>
+
+            <div className="rounded-lg border p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-sm font-semibold">Coleta atrasada (mais de 30 dias)</span>
+                <span className="text-lg font-bold">{atencao.semColeta.length}</span>
+              </div>
+              {atencao.semColeta.length > 0 ? (
+                <AtencaoList items={atencao.semColeta.slice(0, 6)} total={atencao.semColeta.length} />
+              ) : (
+                <p className="mt-1 text-xs text-muted-foreground">Nenhuma coleta atrasada.</p>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card className="card-soft">
         <CardHeader className="pb-3">
