@@ -1,0 +1,4 @@
+ALTER TABLE public.visits ADD COLUMN IF NOT EXISTS alerta boolean NOT NULL DEFAULT false;
+ALTER TABLE public.visits ADD COLUMN IF NOT EXISTS alerta_motivo text;
+COMMENT ON COLUMN public.visits.alerta IS 'Visita marcada pelo vendedor com alerta para o coordenador.';
+COMMENT ON COLUMN public.visits.alerta_motivo IS 'Motivo do alerta informado pelo vendedor.';

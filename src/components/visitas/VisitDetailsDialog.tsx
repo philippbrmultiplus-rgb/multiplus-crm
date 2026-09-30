@@ -67,6 +67,7 @@ export function VisitDetailsDialog({
           {visit.withinRadius === false && (
             <Badge className="bg-destructive/10 text-destructive">Fora do raio</Badge>
           )}
+          {visit.alerta && <Badge className="bg-destructive/15 text-destructive">Alerta</Badge>}
         </div>
 
         <div className="space-y-3 text-sm">
@@ -89,6 +90,11 @@ export function VisitDetailsDialog({
           {visit.withinRadius === false && visit.distanceFromClientM != null && (
             <p className="text-destructive">
               {formatDistanceM(visit.distanceFromClientM)} do endereço cadastrado (raio {radiusM} m)
+            </p>
+          )}
+          {visit.alerta && (
+            <p className="rounded-md bg-destructive/5 p-2 text-destructive">
+              <b>Alerta:</b> {visit.alertaMotivo || "sem motivo informado"}
             </p>
           )}
         </div>

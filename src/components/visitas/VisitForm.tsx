@@ -3,6 +3,7 @@ import { Camera, Crosshair, Loader2, MapPin, Navigation, X } from "lucide-react"
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -57,6 +58,8 @@ export function VisitForm({
   const [status, setStatus] = useState<VisitStatus>("realizada");
   const [comments, setComments] = useState("");
   const [nextActions, setNextActions] = useState("");
+  const [alerta, setAlerta] = useState(false);
+  const [alertaMotivo, setAlertaMotivo] = useState("");
   const [photos, setPhotos] = useState<string[]>([]);
   const [photoKb, setPhotoKb] = useState(0);
   const [geo, setGeo] = useState<GeoFix | null>(null);
@@ -160,6 +163,10 @@ export function VisitForm({
       setError("Foto de comprovação obrigatória — registre ao menos uma foto do local.");
       return;
     }
+    if (alerta && !alertaMotivo.trim()) {
+      setError("Escreva o motivo do alerta para o coordenador.");
+      return;
+    }
     setError(null);
     setSaving(true);
     // guarda uma pequena pausa para o botão aparecer "Salvando…"
@@ -179,6 +186,8 @@ export function VisitForm({
       withinRadius: withinRadius ?? true,
       photoData: photos[0],
       photoDataList: photos,
+      alerta,
+      alertaMotivo: alertaMotivo.trim(),
     };
     addVisit(visit, { uploadPhoto: photos.some((p) => p.startsWith("data:")) });
     if (routeVisitId) markRouteVisitStatus(routeVisitId, "concluida");
@@ -351,6 +360,39 @@ export function VisitForm({
               value={nextActions}
               onChange={(e) => setNextActions(e.target.value)}
             />
+          </div>
+
+          {/* Alerta (opcional) */}
+          <div className="space-y-2 rounded-lg border p-3">
+            <div className="flex items-center justify-between gap-2">
+              <Label htmlFor="alerta" className="cursor-pointer">
+                Marcar como <b>alerta</b>{" "}
+                <span className="font-normal text-muted-foreground">(opcional)</span>
+              </Label>
+              <Switch
+                id="alerta"
+                checked={alerta}
+                onCheckedChange={(v) => {
+                  setAlerta(v);
+                  if (!v) setAlertaMotivo("");
+                }}
+              />
+            </div>
+            {alerta && (
+              <Textarea
+                rows={2}
+                autoFocus
+                placeholder="Descreva o motivo do alerta (ex.: cliente insatisfeito, risco de perda, problema de pagamento…)"
+                value={alertaMotivo}
+                onChange={(e) => {
+                  setAlertaMotivo(e.target.value);
+                  if (e.target.value.trim()) setError(null);
+                }}
+              />
+            )}
+            <p className="text-xs text-muted-foreground">
+              O alerta aparece para o coordenador na Visão geral e nas Visitas.
+            </p>
           </div>
 
           {error && <p className="text-sm text-destructive">{error}</p>}

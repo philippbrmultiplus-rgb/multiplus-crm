@@ -275,6 +275,8 @@ function visitFromRow(r: Record<string, any>): Visit {
     photoData: r.photo_url ?? undefined,
     photoUrl: r.photo_url ?? null,
     photos: Array.isArray(r.photos) ? (r.photos as string[]) : r.photo_url ? [r.photo_url] : [],
+    alerta: r.alerta ?? false,
+    alertaMotivo: r.alerta_motivo ?? "",
     createdBy: r.created_by ?? undefined,
   };
 }
@@ -295,6 +297,8 @@ function visitToRow(v: Visit): Record<string, any> {
     within_radius: v.withinRadius,
     photo_url: (v.photos && v.photos.length > 0 ? v.photos[0] : v.photoUrl) ?? null,
     photos: v.photos ?? null,
+    alerta: v.alerta ?? false,
+    alerta_motivo: v.alertaMotivo ?? null,
   };
 }
 
@@ -648,8 +652,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
                       : visit.status === "nao_realizada"
                         ? "Visita não realizada"
                         : "Atendimento recusado";
-                toast(`${label}: ${client?.name ?? "cliente"}`, {
-                  description: client ? `${client.city} · ${new Date(visit.visitedAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}` : undefined,
+                const comAlerta = visit.alerta ? " · ALERTA" : "";
+                toast(`${label}${comAlerta}: ${client?.name ?? "cliente"}`, {
+                  description: client
+                    ? `${client.city} · ${new Date(visit.visitedAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}${visit.alerta && visit.alertaMotivo ? ` · ${visit.alertaMotivo}` : ""}`
+                    : undefined,
                 });
                 if ("Notification" in window && Notification.permission === "granted") {
                   try {

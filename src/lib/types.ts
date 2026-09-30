@@ -95,6 +95,8 @@ export interface ProspectVisitInput {
   nextActions: string;
   photoData?: string;
   photoDataList?: string[];
+  alerta?: boolean;
+  alertaMotivo?: string;
   gpsLat?: number | null;
   gpsLng?: number | null;
   gpsAccuracyM?: number | null;
@@ -124,6 +126,10 @@ export interface Visit {
   photoDataList?: string[];
   /** lista de URLs públicas das fotos na nuvem */
   photos?: string[] | null;
+  /** visita marcada pelo vendedor como alerta */
+  alerta?: boolean;
+  /** motivo do alerta */
+  alertaMotivo?: string;
   createdBy?: string;
 }
 

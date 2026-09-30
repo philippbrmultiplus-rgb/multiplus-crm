@@ -3622,6 +3622,8 @@ export type Database = {
       }
       visits: {
         Row: {
+          alerta: boolean
+          alerta_motivo: string | null
           client_id: string | null
           created_at: string
           created_by: string | null
@@ -3640,6 +3642,8 @@ export type Database = {
           within_radius: boolean | null
         }
         Insert: {
+          alerta?: boolean
+          alerta_motivo?: string | null
           client_id?: string | null
           created_at?: string
           created_by?: string | null
@@ -3658,6 +3662,8 @@ export type Database = {
           within_radius?: boolean | null
         }
         Update: {
+          alerta?: boolean
+          alerta_motivo?: string | null
           client_id?: string | null
           created_at?: string
           created_by?: string | null

@@ -13,7 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useData } from "@/lib/DataContext";
-import { addDays, mondayOf, todayKey } from "@/lib/geo";
+import { addDays, formatDateBR, mondayOf, todayKey } from "@/lib/geo";
 import { newestRoute } from "@/lib/route";
 
 export default function Dashboard() {
@@ -42,6 +42,7 @@ export default function Dashboard() {
   const outOfRadius = useMemo(() => visits.filter((v) => !v.withinRadius), [visits]);
   const noCoords = useMemo(() => activeClients.filter((c) => c.lat == null), [activeClients]);
   const drafts = useMemo(() => routes.filter((r) => r.status === "rascunho"), [routes]);
+  const alertaVisits = useMemo(() => visits.filter((v) => v.alerta), [visits]);
 
   const tierCount = useMemo(() => {
     const counts = { A: 0, B: 0, C: 0, D: 0 };
@@ -106,10 +107,10 @@ export default function Dashboard() {
     },
     {
       label: "Alertas",
-      value: outOfRadius.length + noCoords.length,
+      value: outOfRadius.length + noCoords.length + alertaVisits.length,
       icon: MapPinOff,
-      sub: `${outOfRadius.length} fora do raio · ${noCoords.length} sem coordenadas`,
-      href: outOfRadius.length > 0 ? "/visitas?alerta=raio" : "/clientes",
+      sub: `${outOfRadius.length} fora do raio · ${noCoords.length} sem coordenadas · ${alertaVisits.length} do vendedor`,
+      href: alertaVisits.length > 0 || outOfRadius.length > 0 ? "/visitas" : "/clientes",
     },
   ];
 
@@ -292,7 +293,10 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {(drafts.length > 0 || outOfRadius.length > 0 || noCoords.length > 0) && (
+      {(drafts.length > 0 ||
+        outOfRadius.length > 0 ||
+        noCoords.length > 0 ||
+        alertaVisits.length > 0) && (
         <Card className="card-soft border-destructive/30">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
@@ -307,6 +311,33 @@ export default function Dashboard() {
                   <Link to="/rota">Revisar</Link>
                 </Button>
               </p>
+            )}
+            {alertaVisits.length > 0 && (
+              <div className="space-y-1">
+                <p>{alertaVisits.length} alerta(s) registrado(s) pelo(s) vendedor(es):</p>
+                <ul className="ml-1 space-y-1">
+                  {alertaVisits.slice(0, 5).map((v) => {
+                    const c = clients.find((x) => x.id === v.clientId);
+                    return (
+                      <li key={v.id} className="flex flex-wrap items-baseline gap-x-2 text-xs">
+                        <span className="font-medium">{c?.name ?? "Cliente removido"}</span>
+                        <span className="text-muted-foreground">
+                          {formatDateBR(v.visitedAt.slice(0, 10))}
+                        </span>
+                        <span className="text-destructive">{v.alertaMotivo || "sem motivo informado"}</span>
+                      </li>
+                    );
+                  })}
+                </ul>
+                {alertaVisits.length > 5 && (
+                  <p className="text-xs text-muted-foreground">
+                    … e mais {alertaVisits.length - 5} alerta(s).
+                  </p>
+                )}
+                <Button asChild variant="link" size="sm" className="h-auto p-0">
+                  <Link to="/visitas">Ver visitas</Link>
+                </Button>
+              </div>
             )}
             {outOfRadius.length > 0 && (
               <p>

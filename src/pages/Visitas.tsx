@@ -137,6 +137,7 @@ function VisitCard({
           {v.withinRadius === false && (
             <Badge className="bg-destructive/10 text-destructive">Fora do raio</Badge>
           )}
+          {v.alerta && <Badge className="bg-destructive/15 text-destructive">Alerta</Badge>}
         </div>
         <p className="text-xs text-muted-foreground">
           {formatDateBR(v.visitedAt.slice(0, 10))} às {horaOf(v)} · {client?.city}
@@ -274,10 +275,16 @@ export default function Visitas() {
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             className="pl-8"
-            placeholder="Buscar por cliente ou cidade…"
+            placeholder="Digite o nome do cliente…"
+            list="clientes-sugestoes"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
+          <datalist id="clientes-sugestoes">
+            {clients.map((c) => (
+              <option key={c.id} value={c.name} />
+            ))}
+          </datalist>
         </div>
         <label className="flex items-center gap-2 text-sm text-muted-foreground">
           <Checkbox
@@ -493,6 +500,12 @@ export default function Visitas() {
                     <p className="text-sm text-destructive">
                       {formatDistanceM(v.distanceFromClientM)} do endereço cadastrado (raio{" "}
                       {settings.visitRadiusM} m)
+                    </p>
+                  )}
+
+                  {v.alerta && (
+                    <p className="rounded-md bg-destructive/5 p-2 text-sm text-destructive">
+                      <b>Alerta do vendedor:</b> {v.alertaMotivo || "sem motivo informado"}
                     </p>
                   )}
 
