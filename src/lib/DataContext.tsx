@@ -330,6 +330,8 @@ interface DataContextValue {
   createClient: (c: Client) => void;
   deleteClient: (id: string) => void;
   loadClientColetas: (clientId: string) => Promise<Array<{ date: string; note: string }>>;
+  listProfiles: () => Promise<Array<{ id: string; fullName: string; role: Role }>>;
+  setUserRole: (id: string, role: Role) => Promise<string | null>;
   recomputeTiers: () => void;
   updateSettings: (patch: Partial<Settings>) => void;
   generateRoute: (weekStart: string) => RoutePlanResult;
@@ -1674,6 +1676,32 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [setAppState, upsertRv],
   );
 
+  /** lista os usuários do app (nome e papel) */
+  const listProfiles = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id, full_name, role")
+      .order("created_at");
+    if (error) {
+      console.warn("listar usuários:", error.message);
+      return [];
+    }
+    return (data ?? []).map((r) => {
+      const row = r as Record<string, unknown>;
+      return {
+        id: String(row.id),
+        fullName: (row.full_name as string) ?? "",
+        role: (row.role as Role) ?? "vendedor",
+      };
+    });
+  }, []);
+
+  /** define o papel de um usuário (só o coordenador consegue) */
+  const setUserRole = useCallback(async (id: string, newRole: Role) => {
+    const { error } = await supabase.from("profiles").update({ role: newRole }).eq("id", id);
+    return error ? error.message : null;
+  }, []);
+
   /* ---------- backup / utilitários ---------- */
 
   const resetData = useCallback(() => {
@@ -1791,6 +1819,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
     createClient,
     deleteClient,
     loadClientColetas,
+    listProfiles,
+    setUserRole,
     recomputeTiers,
     updateSettings,
     generateRoute,

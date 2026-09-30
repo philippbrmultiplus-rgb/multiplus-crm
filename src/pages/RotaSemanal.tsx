@@ -90,6 +90,7 @@ const DAY_COLORS: Record<number, string> = {
 export default function RotaSemanal() {
   const {
     state,
+    role,
     createEmptyWeekRoute,
     publishRoute,
     deleteRoute,
@@ -97,6 +98,7 @@ export default function RotaSemanal() {
     removeRouteVisit,
   } = useData();
   const { routes, routeVisits, clients, settings } = state;
+  const podeEditar = role === "coordenador";
 
   const [weekStart, setWeekStart] = useState<string>(mondayOf(todayKey()));
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -234,10 +236,12 @@ export default function RotaSemanal() {
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <Button onClick={handleGenerate}>
-          <Rocket className="mr-2 h-4 w-4" /> Gerar rota da semana
-        </Button>
-        {route && (
+        {podeEditar && (
+          <Button onClick={handleGenerate}>
+            <Rocket className="mr-2 h-4 w-4" /> Gerar rota da semana
+          </Button>
+        )}
+        {route && podeEditar && (
           <>
             {route.status === "rascunho" ? (
               <Button
@@ -279,7 +283,7 @@ export default function RotaSemanal() {
             Nenhuma rota para esta semana ainda. Clique em "Gerar rota da semana" para montar a rotina de
             visitas automaticamente.
           </p>
-          <Button onClick={handleGenerate}>Gerar agora</Button>
+          {podeEditar && <Button onClick={handleGenerate}>Gerar agora</Button>}
         </div>
       ) : (
         <>
@@ -293,6 +297,7 @@ export default function RotaSemanal() {
                   visits={visits.filter((rv) => rv.day === day)}
                   clients={clients}
                   settings={settings}
+                  canEdit={podeEditar}
                   onAdd={() => setAddDay(day)}
                   onRemove={(rv) => setRemoveTarget(rv)}
                 />
@@ -388,6 +393,7 @@ function DayColumn({
   visits,
   clients,
   settings,
+  canEdit,
   onAdd,
   onRemove,
 }: {
@@ -396,6 +402,7 @@ function DayColumn({
   visits: RouteVisit[];
   clients: Client[];
   settings: Settings;
+  canEdit: boolean;
   onAdd: () => void;
   onRemove: (rv: RouteVisit) => void;
 }) {
@@ -429,15 +436,22 @@ function DayColumn({
       >
         <SortableContext items={visits.map((v) => v.id)} strategy={verticalListSortingStrategy}>
           {scheduled.map((s) => (
-            <RouteCard key={s.routeVisit.id} scheduled={s} onRemove={() => onRemove(s.routeVisit)} />
+            <RouteCard
+              key={s.routeVisit.id}
+              scheduled={s}
+              canEdit={canEdit}
+              onRemove={() => onRemove(s.routeVisit)}
+            />
           ))}
         </SortableContext>
         {scheduled.length === 0 && (
           <p className="py-6 text-center text-xs text-muted-foreground">Sem visitas</p>
         )}
-        <Button variant="ghost" size="sm" className="w-full text-xs" onClick={onAdd}>
-          <Plus className="mr-1 h-3.5 w-3.5" /> Adicionar cliente
-        </Button>
+        {canEdit && (
+          <Button variant="ghost" size="sm" className="w-full text-xs" onClick={onAdd}>
+            <Plus className="mr-1 h-3.5 w-3.5" /> Adicionar cliente
+          </Button>
+        )}
       </div>
     </div>
   );
@@ -445,9 +459,11 @@ function DayColumn({
 
 function RouteCard({
   scheduled,
+  canEdit,
   onRemove,
 }: {
   scheduled: ScheduledVisit;
+  canEdit: boolean;
   onRemove: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -465,9 +481,10 @@ function RouteCard({
     <div
       ref={setNodeRef}
       style={style}
-      {...attributes}
-      {...listeners}
-      className={`flex cursor-grab flex-col rounded-lg border bg-card p-2.5 shadow-sm active:cursor-grabbing ${
+      {...(canEdit ? { ...attributes, ...listeners } : {})}
+      className={`flex flex-col rounded-lg border bg-card p-2.5 shadow-sm ${
+        canEdit ? "cursor-grab active:cursor-grabbing" : ""
+      } ${
         isDragging ? "opacity-60" : ""
       } ${done ? "opacity-70" : ""}`}
     >
@@ -517,6 +534,7 @@ function RouteCard({
       </div>
 
       {/* Remover apenas este cliente */}
+      {canEdit && (
       <div className="mt-2 flex justify-end border-t pt-2">
         <button
           title="Remover este cliente da rota"
@@ -530,6 +548,7 @@ function RouteCard({
           <Trash2 className="h-3.5 w-3.5" />
         </button>
       </div>
+      )}
     </div>
   );
 }

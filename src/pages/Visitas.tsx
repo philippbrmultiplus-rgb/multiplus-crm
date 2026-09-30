@@ -85,7 +85,7 @@ function VisitCard({
   client?: Client;
   radiusM: number;
   onOpen: () => void;
-  onDelete: () => void;
+  onDelete?: () => void;
 }) {
   const isProsp = client?.isProspecao;
   const fotos = fotosOf(v);
@@ -164,24 +164,27 @@ function VisitCard({
           )}
         </p>
       </div>
-      <div className="flex shrink-0 gap-2">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete();
-          }}
-        >
-          <Trash2 className="h-4 w-4 text-destructive" />
-        </Button>
-      </div>
+      {onDelete && (
+        <div className="flex shrink-0 gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
+          >
+            <Trash2 className="h-4 w-4 text-destructive" />
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
 
 export default function Visitas() {
-  const { state, deleteVisit } = useData();
+  const { state, deleteVisit, role } = useData();
+  const podeExcluir = role === "coordenador";
   const { clients, visits, settings } = state;
   const [params] = useSearchParams();
   const [search, setSearch] = useState("");
@@ -369,7 +372,7 @@ export default function Visitas() {
                                         client={clientOf(v.clientId)}
                                         radiusM={settings.visitRadiusM}
                                         onOpen={() => setViewing(v)}
-                                        onDelete={() => setToDelete(v)}
+                                        onDelete={podeExcluir ? () => setToDelete(v) : undefined}
                                       />
                                     ))}
                                   </div>

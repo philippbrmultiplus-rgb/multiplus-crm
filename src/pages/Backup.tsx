@@ -1,5 +1,13 @@
-import { useRef, useState } from "react";
-import { Download, HardDriveDownload, RotateCcw, Settings2, Upload } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Download, HardDriveDownload, RotateCcw, Settings2, Upload, Users } from "lucide-react";
+import { toast } from "sonner";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,10 +26,32 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useData } from "@/lib/DataContext";
 import { DAY_NAMES } from "@/lib/geo";
+import type { Role } from "@/lib/types";
+
+function roleLabelOf(r: Role): string {
+  return r === "coordenador" ? "Coordenador" : r === "gerente" ? "Gerente" : "Vendedor";
+}
 
 export default function Backup() {
-  const { state, exportData, importData, resetData, updateSettings, recomputeTiers, storageUsageKb } =
-    useData();
+  const {
+    state,
+    exportData,
+    importData,
+    resetData,
+    updateSettings,
+    recomputeTiers,
+    storageUsageKb,
+    role,
+    listProfiles,
+    setUserRole,
+  } = useData();
+  const podeEditar = role === "coordenador";
+  const [usuarios, setUsuarios] = useState<Array<{ id: string; fullName: string; role: Role }>>([]);
+
+  useEffect(() => {
+    if (!podeEditar) return;
+    void listProfiles().then(setUsuarios);
+  }, [podeEditar, listProfiles]);
   const s = state.settings;
   const [importError, setImportError] = useState<string | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
@@ -78,9 +108,11 @@ export default function Backup() {
             <Button onClick={download}>
               <Download className="mr-2 h-4 w-4" /> Exportar backup
             </Button>
-            <Button variant="outline" onClick={() => fileRef.current?.click()}>
-              <Upload className="mr-2 h-4 w-4" /> Importar backup
-            </Button>
+            {podeEditar && (
+              <Button variant="outline" onClick={() => fileRef.current?.click()}>
+                <Upload className="mr-2 h-4 w-4" /> Importar backup
+              </Button>
+            )}
             <input
               ref={fileRef}
               type="file"
@@ -88,9 +120,11 @@ export default function Backup() {
               className="hidden"
               onChange={(e) => onImport(e.target.files?.[0] ?? null)}
             />
-            <Button variant="destructive" onClick={() => setConfirmReset(true)}>
-              <RotateCcw className="mr-2 h-4 w-4" /> Restaurar dados de fábrica
-            </Button>
+            {podeEditar && (
+              <Button variant="destructive" onClick={() => setConfirmReset(true)}>
+                <RotateCcw className="mr-2 h-4 w-4" /> Restaurar dados de fábrica
+              </Button>
+            )}
           </div>
           {importError && <p className="text-sm text-destructive">{importError}</p>}
           <p className="text-xs text-muted-foreground">
@@ -113,6 +147,7 @@ export default function Backup() {
           <div className="space-y-2">
             <Label>Latitude da base</Label>
             <Input
+              disabled={!podeEditar}
               type="number"
               step="0.0001"
               value={s.homeLat}
@@ -122,6 +157,7 @@ export default function Backup() {
           <div className="space-y-2">
             <Label>Longitude da base</Label>
             <Input
+              disabled={!podeEditar}
               type="number"
               step="0.0001"
               value={s.homeLng}
@@ -131,6 +167,7 @@ export default function Backup() {
           <div className="space-y-2">
             <Label>Início do expediente</Label>
             <Input
+              disabled={!podeEditar}
               type="time"
               value={s.workStart}
               onChange={(e) => updateSettings({ workStart: e.target.value })}
@@ -139,6 +176,7 @@ export default function Backup() {
           <div className="space-y-2">
             <Label>Fim do expediente</Label>
             <Input
+              disabled={!podeEditar}
               type="time"
               value={s.workEnd}
               onChange={(e) => updateSettings({ workEnd: e.target.value })}
@@ -147,6 +185,7 @@ export default function Backup() {
           <div className="space-y-2">
             <Label>Tempo por visita (min)</Label>
             <Input
+              disabled={!podeEditar}
               type="number"
               min={5}
               value={s.visitTimeMin}
@@ -158,6 +197,7 @@ export default function Backup() {
           <div className="space-y-2">
             <Label>Velocidade média (km/h)</Label>
             <Input
+              disabled={!podeEditar}
               type="number"
               min={20}
               max={120}
@@ -170,6 +210,7 @@ export default function Backup() {
           <div className="space-y-2">
             <Label>Prioridade A (t/mês, 2x por mês)</Label>
             <Input
+              disabled={!podeEditar}
               type="number"
               min={0}
               value={s.tierAThreshold}
@@ -181,6 +222,7 @@ export default function Backup() {
           <div className="space-y-2">
             <Label>Prioridade B (t/mês, 1x por mês)</Label>
             <Input
+              disabled={!podeEditar}
               type="number"
               min={0}
               value={s.tierBThreshold}
@@ -192,6 +234,7 @@ export default function Backup() {
           <div className="space-y-2">
             <Label>Raio de confirmação (m)</Label>
             <Input
+              disabled={!podeEditar}
               type="number"
               min={50}
               value={s.visitRadiusM}
@@ -206,6 +249,7 @@ export default function Backup() {
               {[1, 2, 3, 4, 5].map((d) => (
                 <label key={d} className="flex items-center gap-2 text-sm">
                   <Checkbox
+                    disabled={!podeEditar}
                     checked={s.workingDays.includes(d)}
                     onCheckedChange={(v) => toggleDay(d, !!v)}
                   />
@@ -215,12 +259,66 @@ export default function Backup() {
             </div>
           </div>
         </CardContent>
-        <CardContent className="border-t">
-          <Button onClick={recomputeTiers}>
-            Aplicar critérios e recalcular prioridades da carteira
-          </Button>
-        </CardContent>
+        {podeEditar && (
+          <CardContent className="border-t">
+            <Button onClick={recomputeTiers}>
+              Aplicar critérios e recalcular prioridades da carteira
+            </Button>
+          </CardContent>
+        )}
       </Card>
+
+      {podeEditar && (
+        <Card className="card-soft">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Users className="h-4 w-4" /> Usuários e acessos
+            </CardTitle>
+            <CardDescription>
+              Defina o papel de cada usuário. <b>Gerente</b> vê todas as informações, mas não pode
+              alterar nem lançar nada no app.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {usuarios.length === 0 && (
+              <p className="text-sm text-muted-foreground">Nenhum usuário encontrado.</p>
+            )}
+            {usuarios.map((u) => (
+              <div key={u.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-2">
+                <span className="min-w-0 truncate text-sm font-medium">
+                  {u.fullName || "(sem nome)"}
+                </span>
+                <Select
+                  value={u.role}
+                  onValueChange={(v) => {
+                    void setUserRole(u.id, v as Role).then((err) => {
+                      if (err) {
+                        toast.error("Não foi possível alterar o papel", { description: err });
+                        return;
+                      }
+                      setUsuarios((list) => list.map((x) => (x.id === u.id ? { ...x, role: v as Role } : x)));
+                      toast.success(`Papel atualizado para ${roleLabelOf(v as Role)}.`);
+                    });
+                  }}
+                >
+                  <SelectTrigger className="w-40">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="coordenador">Coordenador</SelectItem>
+                    <SelectItem value="gerente">Gerente (somente leitura)</SelectItem>
+                    <SelectItem value="vendedor">Vendedor</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            ))}
+            <p className="text-xs text-muted-foreground">
+              Para criar um novo acesso: a pessoa entra na tela de login e usa “criar agora”; depois o
+              acesso aparece aqui para você definir o papel (ex.: <b>Gerente</b>).
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       <AlertDialog open={confirmReset} onOpenChange={setConfirmReset}>
         <AlertDialogContent>

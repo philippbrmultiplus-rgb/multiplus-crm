@@ -1,0 +1,7 @@
+ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_role_check;
+ALTER TABLE public.profiles
+  ADD CONSTRAINT profiles_role_check
+  CHECK (role = ANY (ARRAY['coordenador'::text, 'vendedor'::text, 'gerente'::text]));
+
+CREATE POLICY "profiles_update_coord" ON public.profiles
+  FOR UPDATE USING (is_coordenador()) WITH CHECK (is_coordenador());

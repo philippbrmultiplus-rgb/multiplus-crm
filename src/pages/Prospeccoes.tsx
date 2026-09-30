@@ -72,6 +72,8 @@ export default function Prospeccoes() {
   const { state, setProspeccaoStatus, deleteClient, role } = useData();
   const { clients, visits } = state;
   const podeExcluir = role === "coordenador";
+  // o gerente é somente leitura; vendedor e coordenador podem finalizar
+  const podeFinalizar = role === "coordenador" || role === "vendedor";
 
   const [search, setSearch] = useState("");
   const [situ, setSitu] = useState("todas");
@@ -160,6 +162,7 @@ export default function Prospeccoes() {
       client={c}
       visit={lastVisitOf.get(c.id)}
       canDelete={podeExcluir}
+      canFinalize={podeFinalizar}
       onOpen={() => setDetailTarget(c)}
       onFinalize={(s) =>
         s === "fechado" ? setProspeccaoStatus(c.id, "fechado") : setLostTarget(c)
@@ -353,6 +356,7 @@ function ProspectCard({
   client,
   visit,
   canDelete,
+  canFinalize,
   onOpen,
   onFinalize,
   onDelete,
@@ -360,6 +364,7 @@ function ProspectCard({
   client: Client;
   visit?: Visit;
   canDelete: boolean;
+  canFinalize: boolean;
   onOpen: () => void;
   onFinalize: (s: "fechado" | "perdido") => void;
   onDelete: () => void;
@@ -425,6 +430,10 @@ function ProspectCard({
           <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <Lock className="h-3.5 w-3.5" />
             Prospecção finalizada — não pode mais ser alterada.
+          </p>
+        ) : !canFinalize ? (
+          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Lock className="h-3.5 w-3.5" /> Em negociação (somente leitura).
           </p>
         ) : (
           <div className="flex flex-wrap gap-2">

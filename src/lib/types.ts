@@ -1,4 +1,4 @@
-export type Role = "coordenador" | "vendedor";
+export type Role = "coordenador" | "vendedor" | "gerente";
 
 export type Tier = "A" | "B" | "C" | "D";
 

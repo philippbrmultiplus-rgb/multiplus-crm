@@ -38,24 +38,25 @@ interface NavItem {
   to: string;
   label: string;
   icon: typeof LayoutDashboard;
-  roles: Array<"coordenador" | "vendedor">;
+  roles: Array<"coordenador" | "vendedor" | "gerente">;
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { to: "/dashboard", label: "Visão geral", icon: LayoutDashboard, roles: ["coordenador"] },
-  { to: "/clientes", label: "Clientes", icon: Users, roles: ["coordenador", "vendedor"] },
-  { to: "/mapa", label: "Mapa de clientes", icon: MapIcon, roles: ["coordenador", "vendedor"] },
-  { to: "/prospeccoes", label: "Prospecções", icon: Target, roles: ["coordenador", "vendedor"] },
-  { to: "/rota", label: "Rota semanal", icon: RouteIcon, roles: ["coordenador"] },
+  { to: "/dashboard", label: "Visão geral", icon: LayoutDashboard, roles: ["coordenador", "gerente"] },
+  { to: "/clientes", label: "Clientes", icon: Users, roles: ["coordenador", "vendedor", "gerente"] },
+  { to: "/mapa", label: "Mapa de clientes", icon: MapIcon, roles: ["coordenador", "vendedor", "gerente"] },
+  { to: "/prospeccoes", label: "Prospecções", icon: Target, roles: ["coordenador", "vendedor", "gerente"] },
+  { to: "/rota", label: "Rota semanal", icon: RouteIcon, roles: ["coordenador", "gerente"] },
   { to: "/hoje", label: "Minha rota de hoje", icon: CalendarDays, roles: ["vendedor"] },
   { to: "/minha-semana", label: "Minha rota da semana", icon: CalendarDays, roles: ["vendedor"] },
   { to: "/meu-mes", label: "Minha rota do mês", icon: CalendarRange, roles: ["vendedor"] },
-  { to: "/visitas", label: "Visitas", icon: MapPin, roles: ["coordenador"] },
-  { to: "/backup", label: "Dados & backup", icon: Database, roles: ["coordenador"] },
+  { to: "/visitas", label: "Visitas", icon: MapPin, roles: ["coordenador", "gerente"] },
+  { to: "/backup", label: "Dados & backup", icon: Database, roles: ["coordenador", "gerente"] },
 ];
 
 const HOME_BY_ROLE: Record<string, string> = {
   coordenador: "/dashboard",
+  gerente: "/dashboard",
   vendedor: "/hoje",
 };
 
@@ -94,7 +95,8 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const currentRole = role ?? "vendedor";
   const items = NAV_ITEMS.filter((i) => i.roles.includes(currentRole));
-  const roleLabel = currentRole === "coordenador" ? "Coordenador" : "Vendedor";
+  const roleLabel =
+    currentRole === "coordenador" ? "Coordenador" : currentRole === "gerente" ? "Gerente" : "Vendedor";
 
   // bloqueia telas de outro papel mesmo acessando o endereço direto
   if (!items.some((i) => i.to === location.pathname)) {
