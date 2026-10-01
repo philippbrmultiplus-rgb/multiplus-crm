@@ -58,7 +58,7 @@ import { useData } from "@/lib/DataContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { LeafletMap } from "@/components/map/LeafletMap";
 import { cadenceLabel } from "@/lib/cadence";
-import { formatDateBR } from "@/lib/geo";
+import { formatDateBR, formatKm } from "@/lib/geo";
 import {
   coletaDays,
   compareClients,
@@ -67,7 +67,7 @@ import {
   visitaStatus,
   type ClientSort,
 } from "@/components/clients/clientBits";
-import { cidadeComDistancia, distanciaClienteKm } from "@/components/clients/clientBits";
+import { distanciaClienteKm, distanciaFaixa } from "@/components/clients/clientBits";
 import { ColetaBadge, TierBadge, VisitaBadge } from "@/components/clients/clientBadges";
 import { PhotoZoom } from "@/components/visitas/PhotoZoom";
 import type { Client, Visit } from "@/lib/types";
@@ -113,6 +113,7 @@ export default function Clientes() {
   const [segment, setSegment] = useState("all");
   const [situ, setSitu] = useState("todas");
   const [situVisita, setSituVisita] = useState("todas");
+  const [dist, setDist] = useState("todas");
   const [sortBy, setSortBy] = useState<ClientSort>("grupo");
   const [onlyActive, setOnlyActive] = useState(true);
   const [editing, setEditing] = useState<Client | null>(null);
@@ -201,6 +202,7 @@ export default function Clientes() {
         if (situVisita === "em_dia") return c.lastVisitAt != null && visitaStatus(c) !== "late";
         return visitaStatus(c) === "late";
       })
+      .filter((c) => (dist === "todas" ? true : distanciaFaixa(c) === dist))
       .filter((c) =>
         q ? `${c.name} ${c.address} ${c.city} ${c.segment}`.toLowerCase().includes(q) : true,
       )
@@ -220,7 +222,7 @@ export default function Clientes() {
         return compareClients(a, b, sortBy);
       })
       .slice(0, 300);
-  }, [clients, search, city, tier, segment, situ, situVisita, sortBy, onlyActive]);
+  }, [clients, search, city, tier, segment, situ, situVisita, dist, sortBy, onlyActive]);
 
   const segmentOptions = useMemo(
     () =>
@@ -238,7 +240,9 @@ export default function Clientes() {
     city !== "all" ||
     tier !== "all" ||
     segment !== "all" ||
-    situ !== "todas";
+    situ !== "todas" ||
+    situVisita !== "todas" ||
+    dist !== "todas";
 
   const resetFilters = () => {
     setSearch("");
@@ -246,6 +250,8 @@ export default function Clientes() {
     setTier("all");
     setSegment("all");
     setSitu("todas");
+    setSituVisita("todas");
+    setDist("todas");
   };
 
   const pendingGeocode = clients.filter((c) => c.lat == null || c.geocodeStatus !== "ok").length;
@@ -270,7 +276,7 @@ export default function Clientes() {
     const rows = filtered.map((c) => ({
       Nome: c.name,
       Segmento: c.segment || "",
-      Cidade: cidadeComDistancia(c),
+      Cidade: c.city || "",
       "Distância da base (km)": distanciaClienteKm(c) != null ? Number(distanciaClienteKm(c)!.toFixed(1)) : "",
       Endereço: c.address || "",
       Contato: c.contato ?? "",
@@ -432,6 +438,18 @@ export default function Clientes() {
             <SelectItem value="sem_data">Sem data de coleta</SelectItem>
           </SelectContent>
         </Select>
+        <Select value={dist} onValueChange={setDist}>
+          <SelectTrigger className="w-48">
+            <SelectValue placeholder="Distância da base" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todas">Todas as distâncias</SelectItem>
+            <SelectItem value="ate100">Até 100 km</SelectItem>
+            <SelectItem value="100a200">100 a 200 km</SelectItem>
+            <SelectItem value="200mais">200 km ou mais</SelectItem>
+            <SelectItem value="sem">Sem coordenadas</SelectItem>
+          </SelectContent>
+        </Select>
         <Select value={situVisita} onValueChange={setSituVisita}>
           <SelectTrigger className="w-48">
             <SelectValue placeholder="Situação da visita" />
@@ -513,7 +531,13 @@ export default function Clientes() {
               <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1.5 text-sm">
                 <div className="min-w-0">
                   <span className="block text-[11px] text-muted-foreground">Cidade</span>
-                  <span className="block truncate">{cidadeComDistancia(c)}</span>
+                  <span className="block truncate">{c.city || "—"}</span>
+                </div>
+                <div>
+                  <span className="block text-[11px] text-muted-foreground">Distância da base</span>
+                  <span className="block">
+                    {distanciaClienteKm(c) != null ? formatKm(distanciaClienteKm(c)!) : "—"}
+                  </span>
                 </div>
                 <div className="min-w-0">
                   <span className="block text-[11px] text-muted-foreground">Segmento</span>
@@ -564,19 +588,21 @@ export default function Clientes() {
         <div className="card-soft overflow-x-auto">
           <Table className="table-fixed [&_th]:px-2 [&_th]:py-1.5 [&_td]:px-2 [&_td]:py-1.5">
             <colgroup>
-              <col className="w-[20%]" />
-              <col className="w-[9%]" />
-              <col className="w-[11%]" />
+              <col className="w-[18%]" />
               <col className="w-[8%]" />
-              <col className="w-[22%]" />
               <col className="w-[10%]" />
               <col className="w-[10%]" />
+              <col className="w-[7%]" />
+              <col className="w-[19%]" />
+              <col className="w-[9%]" />
+              <col className="w-[9%]" />
               <col className="w-[10%]" />
             </colgroup>
             <TableHeader>
               <TableRow>
                 <TableHead>Cliente</TableHead>
                 <TableHead>Cidade</TableHead>
+                <TableHead>Distância da base</TableHead>
                 <TableHead>Segmento</TableHead>
                 <TableHead>Grupo</TableHead>
                 <TableHead>Últ. troca / dias</TableHead>
@@ -601,7 +627,10 @@ export default function Clientes() {
                       {c.address || "—"}
                     </div>
                   </TableCell>
-                  <TableCell className="truncate text-sm">{cidadeComDistancia(c)}</TableCell>
+                  <TableCell className="truncate text-sm">{c.city || "—"}</TableCell>
+                  <TableCell className="whitespace-nowrap text-sm">
+                    {distanciaClienteKm(c) != null ? formatKm(distanciaClienteKm(c)!) : "—"}
+                  </TableCell>
                   <TableCell className="whitespace-nowrap">
                     {c.segment ? (
                       <Badge variant="outline" className="max-w-full truncate">
@@ -671,7 +700,7 @@ export default function Clientes() {
               ))}
               {filtered.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="py-8 text-center text-muted-foreground">
+                  <TableCell colSpan={9} className="py-8 text-center text-muted-foreground">
                     Nenhum cliente encontrado com os filtros atuais.
                   </TableCell>
                 </TableRow>

@@ -32,6 +32,17 @@ export function distanciaClienteKm(c: Client): number | null {
   return distanciaDaBaseKm(c.lat, c.lng);
 }
 
+export type DistanciaFaixa = "sem" | "ate100" | "100a200" | "200mais";
+
+/** faixa de distância da base (para filtro) */
+export function distanciaFaixa(c: Client): DistanciaFaixa {
+  const km = distanciaClienteKm(c);
+  if (km == null) return "sem";
+  if (km <= 100) return "ate100";
+  if (km <= 200) return "100a200";
+  return "200mais";
+}
+
 /** "Cidade · 12,3 km" — usado ao lado do nome da cidade em todo o app */
 export function cidadeComDistancia(c: Client): string {
   const cidade = c.city?.trim() || "sem cidade";
