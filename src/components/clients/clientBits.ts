@@ -47,7 +47,14 @@ export function distanciaFaixa(c: Client): DistanciaFaixa {
 export function cidadeComDistancia(c: Client): string {
   const cidade = c.city?.trim() || "sem cidade";
   const km = distanciaClienteKm(c);
-  return km == null ? cidade : `${cidade} · ${formatKm(km)}`;
+  return km == null ? cidade : `${cidade} · ${distanciaTexto(c)}`;
+}
+
+/** texto da distância ("12,3 km" ou "~12,3 km" quando aproximada pela cidade) */
+export function distanciaTexto(c: Client): string {
+  const km = distanciaClienteKm(c);
+  if (km == null) return "—";
+  return `${c.geoAproximado ? "~" : ""}${formatKm(km)}`;
 }
 
 /** faixa por dias decorridos (regra do coordenador): até 20 = verde, 21 a 30 = laranja, acima de 30 = vermelho */

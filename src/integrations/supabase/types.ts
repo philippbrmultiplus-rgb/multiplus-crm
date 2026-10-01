@@ -3396,6 +3396,7 @@ export type Database = {
           contato: string | null
           created_at: string
           freq_month: number | null
+          geo_aproximado: boolean
           geocode_status: string | null
           id: string
           is_prospecao: boolean
@@ -3423,6 +3424,7 @@ export type Database = {
           contato?: string | null
           created_at?: string
           freq_month?: number | null
+          geo_aproximado?: boolean
           geocode_status?: string | null
           id: string
           is_prospecao?: boolean
@@ -3450,6 +3452,7 @@ export type Database = {
           contato?: string | null
           created_at?: string
           freq_month?: number | null
+          geo_aproximado?: boolean
           geocode_status?: string | null
           id?: string
           is_prospecao?: boolean

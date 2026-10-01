@@ -67,7 +67,7 @@ import {
   visitaStatus,
   type ClientSort,
 } from "@/components/clients/clientBits";
-import { distanciaClienteKm, distanciaFaixa } from "@/components/clients/clientBits";
+import { distanciaClienteKm, distanciaFaixa, distanciaTexto } from "@/components/clients/clientBits";
 import { ColetaBadge, TierBadge, VisitaBadge } from "@/components/clients/clientBadges";
 import { PhotoZoom } from "@/components/visitas/PhotoZoom";
 import type { Client, Visit } from "@/lib/types";
@@ -92,6 +92,14 @@ function ColetaCell({ c, onDate }: { c: Client; onDate: (v: string | null) => vo
 
 function GeocodeStatus({ c }: { c: Client }) {
   if (c.lat != null && c.geocodeStatus === "ok") {
+    if (c.geoAproximado) {
+      return (
+        <MapPin
+          className="h-4 w-4 text-amber-500"
+          aria-label="Coordenada aproximada (pela cidade)"
+        />
+      );
+    }
     return <CheckCircle2 className="h-4 w-4 text-primary" />;
   }
   if (c.geocodeStatus === "falha") {
@@ -536,7 +544,7 @@ export default function Clientes() {
                 <div>
                   <span className="block text-[11px] text-muted-foreground">Distância da base</span>
                   <span className="block">
-                    {distanciaClienteKm(c) != null ? formatKm(distanciaClienteKm(c)!) : "—"}
+                    {distanciaTexto(c)}
                   </span>
                 </div>
                 <div className="min-w-0">
@@ -629,7 +637,7 @@ export default function Clientes() {
                   </TableCell>
                   <TableCell className="truncate text-sm">{c.city || "—"}</TableCell>
                   <TableCell className="whitespace-nowrap text-sm">
-                    {distanciaClienteKm(c) != null ? formatKm(distanciaClienteKm(c)!) : "—"}
+                    {distanciaTexto(c)}
                   </TableCell>
                   <TableCell className="whitespace-nowrap">
                     {c.segment ? (

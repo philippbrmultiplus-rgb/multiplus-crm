@@ -1,0 +1,3 @@
+UPDATE public.clients
+SET lat = -30.032500, lng = -51.230377, geo_aproximado = true, geocode_status = 'ok', updated_at = now()
+WHERE id = 'cli-seg-1-mtlo5q1l';

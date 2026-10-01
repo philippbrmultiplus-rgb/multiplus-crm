@@ -36,6 +36,8 @@ export interface Client {
   /** justificativa escrita quando a prospecção é marcada como perdida */
   prospeccaoJustificativa?: string | null;
   lat: number | null;
+  /** coordenada aproximada (obtida pela cidade, não pelo endereço exato) */
+  geoAproximado?: boolean;
   lng: number | null;
   geocodeStatus: GeocodeStatus;
   obs?: string;
