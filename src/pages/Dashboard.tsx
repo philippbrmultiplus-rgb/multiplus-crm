@@ -27,6 +27,25 @@ import { cidadeComDistancia } from "@/components/clients/clientBits";
 import { newestRoute } from "@/lib/route";
 import type { Client } from "@/lib/types";
 
+/** segmentos que entram na cobertura da carteira */
+const SEGMENTOS_COBERTURA = new Set([
+  "ROLLON",
+  "ROLLON/ CARREGAMENTO NA HORA",
+  "POLI",
+  "TERCEIRO",
+  "PORTA A PORTA/CACAMBEIRO",
+]);
+
+/** compara segmento ignorando acentos, maiúsculas e espaços repetidos */
+function normSegmento(s: string | null | undefined): string {
+  return (s ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 /** lista compacta de clientes com dias sem coleta e sem visita */
 function AtencaoList({ items, total }: { items: Client[]; total: number }) {
   return (
@@ -143,7 +162,9 @@ export default function Dashboard() {
   const cobertura = useMemo(() => {
     const hoje = todayKey();
     const inicioMes = `${hoje.slice(0, 7)}-01`;
-    const base = clients.filter((c) => c.active && !c.isProspecao);
+    const base = clients.filter(
+      (c) => c.active && !c.isProspecao && SEGMENTOS_COBERTURA.has(normSegmento(c.segment)),
+    );
     const visitados = new Set(
       visits
         .filter((v) => v.status !== "nao_realizada" && v.visitedAt.slice(0, 10) >= inicioMes)
@@ -270,8 +291,9 @@ export default function Dashboard() {
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Cobertura da carteira — {cobertura.mesLabel}</CardTitle>
           <CardDescription>
-            Clientes ativos (fora as prospecções) com pelo menos uma visita registrada e uma coleta no
-            mês. Visitas "não realizada" não contam como cobertura.
+            Clientes ativos dos segmentos <b>Rollon</b>, <b>Rollon/Carregamento na hora</b>,{" "}
+            <b>Poli</b>, <b>Terceiro</b> e <b>Porta a Porta/Caçambeiro</b> com pelo menos uma visita
+            registrada e uma coleta no mês. Visitas "não realizada" não contam como cobertura.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
