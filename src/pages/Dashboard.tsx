@@ -222,44 +222,62 @@ export default function Dashboard() {
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Em risco */}
-          <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3">
+          <Link
+            to="/clientes?situ=atrasada&situVisita=sem_ou_atrasada"
+            className="block rounded-lg border border-destructive/30 bg-destructive/5 p-3 transition-colors hover:bg-destructive/10"
+          >
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="text-sm font-semibold text-destructive">
                 Em risco — coleta atrasada + sem visita há mais de 30 dias
               </span>
-              <span className="text-lg font-bold text-destructive">{atencao.risco.length}</span>
+              <span className="flex items-center gap-2">
+                <span className="text-lg font-bold text-destructive">{atencao.risco.length}</span>
+                <span className="text-xs text-destructive underline underline-offset-2">ver lista</span>
+              </span>
             </div>
             {atencao.risco.length > 0 ? (
               <AtencaoList items={atencao.risco.slice(0, 6)} total={atencao.risco.length} />
             ) : (
               <p className="mt-1 text-xs text-muted-foreground">Nenhum cliente nesta situação. </p>
             )}
-          </div>
+          </Link>
 
           <div className="grid gap-4 lg:grid-cols-2">
-            <div className="rounded-lg border p-3">
+            <Link
+              to="/clientes?situVisita=sem_ou_atrasada"
+              className="block rounded-lg border p-3 transition-colors hover:bg-secondary/40"
+            >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-sm font-semibold">Sem visita há mais de 30 dias</span>
-                <span className="text-lg font-bold">{atencao.semVisita.length}</span>
+                <span className="flex items-center gap-2">
+                  <span className="text-lg font-bold">{atencao.semVisita.length}</span>
+                  <span className="text-xs text-primary underline underline-offset-2">ver lista</span>
+                </span>
               </div>
               {atencao.semVisita.length > 0 ? (
                 <AtencaoList items={atencao.semVisita.slice(0, 6)} total={atencao.semVisita.length} />
               ) : (
                 <p className="mt-1 text-xs text-muted-foreground">Todos visitados recentemente.</p>
               )}
-            </div>
+            </Link>
 
-            <div className="rounded-lg border p-3">
+            <Link
+              to="/clientes?situ=atrasada"
+              className="block rounded-lg border p-3 transition-colors hover:bg-secondary/40"
+            >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-sm font-semibold">Coleta atrasada (mais de 30 dias)</span>
-                <span className="text-lg font-bold">{atencao.semColeta.length}</span>
+                <span className="flex items-center gap-2">
+                  <span className="text-lg font-bold">{atencao.semColeta.length}</span>
+                  <span className="text-xs text-primary underline underline-offset-2">ver lista</span>
+                </span>
               </div>
               {atencao.semColeta.length > 0 ? (
                 <AtencaoList items={atencao.semColeta.slice(0, 6)} total={atencao.semColeta.length} />
               ) : (
                 <p className="mt-1 text-xs text-muted-foreground">Nenhuma coleta atrasada.</p>
               )}
-            </div>
+            </Link>
           </div>
         </CardContent>
       </Card>

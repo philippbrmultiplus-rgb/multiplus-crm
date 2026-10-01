@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
   CheckCircle2,
@@ -119,8 +119,9 @@ export default function Clientes() {
   const [city, setCity] = useState("all");
   const [tier, setTier] = useState("all");
   const [segment, setSegment] = useState("all");
-  const [situ, setSitu] = useState("todas");
-  const [situVisita, setSituVisita] = useState("todas");
+  const [params] = useSearchParams();
+  const [situ, setSitu] = useState(params.get("situ") ?? "todas");
+  const [situVisita, setSituVisita] = useState(params.get("situVisita") ?? "todas");
   const [dist, setDist] = useState("todas");
   const [sortBy, setSortBy] = useState<ClientSort>("grupo");
   const [onlyActive, setOnlyActive] = useState(true);
@@ -152,6 +153,8 @@ export default function Clientes() {
       if (situ === "em_dia" && (c.lastCollectAt == null || isColetaOverdue(c))) return false;
       if (situ === "sem_data" && c.lastCollectAt != null) return false;
       if (situVisita === "atrasada" && visitaStatus(c) !== "late") return false;
+      if (situVisita === "sem_ou_atrasada" && c.lastVisitAt != null && visitaStatus(c) !== "late")
+        return false;
       if (situVisita === "em_dia" && (c.lastVisitAt == null || visitaStatus(c) === "late")) return false;
       if (situVisita === "sem_visita" && c.lastVisitAt != null) return false;
       return true;
@@ -208,6 +211,8 @@ export default function Clientes() {
         if (situVisita === "todas") return true;
         if (situVisita === "sem_visita") return c.lastVisitAt == null;
         if (situVisita === "em_dia") return c.lastVisitAt != null && visitaStatus(c) !== "late";
+        if (situVisita === "sem_ou_atrasada")
+          return c.lastVisitAt == null || visitaStatus(c) === "late";
         return visitaStatus(c) === "late";
       })
       .filter((c) => (dist === "todas" ? true : distanciaFaixa(c) === dist))
@@ -467,6 +472,7 @@ export default function Clientes() {
             <SelectItem value="atrasada">Visita atrasada (&gt;30 dias)</SelectItem>
             <SelectItem value="em_dia">Visita em dia</SelectItem>
             <SelectItem value="sem_visita">Sem visita registrada</SelectItem>
+            <SelectItem value="sem_ou_atrasada">Sem visita ou atrasada (&gt;30 dias)</SelectItem>
           </SelectContent>
         </Select>
         <Select value={sortBy} onValueChange={(v) => setSortBy(v as ClientSort)}>
