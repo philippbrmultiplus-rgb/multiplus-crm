@@ -25,7 +25,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useData } from "@/lib/DataContext";
-import { DAY_NAMES } from "@/lib/geo";
+import { BASE_ADDRESS, DAY_NAMES } from "@/lib/geo";
 import type { Role } from "@/lib/types";
 
 function roleLabelOf(r: Role): string {
@@ -146,6 +146,7 @@ export default function Backup() {
         <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <div className="space-y-2">
             <Label>Latitude da base</Label>
+            <p className="text-xs text-muted-foreground">Endereço de partida: {BASE_ADDRESS}</p>
             <Input
               disabled={!podeEditar}
               type="number"
