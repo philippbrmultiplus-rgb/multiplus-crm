@@ -81,7 +81,6 @@ export default function Dashboard() {
     [visits, weekStart],
   );
   const outOfRadius = useMemo(() => visits.filter((v) => !v.withinRadius), [visits]);
-  const noCoords = useMemo(() => activeClients.filter((c) => c.lat == null), [activeClients]);
   const drafts = useMemo(() => routes.filter((r) => r.status === "rascunho"), [routes]);
   const alertaVisits = useMemo(() => visits.filter((v) => v.alerta), [visits]);
 
@@ -105,13 +104,10 @@ export default function Dashboard() {
     return { semVisita, semColeta, risco };
   }, [clients]);
 
-  const tierCount = useMemo(() => {
-    const counts = { A: 0, B: 0, C: 0, D: 0 };
-    activeClients.forEach((c) => {
-      if (c.freqMonth > 0) counts[c.tier]++;
-    });
-    return counts;
-  }, [activeClients]);
+  const grupoA = useMemo(
+    () => activeClients.filter((c) => c.freqMonth > 0 && c.tier === "A").length,
+    [activeClients],
+  );
 
   // Prospecções (atualiza sozinho: os clientes vêm em tempo real)
   const prospectStats = useMemo(() => {
@@ -145,7 +141,7 @@ export default function Dashboard() {
       label: "Clientes ativos",
       value: activeClients.length,
       icon: Users,
-      sub: `${tierCount.A} no grupo A (4x/mês)`,
+      sub: `${grupoA} no grupo A (4x/mês)`,
       href: "/clientes",
     },
     {
@@ -168,9 +164,9 @@ export default function Dashboard() {
     },
     {
       label: "Alertas",
-      value: outOfRadius.length + noCoords.length + alertaVisits.length,
+      value: outOfRadius.length + alertaVisits.length,
       icon: MapPinOff,
-      sub: `${outOfRadius.length} fora do raio · ${noCoords.length} sem coordenadas · ${alertaVisits.length} do vendedor`,
+      sub: `${outOfRadius.length} fora do raio · ${alertaVisits.length} alerta(s) do vendedor`,
       href: alertaVisits.length > 0 || outOfRadius.length > 0 ? "/visitas" : "/clientes",
     },
   ];
@@ -326,100 +322,7 @@ export default function Dashboard() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="card-soft lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-base">Cobertura da semana</CardTitle>
-            <CardDescription>
-              Rota publicada de {weekStart.split("-").reverse().join("/")}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {publishedRoute ? (
-              <div className="flex flex-col gap-3">
-                <div className="flex items-end gap-2">
-                  <div className="relative h-3 flex-1 overflow-hidden rounded-full bg-secondary">
-                    <div
-                      className="absolute inset-y-0 left-0 rounded-full bg-primary transition-all"
-                      style={{ width: plannedCount ? `${(doneCount / plannedCount) * 100}%` : "0%" }}
-                    />
-                  </div>
-                  <span className="text-sm font-semibold">
-                    {plannedCount ? Math.round((doneCount / plannedCount) * 100) : 0}%
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-5">
-                  {[1, 2, 3, 4, 5].map((d) => {
-                    const total = routeVisits.filter((rv) => rv.routeId === publishedRoute.id && rv.day === d).length;
-                    const done = routeVisits.filter(
-                      (rv) => rv.routeId === publishedRoute.id && rv.day === d && rv.status === "concluida",
-                    ).length;
-                    return (
-                      <div key={d} className="rounded-lg border p-2 text-center">
-                        <div className="text-[11px] text-muted-foreground">Dia {d}</div>
-                        <div className="text-sm font-semibold">
-                          {done}/{total}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 rounded-lg bg-secondary/60 p-3 text-sm text-muted-foreground">
-                <RouteIcon className="h-4 w-4" />
-                Nenhuma rota publicada para esta semana.
-                <Button asChild variant="link" size="sm" className="ml-auto h-auto p-0">
-                  <Link to="/rota">Gerar rota</Link>
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="card-soft">
-          <CardHeader>
-            <CardTitle className="text-base">Carteira por grupo de cadência</CardTitle>
-            <CardDescription>Visitas necessárias por mês (planilha de cadência)</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {(
-              [
-                ["A", "4x/mês", "tier-badge-a"],
-                ["B", "3x/mês", "tier-badge-b"],
-                ["C", "2x/mês", "tier-badge-c"],
-                ["D", "<2x/mês", "tier-badge-d"],
-              ] as const
-            ).map(([t, label, cls]) => {
-              const n = tierCount[t];
-              const total = activeClients.length || 1;
-              return (
-                <div key={t} className="flex items-center gap-3">
-                  <Badge className={cls}>
-                    {label}
-                  </Badge>
-                  <div className="h-2 flex-1 overflow-hidden rounded-full bg-secondary">
-                    <div
-                      className="h-full rounded-full bg-primary"
-                      style={{ width: `${(n / total) * 100}%` }}
-                    />
-                  </div>
-                  <span className="w-8 text-right text-sm font-medium">{n}</span>
-                </div>
-              );
-            })}
-            <p className="pt-1 text-xs text-muted-foreground">
-              Clientes sem data de última troca também só entram na rota quando a cadência indicar.
-              Ajuste em "Clientes".
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {(drafts.length > 0 ||
-        outOfRadius.length > 0 ||
-        noCoords.length > 0 ||
-        alertaVisits.length > 0) && (
+      {(drafts.length > 0 || outOfRadius.length > 0 || alertaVisits.length > 0) && (
         <Card className="card-soft border-destructive/30">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
@@ -468,14 +371,6 @@ export default function Dashboard() {
                 (possível fraude ou endereço desatualizado).
                 <Button asChild variant="link" size="sm" className="ml-1 h-auto p-0">
                   <Link to="/visitas?alerta=raio">Ver</Link>
-                </Button>
-              </p>
-            )}
-            {noCoords.length > 0 && (
-              <p>
-                {noCoords.length} cliente(s) ativo(s) sem coordenadas — não entram na rota automática.
-                <Button asChild variant="link" size="sm" className="ml-1 h-auto p-0">
-                  <Link to="/clientes">Geocodificar</Link>
                 </Button>
               </p>
             )}
