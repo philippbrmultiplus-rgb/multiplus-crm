@@ -67,6 +67,7 @@ import {
   visitaStatus,
   type ClientSort,
 } from "@/components/clients/clientBits";
+import { cidadeComDistancia, distanciaClienteKm } from "@/components/clients/clientBits";
 import { ColetaBadge, TierBadge, VisitaBadge } from "@/components/clients/clientBadges";
 import { PhotoZoom } from "@/components/visitas/PhotoZoom";
 import type { Client, Visit } from "@/lib/types";
@@ -269,7 +270,8 @@ export default function Clientes() {
     const rows = filtered.map((c) => ({
       Nome: c.name,
       Segmento: c.segment || "",
-      Cidade: c.city || "",
+      Cidade: cidadeComDistancia(c),
+      "Distância da base (km)": distanciaClienteKm(c) != null ? Number(distanciaClienteKm(c)!.toFixed(1)) : "",
       Endereço: c.address || "",
       Contato: c.contato ?? "",
       Responsável: c.responsavel ?? "",
@@ -511,7 +513,7 @@ export default function Clientes() {
               <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1.5 text-sm">
                 <div className="min-w-0">
                   <span className="block text-[11px] text-muted-foreground">Cidade</span>
-                  <span className="block truncate">{c.city || "—"}</span>
+                  <span className="block truncate">{cidadeComDistancia(c)}</span>
                 </div>
                 <div className="min-w-0">
                   <span className="block text-[11px] text-muted-foreground">Segmento</span>
@@ -599,7 +601,7 @@ export default function Clientes() {
                       {c.address || "—"}
                     </div>
                   </TableCell>
-                  <TableCell className="truncate text-sm">{c.city || "—"}</TableCell>
+                  <TableCell className="truncate text-sm">{cidadeComDistancia(c)}</TableCell>
                   <TableCell className="whitespace-nowrap">
                     {c.segment ? (
                       <Badge variant="outline" className="max-w-full truncate">

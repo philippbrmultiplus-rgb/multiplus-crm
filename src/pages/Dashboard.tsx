@@ -23,6 +23,7 @@ import {
   visitaStatus,
   VISITA_BADGE_TONE,
 } from "@/components/clients/clientBits";
+import { cidadeComDistancia } from "@/components/clients/clientBits";
 import { newestRoute } from "@/lib/route";
 import type { Client } from "@/lib/types";
 
@@ -36,7 +37,7 @@ function AtencaoList({ items, total }: { items: Client[]; total: number }) {
             <span className="truncate font-medium">{c.name}</span>
             <span className="ml-1.5 text-xs text-muted-foreground">
               {c.tier}
-              {c.city ? ` · ${c.city}` : ""}
+              {` · ${cidadeComDistancia(c)}`}
             </span>
           </span>
           <span className="flex shrink-0 items-center gap-1.5">

@@ -1,3 +1,4 @@
+import { cidadeComDistancia } from "@/components/clients/clientBits";
 import { useMemo, useState } from "react";
 import { CalendarCheck2, CheckCircle2, MapPin, Navigation, Plus, Search, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -158,7 +159,7 @@ export default function MinhaRota() {
                         {done && <CheckCircle2 className="h-4 w-4 text-primary" />}
                       </div>
                       <CardDescription className="line-clamp-2">
-                        {s.client.city} · {s.client.address || "sem endereço"}
+                        {cidadeComDistancia(s.client)} · {s.client.address || "sem endereço"}
                       </CardDescription>
                       <div className="mt-1 flex flex-wrap gap-1.5">
                         {s.client.tier === "A" && <Badge className="tier-badge-a">Grupo A</Badge>}
@@ -365,7 +366,7 @@ function AddExistingDialog({
                 </span>
                 <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
                   <span className="truncate">
-                    {c.city}
+                    {cidadeComDistancia(c)}
                     {c.segment ? ` · ${c.segment}` : ""}
                   </span>
                   <span>{cadenceLabel(c.freqMonth)}</span>

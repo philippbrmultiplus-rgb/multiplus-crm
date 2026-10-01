@@ -74,6 +74,7 @@ import {
   visitaStatus,
   VISITA_TEXT_TONE,
 } from "@/components/clients/clientBits";
+import { cidadeComDistancia } from "@/components/clients/clientBits";
 import { ColetaBadge, TierBadge } from "@/components/clients/clientBadges";
 import { LeafletMap } from "@/components/map/LeafletMap";
 import type { Client, RouteVisit, Settings, WeeklyRoute } from "@/lib/types";
@@ -780,7 +781,7 @@ function AddClientDialog({
                 </span>
                 <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
                   <span className="truncate">
-                    {c.city}
+                    {cidadeComDistancia(c)}
                     {c.segment ? ` · ${c.segment}` : ""}
                   </span>
                   <span>{cadenceLabel(c.freqMonth)}</span>

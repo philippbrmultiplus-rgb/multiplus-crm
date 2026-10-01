@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { formatDateBR, formatDistanceM } from "@/lib/geo";
+import { cidadeComDistancia } from "@/components/clients/clientBits";
 import type { Client, Visit, VisitStatus } from "@/lib/types";
 
 const STATUS_LABEL: Record<VisitStatus, string> = {
@@ -46,7 +47,7 @@ export function VisitDetailsDialog({
         <DialogHeader>
           <DialogTitle>{client.name}</DialogTitle>
           <DialogDescription>
-            {formatDateBR(data)} às {hora} · {client.city || "—"}
+            {formatDateBR(data)} às {hora} · {cidadeComDistancia(client)}
           </DialogDescription>
         </DialogHeader>
 
@@ -84,7 +85,7 @@ export function VisitDetailsDialog({
           <div>
             <div className="text-xs font-medium text-muted-foreground">Local</div>
             <p className="mt-0.5">
-              {[client.city, client.address].filter(Boolean).join(" · ") || "—"}
+              {[cidadeComDistancia(client), client.address].filter(Boolean).join(" · ")}
             </p>
           </div>
           {visit.withinRadius === false && visit.distanceFromClientM != null && (

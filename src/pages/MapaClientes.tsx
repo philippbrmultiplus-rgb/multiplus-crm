@@ -13,6 +13,7 @@ import {
 import { useData } from "@/lib/DataContext";
 import { LeafletMap, type MapPoint } from "@/components/map/LeafletMap";
 import { coletaDays, coletaStatus } from "@/components/clients/clientBits";
+import { cidadeComDistancia } from "@/components/clients/clientBits";
 import { ColetaBadge, TierBadge } from "@/components/clients/clientBadges";
 import type { Client } from "@/lib/types";
 
@@ -49,7 +50,7 @@ function ClientPopup({
         <div className="min-w-0">
           <div className="truncate font-semibold leading-tight">{c.name}</div>
           <div className="text-xs text-muted-foreground">
-            {c.city}
+            {cidadeComDistancia(c)}
             {c.segment ? ` · ${c.segment}` : ""}
             {!c.active ? " · inativo" : ""}
           </div>

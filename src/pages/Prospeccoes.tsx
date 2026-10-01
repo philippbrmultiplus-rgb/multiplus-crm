@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/dialog";
 import { useData } from "@/lib/DataContext";
 import { PhotoZoom } from "@/components/visitas/PhotoZoom";
+import { cidadeComDistancia } from "@/components/clients/clientBits";
 import { addDays, DAY_NAMES, formatDateBR, mondayOf } from "@/lib/geo";
 import type { Client, ProspeccaoStatus, Visit } from "@/lib/types";
 
@@ -383,7 +384,7 @@ function ProspectCard({
           <div className="truncate font-semibold leading-tight">{client.name}</div>
           <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
             {client.segment && <span>{client.segment}</span>}
-            {client.city && <span>· {client.city}</span>}
+            <span>· {cidadeComDistancia(client)}</span>
           </div>
         </div>
         <Badge className={STATUS_TONE[status]}>{STATUS_LABEL[status]}</Badge>
@@ -409,7 +410,7 @@ function ProspectCard({
         {(client.address || client.city) && (
           <p className="flex items-center gap-1.5 text-muted-foreground">
             <Building2 className="h-3.5 w-3.5 shrink-0" />
-            <span className="truncate">{[client.address, client.city].filter(Boolean).join(" · ")}</span>
+            <span className="truncate">{[client.address, cidadeComDistancia(client)].filter(Boolean).join(" · ")}</span>
           </p>
         )}
         {client.obs && <p className="line-clamp-2 text-xs text-muted-foreground">{client.obs}</p>}
@@ -581,7 +582,7 @@ function DetailDialog({
           {client.city && (
             <div>
               <span className="block text-xs font-medium text-muted-foreground">Cidade</span>
-              {client.city}
+              {cidadeComDistancia(client)}
             </div>
           )}
           {client.address && (

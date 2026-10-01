@@ -1,4 +1,4 @@
-import { daysSinceToday } from "@/lib/geo";
+import { daysSinceToday, distanciaDaBaseKm, formatKm } from "@/lib/geo";
 import type { Client, Tier } from "@/lib/types";
 
 export const TIER_LABEL: Record<Tier, string> = {
@@ -26,6 +26,18 @@ export function coletaDays(c: Client): number | null {
 }
 
 export type ColetaStatus = "sem" | "ok" | "warn" | "late";
+
+/** distância (km) da base até o cliente (null quando não tem coordenadas) */
+export function distanciaClienteKm(c: Client): number | null {
+  return distanciaDaBaseKm(c.lat, c.lng);
+}
+
+/** "Cidade · 12,3 km" — usado ao lado do nome da cidade em todo o app */
+export function cidadeComDistancia(c: Client): string {
+  const cidade = c.city?.trim() || "sem cidade";
+  const km = distanciaClienteKm(c);
+  return km == null ? cidade : `${cidade} · ${formatKm(km)}`;
+}
 
 /** faixa por dias decorridos (regra do coordenador): até 20 = verde, 21 a 30 = laranja, acima de 30 = vermelho */
 function bandOfDays(d: number | null): ColetaStatus {

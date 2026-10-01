@@ -2,6 +2,7 @@ import { CheckCircle2, Clock, MapPin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ColetaBadge, TierBadge, VisitaBadge } from "@/components/clients/clientBadges";
+import { cidadeComDistancia } from "@/components/clients/clientBits";
 import { computeSchedule } from "@/lib/route";
 import type { Client, RouteVisit, Settings, Visit } from "@/lib/types";
 
@@ -66,7 +67,7 @@ export function DaySchedule({
               </div>
               <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
                 <span className="truncate">
-                  {s.client.city}
+                  {cidadeComDistancia(s.client)}
                   {s.client.address ? ` · ${s.client.address}` : ""}
                 </span>
                 {s.travelMin > 0 && (

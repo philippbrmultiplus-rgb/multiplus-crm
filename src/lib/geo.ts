@@ -35,6 +35,17 @@ export function distanceMeters(
   return haversineKm(lat1, lng1, lat2, lng2) * 1000;
 }
 
+/** ponto de partida das rotas (base) */
+export const BASE_ADDRESS = "Avenida Severo Dullius, 125 - Anchieta, Porto Alegre - RS, 90200-310";
+export const BASE_LAT = -29.99212;
+export const BASE_LNG = -51.17726;
+
+/** distância rodoviária aproximada (km) da base até um ponto */
+export function distanciaDaBaseKm(lat: number | null, lng: number | null): number | null {
+  if (lat == null || lng == null) return null;
+  return roadKm(BASE_LAT, BASE_LNG, lat, lng);
+}
+
 export function formatKm(km: number): string {
   if (km >= 100) return `${Math.round(km)} km`;
   return `${km.toFixed(1)} km`;

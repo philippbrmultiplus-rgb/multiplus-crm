@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useData } from "@/lib/DataContext";
 import { PhotoZoom } from "@/components/visitas/PhotoZoom";
+import { cidadeComDistancia } from "@/components/clients/clientBits";
 import { addDays, DAY_NAMES, formatDateBR, formatDistanceM, mondayOf } from "@/lib/geo";
 import type { Client, Visit } from "@/lib/types";
 
@@ -140,7 +141,8 @@ function VisitCard({
           {v.alerta && <Badge className="bg-destructive/15 text-destructive">Alerta</Badge>}
         </div>
         <p className="text-xs text-muted-foreground">
-          {formatDateBR(v.visitedAt.slice(0, 10))} às {horaOf(v)} · {client?.city}
+          {formatDateBR(v.visitedAt.slice(0, 10))} às {horaOf(v)} ·{" "}
+          {client ? cidadeComDistancia(client) : "—"}
         </p>
         <div className="mt-2 grid gap-2 text-sm sm:grid-cols-2">
           <div>
@@ -156,7 +158,10 @@ function VisitCard({
         </div>
         <p className="mt-2 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
           <span>
-            Visita em: <span className="font-medium text-foreground">{client?.city || "—"}</span>
+            Visita em:{" "}
+            <span className="font-medium text-foreground">
+              {client ? cidadeComDistancia(client) : "—"}
+            </span>
           </span>
           {v.withinRadius === false && v.distanceFromClientM != null && (
             <span className="text-destructive">
@@ -411,7 +416,8 @@ export default function Visitas() {
                   <DialogHeader>
                     <DialogTitle>{c?.name ?? "Cliente removido"}</DialogTitle>
                     <DialogDescription>
-                      {formatDateBR(v.visitedAt.slice(0, 10))} às {horaOf(v)} · {c?.city}
+                      {formatDateBR(v.visitedAt.slice(0, 10))} às {horaOf(v)} ·{" "}
+                      {c ? cidadeComDistancia(c) : "—"}
                     </DialogDescription>
                   </DialogHeader>
 
@@ -465,7 +471,7 @@ export default function Visitas() {
                       {c.city && (
                         <div>
                           <div className="text-xs font-medium text-muted-foreground">Cidade</div>
-                          <div>{c.city}</div>
+                          <div>{cidadeComDistancia(c)}</div>
                         </div>
                       )}
                       {c.address && (
