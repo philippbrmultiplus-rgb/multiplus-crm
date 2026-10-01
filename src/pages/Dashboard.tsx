@@ -57,6 +57,41 @@ function AtencaoList({ items, total }: { items: Client[]; total: number }) {
   );
 }
 
+/** barra de cobertura (percentual de clientes atingidos no mês) */
+function CoberturaBarra({
+  label,
+  n,
+  total,
+  pct,
+  semLabel,
+}: {
+  label: string;
+  n: number;
+  total: number;
+  pct: number;
+  semLabel: string;
+}) {
+  return (
+    <div>
+      <div className="flex flex-wrap items-baseline justify-between gap-2 text-sm">
+        <span className="font-medium">{label}</span>
+        <span className="font-semibold">
+          {pct}%{" "}
+          <span className="text-xs font-normal text-muted-foreground">
+            ({n} de {total})
+          </span>
+        </span>
+      </div>
+      <div className="mt-1 h-2 overflow-hidden rounded-full bg-secondary">
+        <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${pct}%` }} />
+      </div>
+      <p className="mt-1 text-xs text-muted-foreground">
+        {total - n} cliente(s) {semLabel} no mês.
+      </p>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const { state } = useData();
   const { clients, visits, routes, routeVisits } = state;
@@ -103,6 +138,35 @@ export default function Dashboard() {
       .sort((a, b) => (coletaDays(b) ?? 0) - (coletaDays(a) ?? 0));
     return { semVisita, semColeta, risco };
   }, [clients]);
+
+  // cobertura da carteira no mês corrente (clientes ativos, fora as prospecções)
+  const cobertura = useMemo(() => {
+    const hoje = todayKey();
+    const inicioMes = `${hoje.slice(0, 7)}-01`;
+    const base = clients.filter((c) => c.active && !c.isProspecao);
+    const visitados = new Set(
+      visits
+        .filter((v) => v.status !== "nao_realizada" && v.visitedAt.slice(0, 10) >= inicioMes)
+        .map((v) => v.clientId),
+    );
+    const comVisita = base.filter((c) => visitados.has(c.id)).length;
+    const comColeta = base.filter(
+      (c) => c.lastCollectAt != null && c.lastCollectAt.slice(0, 10) >= inicioMes,
+    ).length;
+    const total = base.length;
+    const pct = (n: number) => (total ? Math.round((n / total) * 100) : 0);
+    return {
+      total,
+      comVisita,
+      comColeta,
+      pctVisita: pct(comVisita),
+      pctColeta: pct(comColeta),
+      mesLabel: new Date(`${inicioMes}T12:00:00`).toLocaleDateString("pt-BR", {
+        month: "long",
+        year: "numeric",
+      }),
+    };
+  }, [clients, visits]);
 
   const grupoA = useMemo(
     () => activeClients.filter((c) => c.freqMonth > 0 && c.tier === "A").length,
@@ -201,6 +265,32 @@ export default function Dashboard() {
           </Card>
         ))}
       </div>
+
+      <Card className="card-soft">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Cobertura da carteira — {cobertura.mesLabel}</CardTitle>
+          <CardDescription>
+            Clientes ativos (fora as prospecções) com pelo menos uma visita registrada e uma coleta no
+            mês. Visitas "não realizada" não contam como cobertura.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <CoberturaBarra
+            label="Com visita no mês"
+            n={cobertura.comVisita}
+            total={cobertura.total}
+            pct={cobertura.pctVisita}
+            semLabel="sem visita"
+          />
+          <CoberturaBarra
+            label="Com coleta no mês"
+            n={cobertura.comColeta}
+            total={cobertura.total}
+            pct={cobertura.pctColeta}
+            semLabel="sem coleta"
+          />
+        </CardContent>
+      </Card>
 
       <Card className="card-soft">
         <CardHeader className="pb-3">
