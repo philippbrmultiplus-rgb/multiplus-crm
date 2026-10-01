@@ -5,21 +5,24 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import { routers } from "./router";
 import { DataProvider } from "@/lib/DataContext";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 const queryClient = new QueryClient();
 
 const App = () => {
   const router = createBrowserRouter(routers);
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <DataProvider>
-          <Toaster />
-          <Sonner />
-          <RouterProvider router={router} />
-        </DataProvider>
-      </TooltipProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <DataProvider>
+            <Toaster />
+            <Sonner />
+            <RouterProvider router={router} />
+          </DataProvider>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 };
 
