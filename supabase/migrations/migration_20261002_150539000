@@ -1,0 +1,8 @@
+BEGIN;
+SET LOCAL role authenticated;
+SELECT set_config('request.jwt.claims', '{"sub":"8e34883d-e19e-410f-9b6d-06aa488cbe87","role":"authenticated"}', true);
+INSERT INTO public.clients (id, name, city, state, active, tier, freq_month, is_prospecao, geo_aproximado, updated_at)
+VALUES ('teste-rls-coord', 'Teste RLS', 'Cidade Teste', 'RS', true, 'D', 1, false, false, now())
+ON CONFLICT (id) DO UPDATE SET city = EXCLUDED.city;
+SELECT city FROM public.clients WHERE id = 'teste-rls-coord';
+ROLLBACK;

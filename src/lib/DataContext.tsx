@@ -180,6 +180,41 @@ function clientToRow(c: Client): Record<string, any> {
   };
 }
 
+/** converte SÓ os campos alterados de um cliente para as colunas do banco (para UPDATE parcial) */
+function clientPatchToRow(patch: Partial<Client>): Record<string, any> {
+  const row: Record<string, any> = {};
+  const map: Record<string, string> = {
+    name: "name",
+    segment: "segment",
+    address: "address",
+    city: "city",
+    state: "state",
+    active: "active",
+    total2025: "total_2025",
+    total2026: "total_2026",
+    avgMonthly: "avg_monthly",
+    tier: "tier",
+    freqMonth: "freq_month",
+    lastCollectAt: "last_collect_at",
+    lastVisitAt: "last_visit_at",
+    isProspecao: "is_prospecao",
+    contato: "contato",
+    responsavel: "responsavel",
+    prospeccaoStatus: "prospeccao_status",
+    prospeccaoJustificativa: "prospeccao_justificativa",
+    lat: "lat",
+    lng: "lng",
+    geoAproximado: "geo_aproximado",
+    geocodeStatus: "geocode_status",
+    obs: "obs",
+  };
+  for (const [key, column] of Object.entries(map)) {
+    if (key in patch) row[column] = (patch as Record<string, unknown>)[key] ?? null;
+  }
+  row.updated_at = new Date().toISOString();
+  return row;
+}
+
 function settingsFromRow(r: Record<string, any>): Settings {
   return {
     homeLat: Number(r.home_lat ?? defaultSettings.homeLat),
@@ -874,23 +909,38 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const updateClient = useCallback(
     (id: string, patch: Partial<Client>) => {
-      setAppState((prev) => {
-        const clients = prev.clients.map((c) => (c.id === id ? { ...c, ...patch } : c));
-        const changed = clients.find((c) => c.id === id);
-        if (changed && canWriteClientData()) {
-          void supabase.from("clients").upsert(clientToRow(changed));
-          // registra a data da troca/coleta informada no histórico do cliente
-          if (patch.lastCollectAt) {
-            void supabase
-              .from("coletas")
-              .upsert(
-                { client_id: id, collect_date: patch.lastCollectAt },
-                { onConflict: "client_id,collect_date" },
-              );
-          }
+      setAppState((prev) => ({
+        ...prev,
+        clients: prev.clients.map((c) => (c.id === id ? { ...c, ...patch } : c)),
+      }));
+      if (!uidRef.current) {
+        toast.error("Faça login para salvar alterações.");
+        return;
+      }
+      // UPDATE parcial: grava só os campos alterados (não sobrescreve os demais)
+      void (async () => {
+        const { error } = await supabase
+          .from("clients")
+          .update(clientPatchToRow(patch))
+          .eq("id", id);
+        if (error) {
+          console.error("salvar alteração do cliente:", error.message);
+          toast.error("Não foi possível salvar a alteração do cliente", {
+            description: `${error.message} — verifique se você está logado como coordenador.`,
+          });
+          return;
         }
-        return { ...prev, clients };
-      });
+        // registra a data da troca/coleta informada no histórico do cliente
+        if (patch.lastCollectAt) {
+          const { error: cErr } = await supabase
+            .from("coletas")
+            .upsert(
+              { client_id: id, collect_date: patch.lastCollectAt },
+              { onConflict: "client_id,collect_date" },
+            );
+          if (cErr) console.warn("histórico de coleta:", cErr.message);
+        }
+      })();
     },
     [setAppState],
   );
@@ -916,8 +966,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const createClient = useCallback(
     (c: Client) => {
       setAppState((prev) => ({ ...prev, clients: [...prev.clients, c] }));
+      if (!uidRef.current) {
+        toast.error("Faça login para cadastrar clientes.");
+        return;
+      }
       if (canWriteClientData()) {
-        void supabase.from("clients").upsert(clientToRow(c));
+        void supabase
+          .from("clients")
+          .upsert(clientToRow(c))
+          .then(({ error }) => {
+            if (error) {
+              console.error("cadastrar cliente:", error.message);
+              toast.error("Não foi possível salvar o cliente", { description: error.message });
+            }
+          });
         // se já informou a data da última troca, registra no histórico de coletas
         if (c.lastCollectAt) {
           void supabase
