@@ -25,6 +25,12 @@ import {
 } from "@/components/clients/clientBits";
 import { cidadeComDistancia } from "@/components/clients/clientBits";
 import { newestRoute } from "@/lib/route";
+import {
+  DIAS_SEM_DEFINICAO,
+  diasRegistroPorCliente,
+  situacaoOf,
+  type SituacaoProspeccao,
+} from "@/lib/prospeccao";
 import type { Client } from "@/lib/types";
 
 /** segmentos que entram na cobertura da carteira */
@@ -201,29 +207,52 @@ export default function Dashboard() {
   // Prospecções (atualiza sozinho: os clientes vêm em tempo real)
   const prospectStats = useMemo(() => {
     const all = clients.filter((c) => c.isProspecao);
-    const em = all.filter((c) => (c.prospeccaoStatus ?? "em_negociacao") === "em_negociacao").length;
-    const fechado = all.filter((c) => c.prospeccaoStatus === "fechado").length;
-    const recusada = all.filter((c) => c.prospeccaoStatus === "proposta_recusada").length;
+    const dias = diasRegistroPorCliente(visits);
+    const conta = (s: SituacaoProspeccao) =>
+      all.filter((c) => situacaoOf(c.prospeccaoStatus, dias.get(c.id) ?? null) === s).length;
+    const em = conta("em_negociacao");
+    const semDefinicao = conta("sem_definicao");
+    const fechado = conta("fechado");
+    const recusada = conta("proposta_recusada");
     const total = all.length;
     const pct = (n: number) => (total ? (n / total) * 100 : 0);
     const pEm = pct(em);
+    const pSem = pct(semDefinicao);
     const pFe = pct(fechado);
     return {
       total,
-      em,
-      fechado,
-      recusada,
       taxa: total ? Math.round((fechado / total) * 100) : 0,
-      gradient: `conic-gradient(#f59e0b 0% ${pEm}%, #3b82f6 ${pEm}% ${pEm + pFe}%, #ef4444 ${
+      gradient: `conic-gradient(#ef4444 0% ${pSem}%, #f59e0b ${pSem}% ${pEm}%, #3b82f6 ${pEm}% ${
         pEm + pFe
-      }% 100%)`,
+      }%, #64748b ${pEm + pFe}% 100%)`,
       rows: [
-        { label: "Em negociação", value: em, color: "#f59e0b" },
-        { label: "Fechadas", value: fechado, color: "#3b82f6" },
-        { label: "Propostas recusadas", value: recusada, color: "#ef4444" },
+        {
+          situ: "em_negociacao" as SituacaoProspeccao,
+          label: `Em negociação (até ${DIAS_SEM_DEFINICAO} dias)`,
+          value: em,
+          color: "#f59e0b",
+        },
+        {
+          situ: "sem_definicao" as SituacaoProspeccao,
+          label: `Sem definição há ${DIAS_SEM_DEFINICAO}+ dias`,
+          value: semDefinicao,
+          color: "#ef4444",
+        },
+        {
+          situ: "fechado" as SituacaoProspeccao,
+          label: "Fechadas",
+          value: fechado,
+          color: "#3b82f6",
+        },
+        {
+          situ: "proposta_recusada" as SituacaoProspeccao,
+          label: "Propostas recusadas",
+          value: recusada,
+          color: "#64748b",
+        },
       ],
     };
-  }, [clients]);
+  }, [clients, visits]);
 
   const stats = [
     {
@@ -405,7 +434,8 @@ export default function Dashboard() {
                 <Target className="h-4 w-4 text-primary" /> Prospecções
               </CardTitle>
               <CardDescription>
-                Prospecções registradas e taxa de conversão — atualiza automaticamente.
+                Prospecções registradas e taxa de conversão — clique em uma situação para ver somente
+                aqueles clientes.
               </CardDescription>
             </div>
             <Button asChild variant="link" size="sm" className="h-auto p-0">
@@ -441,13 +471,24 @@ export default function Dashboard() {
                   <div className="text-2xl font-bold">{prospectStats.total}</div>
                 </div>
                 {prospectStats.rows.map((r) => (
-                  <div key={r.label} className="rounded-lg border p-3">
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <span className="h-2.5 w-2.5 rounded-full" style={{ background: r.color }} />
-                      {r.label}
+                  <Link
+                    key={r.situ}
+                    to={`/prospeccoes?situ=${r.situ}`}
+                    className={`block rounded-lg border p-3 transition-colors hover:bg-secondary/40 ${
+                      r.situ === "sem_definicao" && r.value > 0
+                        ? "border-destructive/40 bg-destructive/5"
+                        : ""
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: r.color }} />
+                        {r.label}
+                      </span>
+                      <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                     </div>
                     <div className="text-2xl font-bold">{r.value}</div>
-                  </div>
+                  </Link>
                 ))}
               </div>
             </div>

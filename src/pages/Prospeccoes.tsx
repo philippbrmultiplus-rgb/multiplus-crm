@@ -1,5 +1,16 @@
 import { useMemo, useState } from "react";
-import { Building2, ChevronDown, Lock, Phone, Search, Target, Trash2, User } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
+import {
+  AlertTriangle,
+  Building2,
+  ChevronDown,
+  Lock,
+  Phone,
+  Search,
+  Target,
+  Trash2,
+  User,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -33,8 +44,17 @@ import {
 import { useData } from "@/lib/DataContext";
 import { PhotoZoom } from "@/components/visitas/PhotoZoom";
 import { cidadeComDistancia } from "@/components/clients/clientBits";
-import { addDays, DAY_NAMES, formatDateBR, mondayOf } from "@/lib/geo";
-import type { Client, ProspeccaoStatus, Visit } from "@/lib/types";
+import { addDays, DAY_NAMES, daysSinceToday, formatDateBR, mondayOf } from "@/lib/geo";
+import {
+  DIAS_SEM_DEFINICAO,
+  SITUACAO_LABEL,
+  SITUACAO_TONE,
+  SITUACOES,
+  diasRegistroPorCliente,
+  situacaoOf,
+  type SituacaoProspeccao,
+} from "@/lib/prospeccao";
+import type { Client, Visit } from "@/lib/types";
 
 const MESES = [
   "Janeiro",
@@ -57,18 +77,6 @@ function mesLabel(ym: string): string {
   return `${MESES[(m || 1) - 1]} ${y}`;
 }
 
-const STATUS_LABEL: Record<ProspeccaoStatus, string> = {
-  em_negociacao: "Em negociação",
-  fechado: "Fechado",
-  proposta_recusada: "Proposta recusada",
-};
-
-const STATUS_TONE: Record<ProspeccaoStatus, string> = {
-  em_negociacao: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
-  fechado: "bg-blue-500/15 text-blue-700 dark:text-blue-300",
-  proposta_recusada: "bg-destructive/15 text-destructive",
-};
-
 export default function Prospeccoes() {
   const { state, setProspeccaoStatus, deleteClient, role } = useData();
   const { clients, visits } = state;
@@ -76,8 +84,10 @@ export default function Prospeccoes() {
   // o gerente é somente leitura; vendedor e coordenador podem finalizar
   const podeFinalizar = role === "coordenador" || role === "vendedor";
 
+  const [params] = useSearchParams();
   const [search, setSearch] = useState("");
-  const [situ, setSitu] = useState("todas");
+  // permite abrir a tela já filtrada (ex.: /prospeccoes?situ=fechado)
+  const [situ, setSitu] = useState(params.get("situ") ?? "todas");
   const [lostTarget, setLostTarget] = useState<Client | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Client | null>(null);
   const [detailTarget, setDetailTarget] = useState<Client | null>(null);
@@ -96,29 +106,36 @@ export default function Prospeccoes() {
     return map;
   }, [visits]);
 
+  /** dias desde o registro de cada prospecção (visita mais recente) */
+  const diasRegistro = useMemo(() => diasRegistroPorCliente(visits), [visits]);
+
   const prospects = useMemo(() => {
     const q = search.trim().toLowerCase();
     return clients
       .filter((c) => c.isProspecao)
-      .filter((c) => {
-        if (situ === "todas") return true;
-        return (c.prospeccaoStatus ?? "em_negociacao") === situ;
-      })
+      .filter((c) =>
+        situ === "todas"
+          ? true
+          : situacaoOf(c.prospeccaoStatus, diasRegistro.get(c.id) ?? null) === situ,
+      )
       .filter((c) =>
         q ? `${c.name} ${c.responsavel ?? ""} ${c.city} ${c.segment}`.toLowerCase().includes(q) : true,
       )
       .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
-  }, [clients, search, situ]);
+  }, [clients, search, situ, diasRegistro]);
 
   const counts = useMemo(() => {
     const all = clients.filter((c) => c.isProspecao);
+    const por = (s: SituacaoProspeccao) =>
+      all.filter((c) => situacaoOf(c.prospeccaoStatus, diasRegistro.get(c.id) ?? null) === s).length;
     return {
       total: all.length,
-      em_negociacao: all.filter((c) => (c.prospeccaoStatus ?? "em_negociacao") === "em_negociacao").length,
-      fechado: all.filter((c) => c.prospeccaoStatus === "fechado").length,
-      proposta_recusada: all.filter((c) => c.prospeccaoStatus === "proposta_recusada").length,
+      em_negociacao: por("em_negociacao"),
+      sem_definicao: por("sem_definicao"),
+      fechado: por("fechado"),
+      proposta_recusada: por("proposta_recusada"),
     };
-  }, [clients]);
+  }, [clients, diasRegistro]);
 
   /** agrupa por mês > semana > dia (data do registro da prospecção); sem data vai no fim */
   const { hierarchy, semData } = useMemo(() => {
@@ -179,15 +196,29 @@ export default function Prospeccoes() {
           <h1 className="text-2xl font-bold tracking-tight">Prospecções</h1>
           <p className="text-sm text-muted-foreground">
             Toda prospecção entra como <b>Em negociação</b>. Depois só pode ser finalizada como{" "}
-            <b>Fechado</b> ou <b>Proposta recusada</b> — e não muda mais.
+            <b>Fechado</b> ou <b>Proposta recusada</b> — e não muda mais. Prospecções paradas há{" "}
+            {DIAS_SEM_DEFINICAO} dias ou mais aparecem em alerta.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-xs">
-          <Badge className={STATUS_TONE.em_negociacao}>Em negociação {counts.em_negociacao}</Badge>
-          <Badge className={STATUS_TONE.fechado}>Fechado {counts.fechado}</Badge>
-          <Badge className={STATUS_TONE.proposta_recusada}>
-            Proposta recusada {counts.proposta_recusada}
-          </Badge>
+          {SITUACOES.map((s) => (
+            <button
+              key={s}
+              type="button"
+              title={`Ver somente: ${SITUACAO_LABEL[s]}`}
+              onClick={() => setSitu(situ === s ? "todas" : s)}
+              className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <Badge
+                className={`${SITUACAO_TONE[s]} cursor-pointer ${
+                  situ === s ? "ring-2 ring-primary ring-offset-1 ring-offset-background" : ""
+                }`}
+              >
+                {s === "sem_definicao" && <AlertTriangle className="mr-1 h-3 w-3" />}
+                {SITUACAO_LABEL[s]} {counts[s]}
+              </Badge>
+            </button>
+          ))}
         </div>
       </div>
 
@@ -207,9 +238,12 @@ export default function Prospeccoes() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="todas">Todas as situações</SelectItem>
-            <SelectItem value="em_negociacao">Em negociação</SelectItem>
-            <SelectItem value="fechado">Fechado</SelectItem>
-            <SelectItem value="proposta_recusada">Proposta recusada</SelectItem>
+            <SelectItem value="em_negociacao">
+              {SITUACAO_LABEL.em_negociacao} (até {DIAS_SEM_DEFINICAO} dias)
+            </SelectItem>
+            <SelectItem value="sem_definicao">{SITUACAO_LABEL.sem_definicao}</SelectItem>
+            <SelectItem value="fechado">{SITUACAO_LABEL.fechado}</SelectItem>
+            <SelectItem value="proposta_recusada">{SITUACAO_LABEL.proposta_recusada}</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -372,14 +406,19 @@ function ProspectCard({
   onFinalize: (s: "fechado" | "proposta_recusada") => void;
   onDelete: () => void;
 }) {
-  const status: ProspeccaoStatus = client.prospeccaoStatus ?? "em_negociacao";
-  const finalizada = status === "fechado" || status === "proposta_recusada";
+  const dias = visit ? daysSinceToday(visit.visitedAt.slice(0, 10)) : null;
+  const situacao: SituacaoProspeccao = situacaoOf(client.prospeccaoStatus, dias);
+  const finalizada =
+    client.prospeccaoStatus === "fechado" || client.prospeccaoStatus === "proposta_recusada";
+  const parada = situacao === "sem_definicao";
   const photo = visit?.photoUrl ?? visit?.photoData ?? null;
 
   return (
     <div
       onClick={onOpen}
-      className="card-soft flex cursor-pointer flex-col gap-3 p-4 transition-colors hover:bg-secondary/40"
+      className={`card-soft flex cursor-pointer flex-col gap-3 p-4 transition-colors hover:bg-secondary/40 ${
+        parada ? "border-destructive/50 bg-destructive/5" : ""
+      }`}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
@@ -389,7 +428,10 @@ function ProspectCard({
             <span>· {cidadeComDistancia(client)}</span>
           </div>
         </div>
-        <Badge className={STATUS_TONE[status]}>{STATUS_LABEL[status]}</Badge>
+        <Badge className={SITUACAO_TONE[situacao]}>
+          {parada && <AlertTriangle className="mr-1 h-3 w-3" />}
+          {SITUACAO_LABEL[situacao]}
+        </Badge>
       </div>
 
       {photo && (
@@ -421,7 +463,12 @@ function ProspectCard({
             Prospecção registrada em {formatDateBR(visit.visitedAt.slice(0, 10))}
           </p>
         )}
-        {status === "proposta_recusada" && client.prospeccaoJustificativa && (
+        {parada && dias != null && (
+          <p className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
+            <b>Sem definição há {dias} dias.</b> Defina o resultado: fechar negócio ou proposta recusada.
+          </p>
+        )}
+        {client.prospeccaoStatus === "proposta_recusada" && client.prospeccaoJustificativa && (
           <p className="rounded-md bg-destructive/5 p-2 text-xs text-destructive">
             <b>Justificativa:</b> {client.prospeccaoJustificativa}
           </p>
@@ -541,7 +588,8 @@ function DetailDialog({
   visit?: Visit;
   onClose: () => void;
 }) {
-  const status: ProspeccaoStatus = client.prospeccaoStatus ?? "em_negociacao";
+  const dias = visit ? daysSinceToday(visit.visitedAt.slice(0, 10)) : null;
+  const situacao: SituacaoProspeccao = situacaoOf(client.prospeccaoStatus, dias);
   const fotos = visit
     ? visit.photos && visit.photos.length > 0
       ? visit.photos
@@ -563,7 +611,10 @@ function DetailDialog({
         </DialogHeader>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Badge className={STATUS_TONE[status]}>{STATUS_LABEL[status]}</Badge>
+          <Badge className={SITUACAO_TONE[situacao]}>
+            {situacao === "sem_definicao" && <AlertTriangle className="mr-1 h-3 w-3" />}
+            {SITUACAO_LABEL[situacao]}
+          </Badge>
         </div>
 
         <div className="space-y-1.5 text-sm">
@@ -619,7 +670,13 @@ function DetailDialog({
           )}
         </div>
 
-        {status === "proposta_recusada" && client.prospeccaoJustificativa && (
+        {situacao === "sem_definicao" && dias != null && (
+          <p className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-sm text-destructive">
+            <b>Sem definição há {dias} dias.</b> Defina o resultado: fechar negócio ou proposta recusada.
+          </p>
+        )}
+
+        {client.prospeccaoStatus === "proposta_recusada" && client.prospeccaoJustificativa && (
           <p className="rounded-md bg-destructive/5 p-2 text-sm text-destructive">
             <b>Justificativa:</b> {client.prospeccaoJustificativa}
           </p>
