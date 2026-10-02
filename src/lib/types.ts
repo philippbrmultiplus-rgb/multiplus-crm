@@ -5,7 +5,7 @@ export type Tier = "A" | "B" | "C" | "D";
 export type GeocodeStatus = "pendente" | "ok" | "falha";
 
 /** situação de uma prospecção */
-export type ProspeccaoStatus = "em_negociacao" | "fechado" | "perdido";
+export type ProspeccaoStatus = "em_negociacao" | "fechado" | "proposta_recusada";
 
 export interface Client {
   id: string;
@@ -33,7 +33,7 @@ export interface Client {
   responsavel?: string | null;
   /** situação da prospecção (só para clientes de prospecção) */
   prospeccaoStatus?: ProspeccaoStatus | null;
-  /** justificativa escrita quando a prospecção é marcada como perdida */
+  /** justificativa escrita quando a proposta é recusada */
   prospeccaoJustificativa?: string | null;
   lat: number | null;
   /** coordenada aproximada (obtida pela cidade, não pelo endereço exato) */

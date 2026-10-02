@@ -60,13 +60,13 @@ function mesLabel(ym: string): string {
 const STATUS_LABEL: Record<ProspeccaoStatus, string> = {
   em_negociacao: "Em negociação",
   fechado: "Fechado",
-  perdido: "Perdido",
+  proposta_recusada: "Proposta recusada",
 };
 
 const STATUS_TONE: Record<ProspeccaoStatus, string> = {
   em_negociacao: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
   fechado: "bg-blue-500/15 text-blue-700 dark:text-blue-300",
-  perdido: "bg-destructive/15 text-destructive",
+  proposta_recusada: "bg-destructive/15 text-destructive",
 };
 
 export default function Prospeccoes() {
@@ -116,7 +116,7 @@ export default function Prospeccoes() {
       total: all.length,
       em_negociacao: all.filter((c) => (c.prospeccaoStatus ?? "em_negociacao") === "em_negociacao").length,
       fechado: all.filter((c) => c.prospeccaoStatus === "fechado").length,
-      perdido: all.filter((c) => c.prospeccaoStatus === "perdido").length,
+      proposta_recusada: all.filter((c) => c.prospeccaoStatus === "proposta_recusada").length,
     };
   }, [clients]);
 
@@ -179,13 +179,15 @@ export default function Prospeccoes() {
           <h1 className="text-2xl font-bold tracking-tight">Prospecções</h1>
           <p className="text-sm text-muted-foreground">
             Toda prospecção entra como <b>Em negociação</b>. Depois só pode ser finalizada como{" "}
-            <b>Fechado</b> ou <b>Perdido</b> — e não muda mais.
+            <b>Fechado</b> ou <b>Proposta recusada</b> — e não muda mais.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <Badge className={STATUS_TONE.em_negociacao}>Em negociação {counts.em_negociacao}</Badge>
           <Badge className={STATUS_TONE.fechado}>Fechado {counts.fechado}</Badge>
-          <Badge className={STATUS_TONE.perdido}>Perdido {counts.perdido}</Badge>
+          <Badge className={STATUS_TONE.proposta_recusada}>
+            Proposta recusada {counts.proposta_recusada}
+          </Badge>
         </div>
       </div>
 
@@ -207,7 +209,7 @@ export default function Prospeccoes() {
             <SelectItem value="todas">Todas as situações</SelectItem>
             <SelectItem value="em_negociacao">Em negociação</SelectItem>
             <SelectItem value="fechado">Fechado</SelectItem>
-            <SelectItem value="perdido">Perdido</SelectItem>
+            <SelectItem value="proposta_recusada">Proposta recusada</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -315,7 +317,7 @@ export default function Prospeccoes() {
           client={lostTarget}
           onClose={() => setLostTarget(null)}
           onConfirm={(justificativa) => {
-            setProspeccaoStatus(lostTarget.id, "perdido", justificativa);
+            setProspeccaoStatus(lostTarget.id, "proposta_recusada", justificativa);
             setLostTarget(null);
           }}
         />
@@ -367,11 +369,11 @@ function ProspectCard({
   canDelete: boolean;
   canFinalize: boolean;
   onOpen: () => void;
-  onFinalize: (s: "fechado" | "perdido") => void;
+  onFinalize: (s: "fechado" | "proposta_recusada") => void;
   onDelete: () => void;
 }) {
   const status: ProspeccaoStatus = client.prospeccaoStatus ?? "em_negociacao";
-  const finalizada = status === "fechado" || status === "perdido";
+  const finalizada = status === "fechado" || status === "proposta_recusada";
   const photo = visit?.photoUrl ?? visit?.photoData ?? null;
 
   return (
@@ -419,7 +421,7 @@ function ProspectCard({
             Prospecção registrada em {formatDateBR(visit.visitedAt.slice(0, 10))}
           </p>
         )}
-        {status === "perdido" && client.prospeccaoJustificativa && (
+        {status === "proposta_recusada" && client.prospeccaoJustificativa && (
           <p className="rounded-md bg-destructive/5 p-2 text-xs text-destructive">
             <b>Justificativa:</b> {client.prospeccaoJustificativa}
           </p>
@@ -441,8 +443,12 @@ function ProspectCard({
             <Button size="sm" onClick={(e) => { e.stopPropagation(); onFinalize("fechado"); }}>
               Fechar negócio
             </Button>
-            <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); onFinalize("perdido"); }}>
-              Perdido
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={(e) => { e.stopPropagation(); onFinalize("proposta_recusada"); }}
+            >
+              Proposta recusada
             </Button>
           </div>
         )}
@@ -480,7 +486,7 @@ function LostDialog({
   const confirm = () => {
     const texto = reason.trim();
     if (!texto) {
-      setError("Escreva a justificativa para marcar como perdida.");
+      setError("Escreva a justificativa para marcar a proposta como recusada.");
       return;
     }
     onConfirm(texto);
@@ -490,7 +496,7 @@ function LostDialog({
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Marcar prospecção como perdida</DialogTitle>
+          <DialogTitle>Marcar proposta como recusada</DialogTitle>
           <DialogDescription>
             Cliente: <span className="font-medium text-foreground">{client.name}</span>. Depois de
             confirmar, a prospecção fica finalizada e não pode mais ser alterada.
@@ -517,7 +523,7 @@ function LostDialog({
             Cancelar
           </Button>
           <Button variant="destructive" onClick={confirm} disabled={!reason.trim()}>
-            Confirmar perdido
+            Confirmar proposta recusada
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -613,7 +619,7 @@ function DetailDialog({
           )}
         </div>
 
-        {status === "perdido" && client.prospeccaoJustificativa && (
+        {status === "proposta_recusada" && client.prospeccaoJustificativa && (
           <p className="rounded-md bg-destructive/5 p-2 text-sm text-destructive">
             <b>Justificativa:</b> {client.prospeccaoJustificativa}
           </p>

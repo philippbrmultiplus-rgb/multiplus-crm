@@ -33,7 +33,6 @@ const SEGMENTOS_COBERTURA = new Set([
   "ROLLON/ CARREGAMENTO NA HORA",
   "POLI",
   "TERCEIRO",
-  "PORTA A PORTA/CACAMBEIRO",
 ]);
 
 /** compara segmento ignorando acentos, maiúsculas e espaços repetidos */
@@ -199,7 +198,7 @@ export default function Dashboard() {
     const all = clients.filter((c) => c.isProspecao);
     const em = all.filter((c) => (c.prospeccaoStatus ?? "em_negociacao") === "em_negociacao").length;
     const fechado = all.filter((c) => c.prospeccaoStatus === "fechado").length;
-    const perdido = all.filter((c) => c.prospeccaoStatus === "perdido").length;
+    const recusada = all.filter((c) => c.prospeccaoStatus === "proposta_recusada").length;
     const total = all.length;
     const pct = (n: number) => (total ? (n / total) * 100 : 0);
     const pEm = pct(em);
@@ -208,7 +207,7 @@ export default function Dashboard() {
       total,
       em,
       fechado,
-      perdido,
+      recusada,
       taxa: total ? Math.round((fechado / total) * 100) : 0,
       gradient: `conic-gradient(#f59e0b 0% ${pEm}%, #3b82f6 ${pEm}% ${pEm + pFe}%, #ef4444 ${
         pEm + pFe
@@ -216,7 +215,7 @@ export default function Dashboard() {
       rows: [
         { label: "Em negociação", value: em, color: "#f59e0b" },
         { label: "Fechadas", value: fechado, color: "#3b82f6" },
-        { label: "Perdidas", value: perdido, color: "#ef4444" },
+        { label: "Propostas recusadas", value: recusada, color: "#ef4444" },
       ],
     };
   }, [clients]);
@@ -292,8 +291,7 @@ export default function Dashboard() {
           <CardTitle className="text-base">Cobertura da carteira — {cobertura.mesLabel}</CardTitle>
           <CardDescription>
             Clientes ativos dos segmentos <b>Rollon</b>, <b>Rollon/Carregamento na hora</b>,{" "}
-            <b>Poli</b>, <b>Terceiro</b> e <b>Porta a Porta/Caçambeiro</b> com pelo menos uma visita
-            registrada e uma coleta no mês. Visitas "não realizada" não contam como cobertura.
+            <b>Poli</b> e <b>Terceiro</b> com pelo menos uma visita registrada e uma coleta no mês. Visitas "não realizada" não contam como cobertura.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

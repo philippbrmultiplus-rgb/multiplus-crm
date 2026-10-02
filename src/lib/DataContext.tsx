@@ -387,7 +387,7 @@ interface DataContextValue {
   publishRoute: (routeId: string) => void;
   addVisit: (visit: Visit, opts?: { uploadPhoto?: boolean }) => void;
   registerProspectVisit: (args: ProspectVisitInput) => void;
-  setProspeccaoStatus: (clientId: string, status: "fechado" | "perdido", justificativa?: string) => void;
+  setProspeccaoStatus: (clientId: string, status: "fechado" | "proposta_recusada", justificativa?: string) => void;
   updateVisit: (id: string, patch: Partial<Visit>) => void;
   deleteVisit: (id: string) => void;
   markRouteVisitStatus: (routeVisitId: string, status: RouteVisit["status"]) => void;
@@ -1635,20 +1635,21 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [setAppState, state.routeVisits, state.settings, uploadVisitPhotos],
   );
 
-  /** finaliza a prospecção (fechado ou perdido) — trava depois de decidido */
+  /** finaliza a prospecção (fechado ou proposta recusada) — trava depois de decidido */
   const setProspeccaoStatus = useCallback(
-    (clientId: string, status: "fechado" | "perdido", justificativa?: string) => {
+    (clientId: string, status: "fechado" | "proposta_recusada", justificativa?: string) => {
       const target = state.clients.find((c) => c.id === clientId);
       const current = target?.prospeccaoStatus ?? "em_negociacao";
-      if (current === "fechado" || current === "perdido") {
+      if (current === "fechado" || current === "proposta_recusada") {
         toast.error("Esta prospecção já foi finalizada e não pode mais ser alterada.");
         return;
       }
-      if (status === "perdido" && !justificativa?.trim()) {
-        toast.error("Escreva a justificativa para marcar a prospecção como perdida.");
+      if (status === "proposta_recusada" && !justificativa?.trim()) {
+        toast.error("Escreva a justificativa para marcar a proposta como recusada.");
         return;
       }
-      const texto = status === "perdido" ? justificativa!.trim() : target?.prospeccaoJustificativa ?? null;
+      const texto =
+        status === "proposta_recusada" ? justificativa!.trim() : target?.prospeccaoJustificativa ?? null;
       setAppState((prev) => ({
         ...prev,
         clients: prev.clients.map((c) =>
@@ -1669,7 +1670,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
             console.error("atualizar prospecção:", error.message);
             toast.error("Não foi possível atualizar a prospecção", { description: error.message });
           } else {
-            toast.success(status === "fechado" ? "Prospecção marcada como fechada." : "Prospecção marcada como perdida.");
+            toast.success(
+              status === "fechado" ? "Prospecção marcada como fechada." : "Proposta recusada registrada.",
+            );
           }
         });
     },
