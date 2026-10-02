@@ -1395,6 +1395,25 @@ export function DataProvider({ children }: { children: ReactNode }) {
       });
       if (!uidRef.current) return;
       void (async () => {
+        // 1) grava a VISITA primeiro (sem as fotos) — assim uma falha no upload
+        //    de foto nunca impede o registro da visita
+        const semFotos: Visit = {
+          ...visit,
+          photos: null,
+          photoUrl: null,
+          photoData: undefined,
+          photoDataList: undefined,
+        };
+        const { error } = await supabase.from("visits").insert(visitToRow(semFotos));
+        if (error) {
+          console.error("falha ao salvar visita:", error.message);
+          toast.error("Não foi possível salvar a visita", {
+            description: `${error.message} — tente registrar novamente.`,
+          });
+          return;
+        }
+
+        // 2) agora sobe as fotos e completa o registro (se falhar, a visita já está salva)
         const list = visit.photoDataList?.length
           ? visit.photoDataList
           : visit.photoData
@@ -1403,23 +1422,26 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const uploaded = opts?.uploadPhoto
           ? await uploadVisitPhotos(visit, list.filter((d) => d.startsWith("data:")))
           : [];
-        const synced: Visit = {
-          ...visit,
-          photos: uploaded.length ? uploaded : (visit.photos ?? []),
-          photoUrl: uploaded[0] ?? visit.photoUrl ?? null,
-          photoData: uploaded[0] ?? visit.photoData,
-          // depois de subir, não mantém o base64 pesado no estado (evita estourar o armazenamento)
-          photoDataList: uploaded.length ? undefined : visit.photoDataList?.slice(0, 1),
-        };
         if (uploaded.length) {
-          setAppState((prev) => ({
-            ...prev,
-            visits: prev.visits.map((v) => (v.id === visit.id ? synced : v)),
-          }));
-        }
-        const { error } = await supabase.from("visits").insert(visitToRow(synced));
-        if (error) {
-          console.warn("falha ao sincronizar visita", error.message);
+          const synced: Visit = {
+            ...visit,
+            photos: uploaded,
+            photoUrl: uploaded[0] ?? null,
+            photoData: uploaded[0],
+            photoDataList: undefined,
+          };
+          const { error: upErr } = await supabase
+            .from("visits")
+            .update({ photo_url: synced.photoUrl, photos: synced.photos })
+            .eq("id", visit.id);
+          if (upErr) {
+            console.warn("falha ao salvar fotos da visita", upErr.message);
+          } else {
+            setAppState((prev) => ({
+              ...prev,
+              visits: prev.visits.map((v) => (v.id === visit.id ? synced : v)),
+            }));
+          }
         }
       })();
     },
@@ -1511,31 +1533,40 @@ export function DataProvider({ children }: { children: ReactNode }) {
             toast.error("Não foi possível incluir a prospecção na rota", { description: rErr.message });
           }
         }
-        let photoUrl: string | null = null;
+        // 1) visita primeiro (sem fotos), para não perder o registro
+        const { error: vErr } = await supabase
+          .from("visits")
+          .insert(visitToRow({ ...visit, photos: null, photoUrl: null, photoData: undefined }));
+        if (vErr) {
+          console.error("salvar visita prospecção:", vErr.message);
+          toast.error("Não foi possível salvar a visita", { description: vErr.message });
+          return;
+        }
+        // 2) depois as fotos
         const lista = args.photoDataList?.length
           ? args.photoDataList
           : args.photoData
             ? [args.photoData]
             : [];
         const uploaded = await uploadVisitPhotos(visit, lista.filter((d) => d.startsWith("data:")));
-        photoUrl = uploaded[0] ?? null;
-        const synced: Visit = {
-          ...visit,
-          photos: uploaded,
-          photoUrl,
-          photoData: photoUrl ?? args.photoData,
-          photoDataList: uploaded.length ? undefined : args.photoDataList?.slice(0, 1),
-        };
-        const { error: vErr } = await supabase.from("visits").insert(visitToRow(synced));
-        if (vErr) {
-          console.error("salvar visita prospecção:", vErr.message);
-          toast.error("Não foi possível salvar a visita", { description: vErr.message });
-        }
-        if (photoUrl) {
-          setAppState((prev) => ({
-            ...prev,
-            visits: prev.visits.map((v) => (v.id === visit.id ? synced : v)),
-          }));
+        if (uploaded.length) {
+          const synced: Visit = {
+            ...visit,
+            photos: uploaded,
+            photoUrl: uploaded[0] ?? null,
+            photoData: uploaded[0],
+            photoDataList: undefined,
+          };
+          const { error: upErr } = await supabase
+            .from("visits")
+            .update({ photo_url: synced.photoUrl, photos: synced.photos })
+            .eq("id", visit.id);
+          if (!upErr) {
+            setAppState((prev) => ({
+              ...prev,
+              visits: prev.visits.map((v) => (v.id === visit.id ? synced : v)),
+            }));
+          }
         }
       })();
     },

@@ -1,0 +1,7 @@
+INSERT INTO public.visits (id, client_id, route_visit_id, visited_at, status, result_comments, next_actions, within_radius, alerta, created_by)
+VALUES
+('v-recup-tele-20261001', 'cli-60', 'rv-1790796110579-8q89', '2026-10-01T14:00:00-03:00', 'realizada', 'Registro recuperado — visita realizada pelo vendedor e que não sincronizou no app.', '', true, false, '9027d4b3-2567-4894-90ac-bd1722d3b269'),
+('v-recup-usinaldo-20260930', 'cli-1790795535784-xyf0', 'rv-1790795535784-bsb9', '2026-09-30T13:30:00-03:00', 'realizada', 'Registro recuperado — visita realizada pelo vendedor e que não sincronizou no app.', '', true, false, '9027d4b3-2567-4894-90ac-bd1722d3b269'),
+('v-recup-jlgesso-20260930', 'cli-15', 'rv-1790781718373-m6ku', '2026-09-30T15:00:00-03:00', 'realizada', 'Registro recuperado — visita realizada pelo vendedor e que não sincronizou no app.', '', true, false, '9027d4b3-2567-4894-90ac-bd1722d3b269');
+
+UPDATE public.route_visits SET status = 'concluida' WHERE id = 'rv-1790781718373-m6ku';
