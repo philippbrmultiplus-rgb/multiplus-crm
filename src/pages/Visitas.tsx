@@ -94,7 +94,11 @@ function VisitCard({
     <div
       onClick={onOpen}
       className={`card-soft flex cursor-pointer flex-col gap-3 p-4 transition-colors hover:bg-secondary/40 sm:flex-row sm:items-start ${
-        isProsp ? "border-violet-500/40" : ""
+        v.alerta
+          ? "border-destructive/60 bg-destructive/5"
+          : isProsp
+            ? "border-violet-500/40"
+            : ""
       }`}
     >
       {fotos.length > 0 ? (
@@ -138,7 +142,11 @@ function VisitCard({
           {v.withinRadius === false && (
             <Badge className="bg-destructive/10 text-destructive">Fora do raio</Badge>
           )}
-          {v.alerta && <Badge className="bg-destructive/15 text-destructive">Alerta</Badge>}
+          {v.alerta && (
+            <Badge className="border border-destructive/50 bg-destructive/10 text-destructive">
+              Alerta do vendedor
+            </Badge>
+          )}
         </div>
         <p className="text-xs text-muted-foreground">
           {formatDateBR(v.visitedAt.slice(0, 10))} às {horaOf(v)} ·{" "}
@@ -168,7 +176,15 @@ function VisitCard({
               {formatDistanceM(v.distanceFromClientM)} do endereço cadastrado (raio {radiusM} m)
             </span>
           )}
+          {v.withinRadius === false && client?.geoAproximado && (
+            <span>coordenada aproximada (só a cidade) — distância pode não ser precisa</span>
+          )}
         </p>
+        {v.alerta && (
+          <p className="mt-2 rounded-md bg-destructive/10 px-2 py-1 text-xs text-destructive">
+            <b>Motivo do alerta:</b> {v.alertaMotivo || "não informado pelo vendedor"}
+          </p>
+        )}
       </div>
       {onDelete && (
         <div className="flex shrink-0 gap-2">
@@ -194,7 +210,8 @@ export default function Visitas() {
   const { clients, visits, settings } = state;
   const [params] = useSearchParams();
   const [search, setSearch] = useState("");
-  const [onlyAlerta, setOnlyAlerta] = useState(params.get("alerta") === "raio");
+  // o filtro de alertas cobre as visitas fora do raio e as marcadas pelo vendedor
+  const [onlyAlerta, setOnlyAlerta] = useState(params.get("alerta") != null);
   const [onlyRealizadas, setOnlyRealizadas] = useState(false);
   const [tipo, setTipo] = useState<"todas" | "visitas" | "prospecoes">("todas");
   const [viewing, setViewing] = useState<Visit | null>(null);
@@ -214,7 +231,7 @@ export default function Visitas() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return visits
-      .filter((v) => (onlyAlerta ? v.withinRadius === false : true))
+      .filter((v) => (onlyAlerta ? v.withinRadius === false || v.alerta === true : true))
       .filter((v) => (onlyRealizadas ? v.status === "realizada" : true))
       .filter((v) => {
         const isProsp = prospectClientIds.has(v.clientId);
@@ -296,7 +313,7 @@ export default function Visitas() {
             checked={onlyAlerta}
             onCheckedChange={(v) => setOnlyAlerta(!!v)}
           />
-          Só fora do raio
+          Só alertas (raio ou vendedor)
         </label>
         <label className="flex items-center gap-2 text-sm text-muted-foreground">
           <Checkbox checked={onlyRealizadas} onCheckedChange={(v) => setOnlyRealizadas(!!v)} />
@@ -446,6 +463,11 @@ export default function Visitas() {
                     {v.withinRadius === false && (
                       <Badge className="bg-destructive/10 text-destructive">Fora do raio</Badge>
                     )}
+                    {v.alerta && (
+                      <Badge className="border border-destructive/50 bg-destructive/10 text-destructive">
+                        Alerta do vendedor
+                      </Badge>
+                    )}
                   </div>
 
                   {c && (
@@ -509,8 +531,15 @@ export default function Visitas() {
                     </p>
                   )}
 
+                  {v.withinRadius === false && c?.geoAproximado && (
+                    <p className="text-xs text-muted-foreground">
+                      A coordenada deste cliente é aproximada (só a cidade), então a distância pode não ser
+                      precisa.
+                    </p>
+                  )}
+
                   {v.alerta && (
-                    <p className="rounded-md bg-destructive/5 p-2 text-sm text-destructive">
+                    <p className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-sm text-destructive">
                       <b>Alerta do vendedor:</b> {v.alertaMotivo || "sem motivo informado"}
                     </p>
                   )}

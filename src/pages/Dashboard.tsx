@@ -136,6 +136,11 @@ export default function Dashboard() {
   const outOfRadius = useMemo(() => visits.filter((v) => !v.withinRadius), [visits]);
   const drafts = useMemo(() => routes.filter((r) => r.status === "rascunho"), [routes]);
   const alertaVisits = useMemo(() => visits.filter((v) => v.alerta), [visits]);
+  // visitas fora do raio em clientes cuja coordenada é apenas aproximada (cidade)
+  const foraRaioAproximado = useMemo(() => {
+    const aprox = new Set(clients.filter((c) => c.geoAproximado).map((c) => c.id));
+    return outOfRadius.filter((v) => aprox.has(v.clientId)).length;
+  }, [outOfRadius, clients]);
 
   // clientes que precisam de atenção (ativos, fora as prospecções)
   const atencao = useMemo(() => {
@@ -251,7 +256,7 @@ export default function Dashboard() {
       value: outOfRadius.length + alertaVisits.length,
       icon: MapPinOff,
       sub: `${outOfRadius.length} fora do raio · ${alertaVisits.length} alerta(s) do vendedor`,
-      href: alertaVisits.length > 0 || outOfRadius.length > 0 ? "/visitas" : "/clientes",
+      href: alertaVisits.length > 0 || outOfRadius.length > 0 ? "/visitas?alerta=1" : "/clientes",
     },
   ];
 
@@ -468,12 +473,17 @@ export default function Dashboard() {
             )}
             {alertaVisits.length > 0 && (
               <div className="space-y-1">
-                <p>{alertaVisits.length} alerta(s) registrado(s) pelo(s) vendedor(es):</p>
+                <p className="font-medium text-destructive">
+                  {alertaVisits.length} alerta(s) do(s) vendedor(es):
+                </p>
                 <ul className="ml-1 space-y-1">
                   {alertaVisits.slice(0, 5).map((v) => {
                     const c = clients.find((x) => x.id === v.clientId);
                     return (
-                      <li key={v.id} className="flex flex-wrap items-baseline gap-x-2 text-xs">
+                      <li
+                        key={v.id}
+                        className="flex flex-wrap items-baseline gap-x-2 rounded-md bg-destructive/10 px-2 py-1 text-xs"
+                      >
                         <span className="font-medium">{c?.name ?? "Cliente removido"}</span>
                         <span className="text-muted-foreground">
                           {formatDateBR(v.visitedAt.slice(0, 10))}
@@ -497,8 +507,15 @@ export default function Dashboard() {
               <p>
                 {outOfRadius.length} visita(s) registrada(s) com localização distante do endereço cadastrado
                 (possível fraude ou endereço desatualizado).
+                {foraRaioAproximado > 0 && (
+                  <>
+                    {" "}
+                    Em {foraRaioAproximado} delas a coordenada do cliente é aproximada (só a cidade), então a
+                    distância pode não ser precisa.
+                  </>
+                )}
                 <Button asChild variant="link" size="sm" className="ml-1 h-auto p-0">
-                  <Link to="/visitas?alerta=raio">Ver</Link>
+                  <Link to="/visitas?alerta=1">Ver</Link>
                 </Button>
               </p>
             )}
