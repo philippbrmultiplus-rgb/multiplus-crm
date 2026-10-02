@@ -10,6 +10,7 @@ import {
   MapPin,
   MapPinOff,
   Pencil,
+  Plus,
   RotateCcw,
   Search,
   Trash2,
@@ -70,6 +71,7 @@ import {
 import { distanciaClienteKm, distanciaFaixa, distanciaTexto } from "@/components/clients/clientBits";
 import { ColetaBadge, TierBadge, VisitaBadge } from "@/components/clients/clientBadges";
 import { PhotoZoom } from "@/components/visitas/PhotoZoom";
+import { NewClientDialog } from "@/components/clients/NewClientDialog";
 import type { Client, Visit } from "@/lib/types";
 
 const PROSPECTA = "__prospecao__";
@@ -114,6 +116,7 @@ export default function Clientes() {
   const isMobile = useIsMobile();
   const podeEditar = role === "coordenador";
   const [history, setHistory] = useState<Client | null>(null);
+  const [novo, setNovo] = useState(false);
 
   const [search, setSearch] = useState("");
   const [city, setCity] = useState("all");
@@ -348,6 +351,11 @@ export default function Clientes() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {podeEditar && (
+            <Button onClick={() => setNovo(true)}>
+              <Plus className="mr-2 h-4 w-4" /> Novo cliente
+            </Button>
+          )}
           <Button variant="outline" onClick={() => void exportExcel()}>
             <Download className="mr-2 h-4 w-4" /> Exportar Excel
           </Button>
@@ -745,6 +753,8 @@ export default function Clientes() {
         client={history}
         onClose={() => setHistory(null)}
       />
+
+      {novo && <NewClientDialog onClose={() => setNovo(false)} segmentOptions={segmentOptions} />}
 
       <AlertDialog open={!!toDelete} onOpenChange={(o) => !o && setToDelete(null)}>
         <AlertDialogContent>

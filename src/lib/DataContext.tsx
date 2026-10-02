@@ -918,6 +918,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setAppState((prev) => ({ ...prev, clients: [...prev.clients, c] }));
       if (canWriteClientData()) {
         void supabase.from("clients").upsert(clientToRow(c));
+        // se já informou a data da última troca, registra no histórico de coletas
+        if (c.lastCollectAt) {
+          void supabase
+            .from("coletas")
+            .upsert(
+              { client_id: c.id, collect_date: c.lastCollectAt },
+              { onConflict: "client_id,collect_date" },
+            );
+        }
       }
     },
     [setAppState],
