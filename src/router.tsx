@@ -10,6 +10,7 @@ import MinhaRota from "./pages/MinhaRota";
 import MinhaRotaSemana from "./pages/MinhaRotaSemana";
 import MinhaRotaMes from "./pages/MinhaRotaMes";
 import Visitas from "./pages/Visitas";
+import Alertas from "./pages/Alertas";
 import Backup from "./pages/Backup";
 import NotFound from "./pages/NotFound";
 
@@ -97,6 +98,15 @@ export const routers = [
     element: (
       <AppShell>
         <Visitas />
+      </AppShell>
+    ),
+  },
+  {
+    path: "/alertas",
+    name: "alertas",
+    element: (
+      <AppShell>
+        <Alertas />
       </AppShell>
     ),
   },

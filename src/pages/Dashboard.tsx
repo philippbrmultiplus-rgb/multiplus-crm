@@ -1,10 +1,10 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   AlertTriangle,
   ArrowRight,
   CalendarCheck2,
-  MapPinOff,
+  Plus,
   Route as RouteIcon,
   Target,
   Users,
@@ -24,6 +24,7 @@ import {
   VISITA_BADGE_TONE,
 } from "@/components/clients/clientBits";
 import { cidadeComDistancia } from "@/components/clients/clientBits";
+import { NewAlertDialog } from "@/components/alerts/NewAlertDialog";
 import { newestRoute } from "@/lib/route";
 import {
   DIAS_SEM_DEFINICAO,
@@ -117,8 +118,9 @@ function CoberturaBarra({
 }
 
 export default function Dashboard() {
-  const { state } = useData();
-  const { clients, visits, routes, routeVisits } = state;
+  const { state, role } = useData();
+  const { clients, visits, routes, routeVisits, alerts } = state;
+  const [novoAlerta, setNovoAlerta] = useState(false);
 
   const activeClients = useMemo(() => clients.filter((c) => c.active), [clients]);
   const weekStart = mondayOf(todayKey());
@@ -139,14 +141,8 @@ export default function Dashboard() {
       }),
     [visits, weekStart],
   );
-  const outOfRadius = useMemo(() => visits.filter((v) => !v.withinRadius), [visits]);
   const drafts = useMemo(() => routes.filter((r) => r.status === "rascunho"), [routes]);
   const alertaVisits = useMemo(() => visits.filter((v) => v.alerta), [visits]);
-  // visitas fora do raio em clientes cuja coordenada é apenas aproximada (cidade)
-  const foraRaioAproximado = useMemo(() => {
-    const aprox = new Set(clients.filter((c) => c.geoAproximado).map((c) => c.id));
-    return outOfRadius.filter((v) => aprox.has(v.clientId)).length;
-  }, [outOfRadius, clients]);
 
   // clientes que precisam de atenção (ativos, fora as prospecções)
   const atencao = useMemo(() => {
@@ -266,11 +262,13 @@ export default function Dashboard() {
       label: "Rota da semana",
       value: publishedRoute ? `${doneCount}/${plannedCount}` : "—",
       icon: RouteIcon,
-      sub: publishedRoute
-        ? doneCount === plannedCount && plannedCount > 0
-          ? "Rota concluída"
-          : `${plannedCount - doneCount} pendentes`
-        : "Nenhuma rota publicada",
+      sub: `${
+        publishedRoute
+          ? doneCount === plannedCount && plannedCount > 0
+            ? "Rota concluída"
+            : `${plannedCount - doneCount} pendentes`
+          : "Nenhuma rota publicada"
+      }${drafts.length > 0 ? ` · ${drafts.length} rascunho(s)` : ""}`,
       href: "/rota",
     },
     {
@@ -282,10 +280,10 @@ export default function Dashboard() {
     },
     {
       label: "Alertas",
-      value: outOfRadius.length + alertaVisits.length,
-      icon: MapPinOff,
-      sub: `${outOfRadius.length} fora do raio · ${alertaVisits.length} alerta(s) do vendedor`,
-      href: alertaVisits.length > 0 || outOfRadius.length > 0 ? "/visitas?alerta=1" : "/clientes",
+      value: alerts.length + alertaVisits.length,
+      icon: AlertTriangle,
+      sub: `${alerts.length} da equipe · ${alertaVisits.length} na visita`,
+      href: "/alertas",
     },
   ];
 
@@ -496,21 +494,58 @@ export default function Dashboard() {
         </CardContent>
       </Card>
 
-      {(drafts.length > 0 || outOfRadius.length > 0 || alertaVisits.length > 0) && (
+      {(alerts.length > 0 || alertaVisits.length > 0) && (
         <Card className="card-soft border-destructive/30">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <AlertTriangle className="h-4 w-4 text-destructive" /> Atenção
-            </CardTitle>
+          <CardHeader className="pb-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <AlertTriangle className="h-4 w-4 text-destructive" /> Alertas
+              </CardTitle>
+              <div className="flex flex-wrap items-center gap-2">
+                {role === "coordenador" && (
+                  <Button size="sm" variant="outline" onClick={() => setNovoAlerta(true)}>
+                    <Plus className="mr-1.5 h-4 w-4" /> Novo alerta
+                  </Button>
+                )}
+                <Button asChild variant="link" size="sm" className="h-auto p-0">
+                  <Link to="/alertas">
+                    Ver todos <ArrowRight className="ml-1 h-3 w-3" />
+                  </Link>
+                </Button>
+              </div>
+            </div>
+            <CardDescription>
+              Alertas apontados pelo coordenador ou pelo vendedor, sem precisar de visita. As visitas
+              fora do raio aparecem na aba <b>Visitas</b>.
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
-            {drafts.length > 0 && (
-              <p>
-                Existem {drafts.length} rota(s) em rascunho sem publicação.
-                <Button asChild variant="link" size="sm" className="ml-1 h-auto p-0">
-                  <Link to="/rota">Revisar</Link>
-                </Button>
-              </p>
+            {alerts.length > 0 && (
+              <div className="space-y-1">
+                <p className="font-medium text-destructive">
+                  {alerts.length} alerta(s) registrado(s) pela equipe:
+                </p>
+                <ul className="ml-1 space-y-1">
+                  {alerts.slice(0, 5).map((a) => {
+                    const c = clients.find((x) => x.id === a.clientId);
+                    return (
+                      <li
+                        key={a.id}
+                        className="flex flex-wrap items-baseline gap-x-2 rounded-md bg-destructive/10 px-2 py-1 text-xs"
+                      >
+                        <span className="font-medium">{c?.name ?? "Cliente removido"}</span>
+                        <span className="text-destructive">{a.motivo}</span>
+                        <span className="text-muted-foreground">{a.createdByName || "equipe"}</span>
+                      </li>
+                    );
+                  })}
+                </ul>
+                {alerts.length > 5 && (
+                  <p className="text-xs text-muted-foreground">
+                    … e mais {alerts.length - 5} alerta(s).
+                  </p>
+                )}
+              </div>
             )}
             {alertaVisits.length > 0 && (
               <div className="space-y-1">
@@ -544,25 +579,11 @@ export default function Dashboard() {
                 </Button>
               </div>
             )}
-            {outOfRadius.length > 0 && (
-              <p>
-                {outOfRadius.length} visita(s) registrada(s) com localização distante do endereço cadastrado
-                (possível fraude ou endereço desatualizado).
-                {foraRaioAproximado > 0 && (
-                  <>
-                    {" "}
-                    Em {foraRaioAproximado} delas a coordenada do cliente é aproximada (só a cidade), então a
-                    distância pode não ser precisa.
-                  </>
-                )}
-                <Button asChild variant="link" size="sm" className="ml-1 h-auto p-0">
-                  <Link to="/visitas?alerta=1">Ver</Link>
-                </Button>
-              </p>
-            )}
           </CardContent>
         </Card>
       )}
+
+      <NewAlertDialog open={novoAlerta} onClose={() => setNovoAlerta(false)} />
     </div>
   );
 }

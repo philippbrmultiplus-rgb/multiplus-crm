@@ -1,6 +1,7 @@
 import { type ReactNode } from "react";
 import { Link, Navigate, useLocation } from "react-router-dom";
 import {
+  AlertTriangle,
   CalendarDays,
   CalendarRange,
   Database,
@@ -51,6 +52,12 @@ const NAV_ITEMS: NavItem[] = [
   { to: "/minha-semana", label: "Minha rota da semana", icon: CalendarDays, roles: ["vendedor"] },
   { to: "/meu-mes", label: "Minha rota do mês", icon: CalendarRange, roles: ["vendedor"] },
   { to: "/visitas", label: "Visitas", icon: MapPin, roles: ["coordenador", "gerente"] },
+  {
+    to: "/alertas",
+    label: "Alertas",
+    icon: AlertTriangle,
+    roles: ["coordenador", "vendedor", "gerente"],
+  },
   { to: "/backup", label: "Dados & backup", icon: Database, roles: ["coordenador", "gerente"] },
 ];
 

@@ -14,6 +14,7 @@ import { clientsRS } from "@/data/clientsRS";
 import type {
   AppState,
   Client,
+  ClientAlert,
   Role,
   RoutePlanResult,
   RouteVisit,
@@ -86,6 +87,17 @@ export function seedClients(): Client[] {
   return applyCadenceData(withSegments);
 }
 
+function alertFromRow(r: Record<string, any>): ClientAlert {
+  return {
+    id: r.id,
+    clientId: r.client_id,
+    motivo: r.motivo ?? "",
+    createdBy: r.created_by ?? null,
+    createdByName: r.created_by_name ?? null,
+    createdAt: r.created_at ?? new Date().toISOString(),
+  };
+}
+
 function emptyState(): AppState {
   return {
     version: 1,
@@ -95,6 +107,7 @@ function emptyState(): AppState {
     routes: [],
     routeVisits: [],
     visits: [],
+    alerts: [],
   };
 }
 
@@ -103,7 +116,7 @@ function loadLocalCache(): AppState | null {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as AppState;
-      if (parsed && Array.isArray(parsed.clients)) return parsed;
+      if (parsed && Array.isArray(parsed.clients)) return { ...parsed, alerts: parsed.alerts ?? [] };
     }
   } catch {
     // ignora cache inválido
@@ -391,6 +404,8 @@ interface DataContextValue {
   updateVisit: (id: string, patch: Partial<Visit>) => void;
   deleteVisit: (id: string) => void;
   markRouteVisitStatus: (routeVisitId: string, status: RouteVisit["status"]) => void;
+  addAlert: (clientId: string, motivo: string) => void;
+  deleteAlert: (id: string) => void;
   storageUsageKb: number;
   lastSyncAt: string | null;
 }
@@ -447,12 +462,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refreshAll = useCallback(async (uid: string, roleName: Role) => {
-    const [clientsRes, settingsRes, routesRes, rvsRes, visitsRes] = await Promise.all([
+    const [clientsRes, settingsRes, routesRes, rvsRes, visitsRes, alertsRes] = await Promise.all([
       supabase.from("clients").select("*").order("name"),
       supabase.from("settings").select("*").eq("id", 1).maybeSingle(),
       supabase.from("weekly_routes").select("*").order("week_start", { ascending: false }),
       supabase.from("route_visits").select("*"),
       supabase.from("visits").select("*").order("visited_at", { ascending: false }).limit(500),
+      supabase.from("client_alerts").select("*").order("created_at", { ascending: false }),
     ]);
 
     const clients = (clientsRes.data ?? []).map((r) => clientFromRow(r as unknown as Record<string, any>));
@@ -469,6 +485,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const routes = (routesRes.data ?? []).map((r) => routeFromRow(r as unknown as Record<string, any>));
     const routeVisits = (rvsRes.data ?? []).map((r) => rvFromRow(r as unknown as Record<string, any>));
     const visits = (visitsRes.data ?? []).map((r) => visitFromRow(r as unknown as Record<string, any>));
+    const alerts = (alertsRes.data ?? []).map((r) => alertFromRow(r as unknown as Record<string, any>));
 
     // coordenaador: aplica cadência/frequência e última troca da planilha uma única vez
     let finalClients = clients;
@@ -491,6 +508,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       routes,
       routeVisits,
       visits: visits.length > 0 ? visits : prev.visits,
+      alerts,
     }));
     setCloudReady(true);
     setLastSyncAt(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }));
@@ -889,6 +907,40 @@ export function DataProvider({ children }: { children: ReactNode }) {
             ...prev,
             clients: prev.clients.filter((c) => c.id !== old.id),
           }));
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [user, setAppState]);
+
+  /* ---------- alertas manuais em tempo real ---------- */
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel("alerts-realtime")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "client_alerts" },
+        (payload) => {
+          const row = payload.new as Record<string, any>;
+          if (!row?.id) return;
+          setAppState((prev) =>
+            prev.alerts.some((a) => a.id === row.id)
+              ? prev
+              : { ...prev, alerts: [alertFromRow(row), ...prev.alerts] },
+          );
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "client_alerts" },
+        (payload) => {
+          const old = payload.old as Record<string, any>;
+          if (!old?.id) return;
+          setAppState((prev) => ({ ...prev, alerts: prev.alerts.filter((a) => a.id !== old.id) }));
         },
       )
       .subscribe();
@@ -1816,6 +1868,68 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return error ? error.message : null;
   }, []);
 
+  /* ---------- alertas manuais (coordenador e vendedor) ---------- */
+
+  /** registra um alerta para qualquer cliente, mesmo sem ter feito a visita */
+  const addAlert = useCallback(
+    (clientId: string, motivo: string) => {
+      const texto = motivo.trim();
+      if (!texto) {
+        toast.error("Escreva o motivo do alerta.");
+        return;
+      }
+      const novo: ClientAlert = {
+        id: `al-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        clientId,
+        motivo: texto,
+        createdBy: uidRef.current,
+        createdByName: user?.fullName ?? null,
+        createdAt: new Date().toISOString(),
+      };
+      setAppState((prev) => ({ ...prev, alerts: [novo, ...prev.alerts] }));
+      if (!uidRef.current) return;
+      void supabase
+        .from("client_alerts")
+        .insert({
+          id: novo.id,
+          client_id: clientId,
+          motivo: texto,
+          created_by: uidRef.current,
+          created_by_name: novo.createdByName,
+        })
+        .then(({ error }) => {
+          if (error) {
+            console.error("registrar alerta:", error.message);
+            toast.error("Não foi possível salvar o alerta", { description: error.message });
+            return;
+          }
+          toast.success("Alerta registrado.");
+        });
+    },
+    [setAppState, user],
+  );
+
+  /** remove um alerta (quem criou ou o coordenador) */
+  const deleteAlert = useCallback(
+    (id: string) => {
+      setAppState((prev) => ({ ...prev, alerts: prev.alerts.filter((a) => a.id !== id) }));
+      if (!uidRef.current) return;
+      void supabase
+        .from("client_alerts")
+        .delete()
+        .eq("id", id)
+        .then(({ error }) => {
+          if (error) {
+            console.error("excluir alerta:", error.message);
+            toast.error("Não foi possível excluir o alerta", { description: error.message });
+            return;
+          }
+          toast.success("Alerta removido.");
+        });
+    },
+    [setAppState],
+  );
+
   /* ---------- backup / utilitários ---------- */
 
   const resetData = useCallback(() => {
@@ -1836,7 +1950,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
     try {
       const parsed = JSON.parse(json) as AppState;
       if (!parsed || !Array.isArray(parsed.clients)) return "Arquivo inválido: estrutura não reconhecida.";
-      setAppState({ ...emptyState(), ...parsed, settings: { ...defaultSettings, ...parsed.settings } });
+      setAppState({
+        ...emptyState(),
+        ...parsed,
+        alerts: parsed.alerts ?? [],
+        settings: { ...defaultSettings, ...parsed.settings },
+      });
       if (canWriteClientData()) {
         persistClientsBatch(parsed.clients);
         void supabase.from("settings").upsert(settingsToRow({ ...defaultSettings, ...parsed.settings }));
@@ -1953,6 +2072,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
     updateVisit,
     deleteVisit,
     markRouteVisitStatus,
+    addAlert,
+    deleteAlert,
     storageUsageKb,
     lastSyncAt,
   };

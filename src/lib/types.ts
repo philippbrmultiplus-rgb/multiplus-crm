@@ -135,6 +135,18 @@ export interface Visit {
   createdBy?: string;
 }
 
+/** alerta registrado à mão sobre um cliente (não depende de visita) */
+export interface ClientAlert {
+  id: string;
+  clientId: string;
+  /** motivo escrito por quem registrou */
+  motivo: string;
+  createdBy?: string | null;
+  createdByName?: string | null;
+  /** data/hora do registro (ISO) */
+  createdAt: string;
+}
+
 export interface AppState {
   version: number;
   sessionRole: Role;
@@ -143,6 +155,7 @@ export interface AppState {
   routes: WeeklyRoute[];
   routeVisits: RouteVisit[];
   visits: Visit[];
+  alerts: ClientAlert[];
 }
 
 export interface DaySummary {
