@@ -391,7 +391,7 @@ export function VisitForm({
               />
             )}
             <p className="text-xs text-muted-foreground">
-              O alerta aparece para o coordenador na Visão geral e nas Visitas.
+              O alerta aparece para o coordenador na Visão geral e na aba Alertas.
             </p>
           </div>
 

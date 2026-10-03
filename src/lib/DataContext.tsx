@@ -94,6 +94,7 @@ function alertFromRow(r: Record<string, any>): ClientAlert {
     motivo: r.motivo ?? "",
     createdBy: r.created_by ?? null,
     createdByName: r.created_by_name ?? null,
+    photoUrl: r.photo_url ?? null,
     createdAt: r.created_at ?? new Date().toISOString(),
   };
 }
@@ -404,7 +405,7 @@ interface DataContextValue {
   updateVisit: (id: string, patch: Partial<Visit>) => void;
   deleteVisit: (id: string) => void;
   markRouteVisitStatus: (routeVisitId: string, status: RouteVisit["status"]) => void;
-  addAlert: (clientId: string, motivo: string) => void;
+  addAlert: (clientId: string, motivo: string, photoData?: string) => void;
   deleteAlert: (id: string) => void;
   storageUsageKb: number;
   lastSyncAt: string | null;
@@ -1466,23 +1467,25 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [setAppState, state.routes],
   );
 
+  /** sobe uma foto (base64) para o bucket e devolve a URL pública */
+  const uploadPhoto = useCallback(async (path: string, dataUrl: string): Promise<string | null> => {
+    try {
+      const blob = await (await fetch(dataUrl)).blob();
+      const { error } = await supabase.storage.from("visitas").upload(path, blob, {
+        contentType: "image/jpeg",
+        upsert: true,
+      });
+      if (error) return null;
+      const { data } = supabase.storage.from("visitas").getPublicUrl(path);
+      return data.publicUrl;
+    } catch {
+      return null;
+    }
+  }, []);
+
   const uploadVisitPhoto = useCallback(
-    async (visit: Visit, dataUrl: string): Promise<string | null> => {
-      try {
-        const blob = await (await fetch(dataUrl)).blob();
-        const path = `${visit.clientId}/${visit.id}.jpg`;
-        const { error } = await supabase.storage.from("visitas").upload(path, blob, {
-          contentType: "image/jpeg",
-          upsert: true,
-        });
-        if (error) return null;
-        const { data } = supabase.storage.from("visitas").getPublicUrl(path);
-        return data.publicUrl;
-      } catch {
-        return null;
-      }
-    },
-    [],
+    (visit: Visit, dataUrl: string) => uploadPhoto(`${visit.clientId}/${visit.id}.jpg`, dataUrl),
+    [uploadPhoto],
   );
 
   const uploadVisitPhotos = useCallback(
@@ -1872,41 +1875,59 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   /** registra um alerta para qualquer cliente, mesmo sem ter feito a visita */
   const addAlert = useCallback(
-    (clientId: string, motivo: string) => {
+    (clientId: string, motivo: string, photoData?: string) => {
       const texto = motivo.trim();
       if (!texto) {
         toast.error("Escreva o motivo do alerta.");
         return;
       }
+      const id = `al-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
       const novo: ClientAlert = {
-        id: `al-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        id,
         clientId,
         motivo: texto,
         createdBy: uidRef.current,
         createdByName: user?.fullName ?? null,
+        photoUrl: photoData ?? null,
         createdAt: new Date().toISOString(),
       };
       setAppState((prev) => ({ ...prev, alerts: [novo, ...prev.alerts] }));
       if (!uidRef.current) return;
-      void supabase
-        .from("client_alerts")
-        .insert({
-          id: novo.id,
+      void (async () => {
+        // a foto é opcional: sobe antes (se houver) e o alerta é gravado de qualquer forma
+        const url =
+          photoData && photoData.startsWith("data:")
+            ? await uploadPhoto(`${clientId}/alerta-${id}.jpg`, photoData)
+            : null;
+        const { error } = await supabase.from("client_alerts").insert({
+          id,
           client_id: clientId,
           motivo: texto,
           created_by: uidRef.current,
           created_by_name: novo.createdByName,
-        })
-        .then(({ error }) => {
-          if (error) {
-            console.error("registrar alerta:", error.message);
-            toast.error("Não foi possível salvar o alerta", { description: error.message });
-            return;
-          }
-          toast.success("Alerta registrado.");
+          photo_url: url,
         });
+        if (error) {
+          console.error("registrar alerta:", error.message);
+          toast.error("Não foi possível salvar o alerta", { description: error.message });
+          return;
+        }
+        if (url) {
+          setAppState((prev) => ({
+            ...prev,
+            alerts: prev.alerts.map((a) => (a.id === id ? { ...a, photoUrl: url } : a)),
+          }));
+        }
+        if (photoData && !url) {
+          toast.warning("Alerta registrado, mas a foto não foi enviada.", {
+            description: "Anexe a foto novamente se for necessário.",
+          });
+          return;
+        }
+        toast.success("Alerta registrado.");
+      })();
     },
-    [setAppState, user],
+    [setAppState, uploadPhoto, user],
   );
 
   /** remove um alerta (quem criou ou o coordenador) */

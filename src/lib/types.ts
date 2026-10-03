@@ -143,6 +143,8 @@ export interface ClientAlert {
   motivo: string;
   createdBy?: string | null;
   createdByName?: string | null;
+  /** foto opcional anexada ao alerta (URL pública ou base64 antes do envio) */
+  photoUrl?: string | null;
   /** data/hora do registro (ISO) */
   createdAt: string;
 }

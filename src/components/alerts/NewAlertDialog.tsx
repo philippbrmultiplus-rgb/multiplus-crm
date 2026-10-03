@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { AlertTriangle, Search } from "lucide-react";
+import { AlertTriangle, Camera, Search, X } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -13,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cidadeComDistancia } from "@/components/clients/clientBits";
+import { compressImage, estimateKb } from "@/lib/image";
 import { useData } from "@/lib/DataContext";
 import type { Client } from "@/lib/types";
 
@@ -22,6 +24,17 @@ export function NewAlertDialog({ open, onClose }: { open: boolean; onClose: () =
   const [busca, setBusca] = useState("");
   const [client, setClient] = useState<Client | null>(null);
   const [motivo, setMotivo] = useState("");
+  const [foto, setFoto] = useState<string | null>(null);
+
+  /** foto é opcional: só ajuda a ilustrar o alerta */
+  const escolherFoto = async (file: File | null) => {
+    if (!file) return;
+    try {
+      setFoto(await compressImage(file, 900, 0.6));
+    } catch {
+      toast.error("Não foi possível processar a foto. Tente novamente.");
+    }
+  };
 
   const resultados = useMemo(() => {
     const q = busca.trim().toLowerCase();
@@ -37,12 +50,13 @@ export function NewAlertDialog({ open, onClose }: { open: boolean; onClose: () =
     setBusca("");
     setClient(null);
     setMotivo("");
+    setFoto(null);
     onClose();
   };
 
   const confirmar = () => {
     if (!client || !motivo.trim()) return;
-    addAlert(client.id, motivo);
+    addAlert(client.id, motivo, foto ?? undefined);
     fechar();
   };
 
@@ -117,6 +131,63 @@ export function NewAlertDialog({ open, onClose }: { open: boolean; onClose: () =
               value={motivo}
               onChange={(e) => setMotivo(e.target.value)}
             />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>
+              Foto <span className="font-normal text-muted-foreground">(opcional)</span>
+            </Label>
+            {foto ? (
+              <div className="relative">
+                <img
+                  src={foto}
+                  alt="Foto do alerta"
+                  className="h-40 w-full rounded-lg object-cover"
+                  crossOrigin="anonymous"
+                />
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="absolute right-1.5 top-1.5 h-6 w-6"
+                  onClick={() => setFoto(null)}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+                <span className="absolute bottom-1.5 left-1.5 rounded bg-black/60 px-1.5 py-0.5 text-[10px] text-white">
+                  {estimateKb(foto)} KB
+                </span>
+              </div>
+            ) : (
+              <div className="grid gap-2 sm:grid-cols-2">
+                <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-3 text-center text-sm text-muted-foreground hover:border-primary hover:text-primary">
+                  <Camera className="h-5 w-5" />
+                  Tirar foto
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="hidden"
+                    onChange={(e) => {
+                      void escolherFoto(e.target.files?.[0] ?? null);
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+                <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-3 text-center text-sm text-muted-foreground hover:border-primary hover:text-primary">
+                  <Camera className="h-5 w-5" />
+                  Escolher da galeria
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      void escolherFoto(e.target.files?.[0] ?? null);
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+              </div>
+            )}
           </div>
         </div>
 

@@ -3368,6 +3368,7 @@ export type Database = {
           created_by_name: string | null
           id: string
           motivo: string
+          photo_url: string | null
         }
         Insert: {
           client_id: string
@@ -3376,6 +3377,7 @@ export type Database = {
           created_by_name?: string | null
           id?: string
           motivo: string
+          photo_url?: string | null
         }
         Update: {
           client_id?: string
@@ -3384,6 +3386,7 @@ export type Database = {
           created_by_name?: string | null
           id?: string
           motivo?: string
+          photo_url?: string | null
         }
         Relationships: [
           {

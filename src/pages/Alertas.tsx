@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { NewAlertDialog } from "@/components/alerts/NewAlertDialog";
+import { PhotoZoom } from "@/components/visitas/PhotoZoom";
 import { cidadeComDistancia } from "@/components/clients/clientBits";
 import { useData } from "@/lib/DataContext";
 import { formatDateBR } from "@/lib/geo";
@@ -102,6 +103,14 @@ export default function Alertas() {
                       )}
                     </div>
                     <p className="mt-2 text-sm text-destructive">{a.motivo}</p>
+                    {a.photoUrl && (
+                      <PhotoZoom
+                        src={a.photoUrl}
+                        alt={`Foto do alerta de ${c?.name ?? "cliente"}`}
+                        className="mt-2 block w-full"
+                        imgClassName="h-32 w-full rounded-lg object-cover"
+                      />
+                    )}
                     <p className="mt-2 flex flex-wrap items-center gap-x-3 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1.5">
                         <User className="h-3.5 w-3.5" />
