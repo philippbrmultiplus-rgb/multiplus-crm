@@ -166,6 +166,18 @@ export interface RouteActivity {
   createdAt: string;
 }
 
+/** volume coletado de um cliente em um mês (m³) — alimenta o comparativo mensal */
+export interface MonthlyVolume {
+  id: string;
+  /** cliente cadastrado; null quando a linha da planilha não tem cadastro vinculado */
+  clientId: string | null;
+  /** nome usado na planilha, quando não há cadastro vinculado */
+  label: string | null;
+  /** primeiro dia do mês da coleta (yyyy-mm-dd) */
+  month: string;
+  volumeM3: number;
+}
+
 export interface AppState {
   version: number;
   sessionRole: Role;
@@ -176,6 +188,7 @@ export interface AppState {
   visits: Visit[];
   alerts: ClientAlert[];
   activities: RouteActivity[];
+  volumes: MonthlyVolume[];
 }
 
 export interface DaySummary {

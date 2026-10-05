@@ -15,6 +15,7 @@ import type {
   AppState,
   Client,
   ClientAlert,
+  MonthlyVolume,
   Role,
   RouteActivity,
   RoutePlanResult,
@@ -114,6 +115,16 @@ function activityFromRow(r: Record<string, any>): RouteActivity {
   };
 }
 
+function volumeFromRow(r: Record<string, any>): MonthlyVolume {
+  return {
+    id: r.id,
+    clientId: r.client_id ?? null,
+    label: r.label ?? null,
+    month: (r.month ?? "").slice(0, 10),
+    volumeM3: Number(r.volume_m3 ?? 0),
+  };
+}
+
 function emptyState(): AppState {
   return {
     version: 1,
@@ -125,6 +136,7 @@ function emptyState(): AppState {
     visits: [],
     alerts: [],
     activities: [],
+    volumes: [],
   };
 }
 
@@ -134,7 +146,12 @@ function loadLocalCache(): AppState | null {
     if (raw) {
       const parsed = JSON.parse(raw) as AppState;
       if (parsed && Array.isArray(parsed.clients))
-        return { ...parsed, alerts: parsed.alerts ?? [], activities: parsed.activities ?? [] };
+        return {
+          ...parsed,
+          alerts: parsed.alerts ?? [],
+          activities: parsed.activities ?? [],
+          volumes: parsed.volumes ?? [],
+        };
     }
   } catch {
     // ignora cache inválido
@@ -488,7 +505,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refreshAll = useCallback(async (uid: string, roleName: Role) => {
-    const [clientsRes, settingsRes, routesRes, rvsRes, visitsRes, alertsRes, activitiesRes] =
+    const [clientsRes, settingsRes, routesRes, rvsRes, visitsRes, alertsRes, activitiesRes, volumesRes] =
       await Promise.all([
         supabase.from("clients").select("*").order("name"),
         supabase.from("settings").select("*").eq("id", 1).maybeSingle(),
@@ -497,6 +514,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         supabase.from("visits").select("*").order("visited_at", { ascending: false }).limit(500),
         supabase.from("client_alerts").select("*").order("created_at", { ascending: false }),
         supabase.from("route_activities").select("*").order("created_at"),
+        supabase.from("client_monthly_volumes").select("*").order("month"),
       ]);
 
     const clients = (clientsRes.data ?? []).map((r) => clientFromRow(r as unknown as Record<string, any>));
@@ -516,6 +534,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const alerts = (alertsRes.data ?? []).map((r) => alertFromRow(r as unknown as Record<string, any>));
     const activities = (activitiesRes.data ?? []).map((r) =>
       activityFromRow(r as unknown as Record<string, any>),
+    );
+    const volumes = (volumesRes.data ?? []).map((r) =>
+      volumeFromRow(r as unknown as Record<string, any>),
     );
 
     // coordenaador: aplica cadência/frequência e última troca da planilha uma única vez
@@ -541,6 +562,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       visits: visits.length > 0 ? visits : prev.visits,
       alerts,
       activities,
+      volumes,
     }));
     setCloudReady(true);
     setLastSyncAt(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }));
@@ -1009,6 +1031,37 @@ export function DataProvider({ children }: { children: ReactNode }) {
           setAppState((prev) => ({
             ...prev,
             activities: prev.activities.filter((a) => a.id !== old.id),
+          }));
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [user, setAppState]);
+
+  /* ---------- volumes mensais em tempo real (comparativo mensal) ---------- */
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel("volumes-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "client_monthly_volumes" },
+        (payload) => {
+          const row = (payload.new ?? payload.old) as Record<string, any>;
+          if (!row?.id) return;
+          if (payload.eventType === "DELETE") {
+            setAppState((prev) => ({ ...prev, volumes: prev.volumes.filter((v) => v.id !== row.id) }));
+            return;
+          }
+          const volume = volumeFromRow(row);
+          setAppState((prev) => ({
+            ...prev,
+            volumes: prev.volumes.some((v) => v.id === volume.id)
+              ? prev.volumes.map((v) => (v.id === volume.id ? volume : v))
+              : [...prev.volumes, volume],
           }));
         },
       )
@@ -2125,6 +2178,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         ...parsed,
         alerts: parsed.alerts ?? [],
         activities: parsed.activities ?? [],
+        volumes: parsed.volumes ?? [],
         settings: { ...defaultSettings, ...parsed.settings },
       });
       if (canWriteClientData()) {

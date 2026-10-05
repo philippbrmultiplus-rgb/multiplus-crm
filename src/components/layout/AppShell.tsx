@@ -2,6 +2,7 @@ import { type ReactNode } from "react";
 import { Link, Navigate, useLocation } from "react-router-dom";
 import {
   AlertTriangle,
+  BarChart3,
   CalendarDays,
   CalendarRange,
   Database,
@@ -57,6 +58,12 @@ const NAV_ITEMS: NavItem[] = [
     label: "Alertas",
     icon: AlertTriangle,
     roles: ["coordenador", "vendedor", "gerente"],
+  },
+  {
+    to: "/comparativo",
+    label: "Comparativo mensal",
+    icon: BarChart3,
+    roles: ["coordenador", "gerente"],
   },
   { to: "/backup", label: "Dados & backup", icon: Database, roles: ["coordenador", "gerente"] },
 ];

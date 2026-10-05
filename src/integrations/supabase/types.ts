@@ -3397,6 +3397,40 @@ export type Database = {
           },
         ]
       }
+      client_monthly_volumes: {
+        Row: {
+          client_id: string | null
+          created_at: string
+          id: string
+          label: string | null
+          month: string
+          volume_m3: number
+        }
+        Insert: {
+          client_id?: string | null
+          created_at?: string
+          id?: string
+          label?: string | null
+          month: string
+          volume_m3?: number
+        }
+        Update: {
+          client_id?: string | null
+          created_at?: string
+          id?: string
+          label?: string | null
+          month?: string
+          volume_m3?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_monthly_volumes_client_id_fkey"
+            columns: ["client_id"]
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clientes_excluidos: {
         Row: {
           deleted_at: string

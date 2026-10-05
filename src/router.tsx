@@ -11,6 +11,7 @@ import MinhaRotaSemana from "./pages/MinhaRotaSemana";
 import MinhaRotaMes from "./pages/MinhaRotaMes";
 import Visitas from "./pages/Visitas";
 import Alertas from "./pages/Alertas";
+import ComparativoMensal from "./pages/ComparativoMensal";
 import Backup from "./pages/Backup";
 import NotFound from "./pages/NotFound";
 
@@ -107,6 +108,15 @@ export const routers = [
     element: (
       <AppShell>
         <Alertas />
+      </AppShell>
+    ),
+  },
+  {
+    path: "/comparativo",
+    name: "comparativo",
+    element: (
+      <AppShell>
+        <ComparativoMensal />
       </AppShell>
     ),
   },
