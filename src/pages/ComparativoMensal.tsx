@@ -57,6 +57,8 @@ interface Linha {
   semCadastro: boolean;
   valores: Record<string, number>;
   total: number;
+  /** quanto caiu do mês comparado para o seguinte (positivo = queda) */
+  queda: number;
 }
 
 /** comparativo mensal do volume coletado (m³) por cliente */
@@ -67,9 +69,19 @@ export default function ComparativoMensal() {
   const [search, setSearch] = useState("");
   const [segmento, setSegmento] = useState("all");
   const [ordem, setOrdem] = useState<"total" | "nome">("total");
+  // comparação de queda entre dois meses seguidos, no formato "2026-07-01|2026-08-01"
+  const [queda, setQueda] = useState("todas");
 
   // meses que existem na base, do mais antigo para o mais novo
   const meses = useMemo(() => [...new Set(volumes.map((v) => v.month))].sort(), [volumes]);
+
+  // pares de meses seguidos para comparar a queda
+  const pares = useMemo(() => meses.slice(1).map((m, i) => ({ de: meses[i], para: m })), [meses]);
+  const [mesDe, mesPara] = queda === "todas" ? [null, null] : queda.split("|");
+  const comparandoQueda = !!mesDe && !!mesPara;
+  /** percentual da queda em relação ao mês comparado */
+  const quedaPct = (l: Linha) =>
+    !mesDe || !l.valores[mesDe] ? 0 : Math.round((l.queda / l.valores[mesDe]) * 100);
 
   // agrupa por cliente cadastrado (ou pela linha da planilha, quando não há cadastro)
   const linhas = useMemo<Linha[]>(() => {
@@ -92,8 +104,10 @@ export default function ComparativoMensal() {
     return [...mapa.values()].map((l) => ({
       ...l,
       total: meses.reduce((acc, m) => acc + (l.valores[m] ?? 0), 0),
+      queda:
+        mesDe && mesPara ? (l.valores[mesDe] ?? 0) - (l.valores[mesPara] ?? 0) : 0,
     }));
-  }, [volumes, clients, meses]);
+  }, [volumes, clients, meses, mesDe, mesPara]);
 
   const totalGeral = useMemo(() => linhas.reduce((acc, l) => acc + l.total, 0), [linhas]);
   const totalPorMes = useMemo(() => {
@@ -122,10 +136,16 @@ export default function ComparativoMensal() {
             : l.segmento === segmento,
       )
       .filter((l) => (q ? `${l.nome} ${l.segmento}`.toLowerCase().includes(q) : true))
-      .sort((a, b) =>
-        ordem === "nome" ? a.nome.localeCompare(b.nome, "pt-BR") : b.total - a.total || a.nome.localeCompare(b.nome, "pt-BR"),
-      );
-  }, [linhas, search, segmento, ordem]);
+      // com a comparação de queda ativa entram só os clientes que caíram no mês seguinte
+      .filter((l) => (comparandoQueda ? l.queda > 0 : true))
+      .sort((a, b) => {
+        // da maior queda para a menor queda
+        if (comparandoQueda) return b.queda - a.queda || a.nome.localeCompare(b.nome, "pt-BR");
+        return ordem === "nome"
+          ? a.nome.localeCompare(b.nome, "pt-BR")
+          : b.total - a.total || a.nome.localeCompare(b.nome, "pt-BR");
+      });
+  }, [linhas, search, segmento, ordem, comparandoQueda]);
 
   const totalFiltrado = useMemo(() => filtradas.reduce((acc, l) => acc + l.total, 0), [filtradas]);
   const mesFiltrado = (m: string) => filtradas.reduce((acc, l) => acc + (l.valores[m] ?? 0), 0);
@@ -140,6 +160,8 @@ export default function ComparativoMensal() {
         <p className="text-sm text-muted-foreground">
           Volume coletado de cada cliente por mês (m³) e o total do período · {linhas.length} cliente(s)
           {semCadastro > 0 && ` · ${semCadastro} sem cadastro vinculado`}
+          {comparandoQueda && mesDe && mesPara &&
+            ` · ${filtradas.length} cliente(s) com queda de ${mesLabel(mesDe)} para ${mesLabel(mesPara)}`}
         </p>
       </div>
 
@@ -195,8 +217,21 @@ export default function ComparativoMensal() {
             ))}
           </SelectContent>
         </Select>
+        <Select value={queda} onValueChange={setQueda}>
+          <SelectTrigger className="w-56">
+            <SelectValue placeholder="Queda de volume" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todas">Sem comparação de queda</SelectItem>
+            {pares.map((p) => (
+              <SelectItem key={`${p.de}|${p.para}`} value={`${p.de}|${p.para}`}>
+                Queda: {mesLabel(p.de)} → {mesLabel(p.para)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Select value={ordem} onValueChange={(v) => setOrdem(v as "total" | "nome")}>
-          <SelectTrigger className="w-48">
+          <SelectTrigger className="w-48" disabled={comparandoQueda}>
             <SelectValue placeholder="Ordem" />
           </SelectTrigger>
           <SelectContent>
@@ -230,6 +265,16 @@ export default function ComparativoMensal() {
                   <span className="text-[11px] font-medium text-muted-foreground">Total</span>
                   <span className="font-semibold tabular-nums">{m3(l.total)} m³</span>
                 </div>
+                {comparandoQueda && mesDe && mesPara && (
+                  <div className="flex items-baseline justify-between gap-2 border-t pt-1.5 text-destructive">
+                    <span className="text-[11px] font-medium">
+                      Queda {mesLabel(mesDe)} → {mesLabel(mesPara)}
+                    </span>
+                    <span className="font-semibold tabular-nums">
+                      -{m3(l.queda)} m³ ({quedaPct(l)}%)
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           ))}
@@ -252,6 +297,9 @@ export default function ComparativoMensal() {
                   </TableHead>
                 ))}
                 <TableHead className="whitespace-nowrap text-right">Total (m³)</TableHead>
+                {comparandoQueda && (
+                  <TableHead className="whitespace-nowrap text-right">Queda (m³)</TableHead>
+                )}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -278,15 +326,23 @@ export default function ComparativoMensal() {
                   <TableCell className="text-right font-semibold tabular-nums">
                     {m3(l.total)}
                   </TableCell>
+                  {comparandoQueda && (
+                    <TableCell className="whitespace-nowrap text-right font-semibold tabular-nums text-destructive">
+                      -{m3(l.queda)}{" "}
+                      <span className="font-normal text-muted-foreground">({quedaPct(l)}%)</span>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))}
               {filtradas.length === 0 && (
                 <TableRow>
                   <TableCell
-                    colSpan={3 + meses.length}
+                    colSpan={3 + meses.length + (comparandoQueda ? 1 : 0)}
                     className="py-8 text-center text-muted-foreground"
                   >
-                    Nenhum cliente encontrado com os filtros atuais.
+                    {comparandoQueda
+                      ? "Nenhum cliente com queda neste par de meses."
+                      : "Nenhum cliente encontrado com os filtros atuais."}
                   </TableCell>
                 </TableRow>
               )}
@@ -305,6 +361,11 @@ export default function ComparativoMensal() {
                   <TableCell className="text-right font-semibold tabular-nums">
                     {m3(totalFiltrado)}
                   </TableCell>
+                  {comparandoQueda && (
+                    <TableCell className="whitespace-nowrap text-right font-semibold tabular-nums text-destructive">
+                      -{m3(filtradas.reduce((acc, l) => acc + l.queda, 0))}
+                    </TableCell>
+                  )}
                 </TableRow>
               </TableFooter>
             )}
