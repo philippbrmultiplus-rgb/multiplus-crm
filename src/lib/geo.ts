@@ -104,6 +104,53 @@ export function daysSinceToday(iso: string | null | undefined): number | null {
   return Math.max(0, Math.floor((today - from) / 86400000));
 }
 
+/** chave de comparação de cidade: sem acento, sem espaços repetidos e em minúsculas */
+export function cidadeKey(cidade: string | null | undefined): string {
+  return (cidade ?? "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+export interface CidadeOpcao {
+  /** grafia exibida — sempre com letra maiúscula */
+  label: string;
+  count: number;
+}
+
+/**
+ * agrupa as cidades da carteira em ordem alfabética: grafias que só diferem por
+ * maiúscula/minúscula (ou acento) viram uma única opção, mantendo o rótulo com letra maiúscula
+ */
+export function agruparCidades(valores: Array<string | null | undefined>): CidadeOpcao[] {
+  const grupos = new Map<string, { grafias: Map<string, number>; count: number }>();
+  for (const valor of valores) {
+    const grafia = (valor ?? "").replace(/\s+/g, " ").trim();
+    if (!grafia) continue;
+    const chave = cidadeKey(grafia);
+    const grupo = grupos.get(chave) ?? { grafias: new Map<string, number>(), count: 0 };
+    grupo.grafias.set(grafia, (grupo.grafias.get(grafia) ?? 0) + 1);
+    grupo.count += 1;
+    grupos.set(chave, grupo);
+  }
+  const temMaiuscula = (s: string) => (/[A-ZÀ-Þ]/.test(s) ? 0 : 1);
+  const minusculas = (s: string) => (s.match(/[a-zà-þ]/g) ?? []).length;
+  return [...grupos.values()]
+    .map((g) => {
+      const grafias = [...g.grafias.entries()].sort(
+        (a, b) =>
+          temMaiuscula(a[0]) - temMaiuscula(b[0]) ||
+          minusculas(b[0]) - minusculas(a[0]) ||
+          b[1] - a[1] ||
+          a[0].localeCompare(b[0], "pt-BR"),
+      );
+      return { label: grafias[0][0], count: g.count };
+    })
+    .sort((a, b) => a.label.localeCompare(b.label, "pt-BR"));
+}
+
 /** Segunda-feira da semana de uma data ISO. */
 export function mondayOf(iso: string): string {
   const d = new Date(`${iso}T12:00:00`);

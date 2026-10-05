@@ -59,7 +59,7 @@ import { useData } from "@/lib/DataContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { LeafletMap } from "@/components/map/LeafletMap";
 import { cadenceLabel } from "@/lib/cadence";
-import { formatDateBR, formatKm } from "@/lib/geo";
+import { agruparCidades, cidadeKey, formatDateBR, formatKm } from "@/lib/geo";
 import {
   coletaDays,
   compareClients,
@@ -147,7 +147,8 @@ export default function Clientes() {
       } else if (c.isProspecao) {
         return false;
       }
-      if (ignore !== "cidade" && city !== "all" && (c.city || "(sem cidade)") !== city) return false;
+      if (ignore !== "cidade" && city !== "all" && cidadeKey(c.city || "(sem cidade)") !== cidadeKey(city))
+        return false;
       if (ignore !== "segmento" && segment !== "all" && (c.segment || "(sem segmento)") !== segment)
         return false;
       if (ignore !== "grupo" && tier !== "all" && c.tier !== tier) return false;
@@ -165,15 +166,17 @@ export default function Clientes() {
     [city, segment, tier, onlyActive, situ, situVisita],
   );
 
+  // cidades em ordem alfabética, agrupando grafias que só diferem por maiúscula/minúscula
   const cities = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const c of clients) {
-      if (!matchOutros(c, "cidade")) continue;
-      const k = c.city || "(sem cidade)";
-      map.set(k, (map.get(k) ?? 0) + 1);
+    const lista = agruparCidades(
+      clients.filter((c) => matchOutros(c, "cidade")).map((c) => c.city || "(sem cidade)"),
+    );
+    if (city !== "all" && !lista.some((o) => cidadeKey(o.label) === cidadeKey(city))) {
+      return [...lista, { label: city, count: 0 }].sort((a, b) =>
+        a.label.localeCompare(b.label, "pt-BR"),
+      );
     }
-    if (city !== "all" && !map.has(city)) map.set(city, 0);
-    return [...map.entries()].sort((a, b) => b[1] - a[1]);
+    return lista;
   }, [clients, matchOutros, city]);
 
   const segments = useMemo(() => {
@@ -198,7 +201,7 @@ export default function Clientes() {
     return clients
       .filter((c) => (onlyActive ? c.active : true))
       .filter((c) => (tier === "all" ? true : c.tier === tier))
-      .filter((c) => (city === "all" ? true : (c.city || "(sem cidade)") === city))
+      .filter((c) => (city === "all" ? true : cidadeKey(c.city || "(sem cidade)") === cidadeKey(city)))
       .filter((c) => {
         if (segment === PROSPECTA) return c.isProspecao;
         if (c.isProspecao) return false;
@@ -411,9 +414,9 @@ export default function Clientes() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todas as cidades</SelectItem>
-            {cities.map(([name, n]) => (
-              <SelectItem key={name} value={name}>
-                {name || "(sem cidade)"} ({n})
+            {cities.map(({ label, count }) => (
+              <SelectItem key={label} value={label}>
+                {label} ({count})
               </SelectItem>
             ))}
           </SelectContent>

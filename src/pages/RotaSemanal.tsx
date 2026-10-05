@@ -61,7 +61,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useData } from "@/lib/DataContext";
-import { addDays, DAY_NAMES, formatDateBR, formatKm, mondayOf, timeToMinutes, todayKey } from "@/lib/geo";
+import {
+  addDays,
+  agruparCidades,
+  cidadeKey,
+  DAY_NAMES,
+  formatDateBR,
+  formatKm,
+  mondayOf,
+  timeToMinutes,
+  todayKey,
+} from "@/lib/geo";
 import { computeSchedule, newestRoute } from "@/lib/route";
 import { cadenceLabel, tierOfFreq } from "@/lib/cadence";
 import {
@@ -604,7 +614,8 @@ function AddClientDialog({
   // confere se o cliente passa em TODOS os filtros atuais, exceto o informado em "ignore"
   const matchOutros = useCallback(
     (c: Client, ignore: "cidade" | "segmento" | "grupo") => {
-      if (ignore !== "cidade" && cidade !== "all" && (c.city || "(sem cidade)") !== cidade) return false;
+      if (ignore !== "cidade" && cidade !== "all" && cidadeKey(c.city || "(sem cidade)") !== cidadeKey(cidade))
+        return false;
       if (ignore !== "segmento" && segmento !== "all" && (c.segment || "(sem segmento)") !== segmento)
         return false;
       if (ignore !== "grupo" && grupo !== "all" && c.tier !== grupo) return false;
@@ -620,15 +631,17 @@ function AddClientDialog({
     [cidade, segmento, grupo, onlyActive, situ, situVisita],
   );
 
+  // cidades em ordem alfabética, agrupando grafias que só diferem por maiúscula/minúscula
   const cities = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const c of clients) {
-      if (!matchOutros(c, "cidade")) continue;
-      const k = c.city || "(sem cidade)";
-      map.set(k, (map.get(k) ?? 0) + 1);
+    const lista = agruparCidades(
+      clients.filter((c) => matchOutros(c, "cidade")).map((c) => c.city || "(sem cidade)"),
+    );
+    if (cidade !== "all" && !lista.some((o) => cidadeKey(o.label) === cidadeKey(cidade))) {
+      return [...lista, { label: cidade, count: 0 }].sort((a, b) =>
+        a.label.localeCompare(b.label, "pt-BR"),
+      );
     }
-    if (cidade !== "all" && !map.has(cidade)) map.set(cidade, 0);
-    return [...map.entries()].sort((a, b) => b[1] - a[1]);
+    return lista;
   }, [clients, matchOutros, cidade]);
 
   const segments = useMemo(() => {
@@ -656,7 +669,7 @@ function AddClientDialog({
     return available
       .filter((c) => (onlyActive ? c.active : true))
       .filter((c) => (grupo === "all" ? true : c.tier === grupo))
-      .filter((c) => (cidade === "all" ? true : (c.city || "(sem cidade)") === cidade))
+      .filter((c) => (cidade === "all" ? true : cidadeKey(c.city || "(sem cidade)") === cidadeKey(cidade)))
       .filter((c) => (segmento === "all" ? true : (c.segment || "(sem segmento)") === segmento))
       .filter((c) => {
         if (situ === "todas") return true;
@@ -712,9 +725,9 @@ function AddClientDialog({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todas as cidades</SelectItem>
-              {cities.map(([name, n]) => (
-                <SelectItem key={name} value={name}>
-                  {name || "(sem cidade)"} ({n})
+              {cities.map(({ label, count }) => (
+                <SelectItem key={label} value={label}>
+                  {label} ({count})
                 </SelectItem>
               ))}
             </SelectContent>
