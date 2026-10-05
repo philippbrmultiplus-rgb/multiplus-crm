@@ -2,7 +2,7 @@ import { daysSinceToday } from "@/lib/geo";
 import type { ProspeccaoStatus, Visit } from "@/lib/types";
 
 /** dias sem definição a partir dos quais a prospecção entra em alerta */
-export const DIAS_SEM_DEFINICAO = 10;
+export const DIAS_SEM_DEFINICAO = 15;
 
 /** situação exibida na tela de prospecções (inclui o alerta "sem definição") */
 export type SituacaoProspeccao = ProspeccaoStatus | "sem_definicao";
