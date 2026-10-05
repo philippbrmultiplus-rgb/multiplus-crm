@@ -1,0 +1,37 @@
+update public.clients c
+set last_collect_at = e.data,
+    updated_at = now()
+from (values
+  ('cli-213', date '2026-09-21'),
+  ('cli-entrada-14', date '2026-09-30'),
+  ('cli-18', date '2026-09-22'),
+  ('cli-39', date '2026-09-30'),
+  ('cli-68', date '2026-09-28'),
+  ('cli-14', date '2026-09-30'),
+  ('cli-0', date '2026-09-29'),
+  ('cli-1', date '2026-09-28'),
+  ('cli-11', date '2026-09-30'),
+  ('cli-141', date '2026-09-30'),
+  ('cli-entrada-23', date '2026-09-29'),
+  ('cli-53', date '2026-09-28'),
+  ('cli-130', date '2026-09-28'),
+  ('cli-177', date '2026-09-28'),
+  ('cli-83', date '2026-09-28'),
+  ('cli-entrada-13', date '2026-09-28'),
+  ('cli-47', date '2026-09-28'),
+  ('cli-13', date '2026-09-29'),
+  ('cli-33', date '2026-09-29'),
+  ('cli-25', date '2026-09-29'),
+  ('cli-208', date '2026-09-29'),
+  ('cli-75', date '2026-09-29'),
+  ('cli-59', date '2026-09-29'),
+  ('cli-218', date '2026-09-29'),
+  ('cli-entrada-22', date '2026-09-29'),
+  ('cli-29', date '2026-09-30'),
+  ('cli-entrada-1', date '2026-09-30'),
+  ('cli-64', date '2026-09-30'),
+  ('cli-69', date '2026-09-30'),
+  ('cli-123', date '2026-09-30')
+) as e(id, data)
+where c.id = e.id
+  and (c.last_collect_at is null or c.last_collect_at < e.data);
