@@ -157,7 +157,7 @@ export default function ComparativoMensal() {
   const mesFiltrado = (m: string) => filtradas.reduce((acc, l) => acc + (l.valores[m] ?? 0), 0);
 
   const valorClasse = (valor: number | undefined) =>
-    valor ? "text-right tabular-nums" : "text-right tabular-nums text-muted-foreground";
+    valor ? "text-center tabular-nums" : "text-center tabular-nums text-muted-foreground";
 
   return (
     <div className="space-y-4">
@@ -296,21 +296,21 @@ export default function ComparativoMensal() {
         </div>
       ) : (
         <div className="card-soft overflow-x-auto">
-          <Table className="[&_th]:px-2 [&_th]:py-1.5 [&_td]:px-2 [&_td]:py-1.5 [&_thead_tr]:bg-primary [&_thead_th]:whitespace-nowrap [&_thead_th]:font-semibold [&_thead_th]:text-primary-foreground">
+          <Table className="[&_th]:px-1 [&_th]:py-1.5 [&_td]:px-1 [&_td]:py-1.5 [&_thead_tr]:bg-primary [&_thead_th]:whitespace-nowrap [&_thead_th]:font-semibold [&_thead_th]:text-primary-foreground">
             <TableHeader>
               <TableRow>
                 <TableHead>Cliente</TableHead>
                 <TableHead>Segmento</TableHead>
                 {meses.map((m) => (
-                  <TableHead key={m} className="text-right">
+                  <TableHead key={m} className="text-center">
                     {mesLabel(m)} (m³)
                   </TableHead>
                 ))}
-                <TableHead className="text-right">Total (m³)</TableHead>
-                <TableHead className="text-right" title="Total do período dividido pelos meses lançados">
+                <TableHead className="text-center">Total (m³)</TableHead>
+                <TableHead className="text-center" title="Total do período dividido pelos meses lançados">
                   Média (m³)
                 </TableHead>
-                {comparandoQueda && <TableHead className="text-right">Queda (m³)</TableHead>}
+                {comparandoQueda && <TableHead className="text-center">Queda (m³)</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -334,12 +334,12 @@ export default function ComparativoMensal() {
                       {m3(l.valores[m] ?? 0)}
                     </TableCell>
                   ))}
-                  <TableCell className="text-right font-semibold tabular-nums">
+                  <TableCell className="text-center font-semibold tabular-nums">
                     {m3(l.total)}
                   </TableCell>
-                  <TableCell className="text-right tabular-nums">{m3(l.media)}</TableCell>
+                  <TableCell className="text-center tabular-nums">{m3(l.media)}</TableCell>
                   {comparandoQueda && (
-                    <TableCell className="whitespace-nowrap text-right font-semibold tabular-nums text-destructive">
+                    <TableCell className="whitespace-nowrap text-center font-semibold tabular-nums text-destructive">
                       -{m3(l.queda)}{" "}
                       <span className="font-normal text-muted-foreground">({quedaPct(l)}%)</span>
                     </TableCell>
@@ -366,18 +366,18 @@ export default function ComparativoMensal() {
                     Total · {filtradas.length} cliente(s)
                   </TableCell>
                   {meses.map((m) => (
-                    <TableCell key={m} className="text-right font-semibold tabular-nums">
+                    <TableCell key={m} className="text-center font-semibold tabular-nums">
                       {m3(mesFiltrado(m))}
                     </TableCell>
                   ))}
-                  <TableCell className="text-right font-semibold tabular-nums">
+                  <TableCell className="text-center font-semibold tabular-nums">
                     {m3(totalFiltrado)}
                   </TableCell>
-                  <TableCell className="text-right font-semibold tabular-nums">
+                  <TableCell className="text-center font-semibold tabular-nums">
                     {m3(meses.length ? totalFiltrado / meses.length : 0)}
                   </TableCell>
                   {comparandoQueda && (
-                    <TableCell className="whitespace-nowrap text-right font-semibold tabular-nums text-destructive">
+                    <TableCell className="whitespace-nowrap text-center font-semibold tabular-nums text-destructive">
                       -{m3(filtradas.reduce((acc, l) => acc + l.queda, 0))}
                     </TableCell>
                   )}
