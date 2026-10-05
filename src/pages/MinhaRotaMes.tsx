@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { useData } from "@/lib/DataContext";
 import { DaySchedule } from "@/components/rota/DaySchedule";
+import { RouteActivities } from "@/components/rota/RouteActivities";
 import { rotaStatusDot } from "@/components/clients/clientBits";
 import { VisitForm } from "@/components/visitas/VisitForm";
 import { NotDoneDialog } from "@/components/visitas/NotDoneDialog";
@@ -219,24 +220,36 @@ export default function MinhaRotaMes() {
                 : "Visitas previstas (registro liberado no dia)."}
             </DialogDescription>
           </DialogHeader>
-          {openDate && openRvs.length > 0 ? (
-            <DaySchedule
-              dateIso={openDate}
-              day={new Date(`${openDate}T12:00:00`).getDay()}
-              visits={openRvs}
-              clients={clients}
-              settings={settings}
-              recorded={recorded}
-              canAct={openDate <= todayIso}
-              onRegister={(c, rv) => {
-                setFormClient({ client: c, routeVisitId: rv.id });
-                setOpenDate(null);
-              }}
-              onNotDone={toggleNotDone}
-              onOpenDetails={(client, visit) => setDetail({ client, visit })}
-            />
-          ) : (
-            <p className="py-4 text-sm text-muted-foreground">Sem visitas neste dia.</p>
+          {openDate && (
+            <div className="space-y-3">
+              {openRvs.length > 0 ? (
+                <DaySchedule
+                  dateIso={openDate}
+                  day={new Date(`${openDate}T12:00:00`).getDay()}
+                  visits={openRvs}
+                  clients={clients}
+                  settings={settings}
+                  recorded={recorded}
+                  canAct={openDate <= todayIso}
+                  onRegister={(c, rv) => {
+                    setFormClient({ client: c, routeVisitId: rv.id });
+                    setOpenDate(null);
+                  }}
+                  onNotDone={toggleNotDone}
+                  onOpenDetails={(client, visit) => setDetail({ client, visit })}
+                />
+              ) : (
+                <p className="py-2 text-sm text-muted-foreground">Sem visitas neste dia.</p>
+              )}
+              <div className="border-t pt-3">
+                <RouteActivities
+                  weekStart={mondayOf(openDate)}
+                  day={new Date(`${openDate}T12:00:00`).getDay()}
+                  canEdit={openDate <= todayIso}
+                  showEmpty
+                />
+              </div>
+            </div>
           )}
         </DialogContent>
       </Dialog>

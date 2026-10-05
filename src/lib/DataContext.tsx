@@ -16,6 +16,7 @@ import type {
   Client,
   ClientAlert,
   Role,
+  RouteActivity,
   RoutePlanResult,
   RouteVisit,
   Settings,
@@ -99,6 +100,20 @@ function alertFromRow(r: Record<string, any>): ClientAlert {
   };
 }
 
+function activityFromRow(r: Record<string, any>): RouteActivity {
+  return {
+    id: r.id,
+    weekStart: (r.week_start ?? "").slice(0, 10),
+    day: Number(r.day ?? 1),
+    titulo: r.titulo ?? "",
+    obs: r.obs ?? null,
+    durationMin: Number(r.duration_min ?? 0),
+    createdBy: r.created_by ?? null,
+    createdByName: r.created_by_name ?? null,
+    createdAt: r.created_at ?? new Date().toISOString(),
+  };
+}
+
 function emptyState(): AppState {
   return {
     version: 1,
@@ -109,6 +124,7 @@ function emptyState(): AppState {
     routeVisits: [],
     visits: [],
     alerts: [],
+    activities: [],
   };
 }
 
@@ -117,7 +133,8 @@ function loadLocalCache(): AppState | null {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as AppState;
-      if (parsed && Array.isArray(parsed.clients)) return { ...parsed, alerts: parsed.alerts ?? [] };
+      if (parsed && Array.isArray(parsed.clients))
+        return { ...parsed, alerts: parsed.alerts ?? [], activities: parsed.activities ?? [] };
     }
   } catch {
     // ignora cache inválido
@@ -407,6 +424,14 @@ interface DataContextValue {
   markRouteVisitStatus: (routeVisitId: string, status: RouteVisit["status"]) => void;
   addAlert: (clientId: string, motivo: string, photoData?: string) => void;
   deleteAlert: (id: string) => void;
+  addActivity: (
+    weekStart: string,
+    day: number,
+    titulo: string,
+    obs: string,
+    durationMin: number,
+  ) => void;
+  deleteActivity: (id: string) => void;
   storageUsageKb: number;
   lastSyncAt: string | null;
 }
@@ -463,14 +488,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refreshAll = useCallback(async (uid: string, roleName: Role) => {
-    const [clientsRes, settingsRes, routesRes, rvsRes, visitsRes, alertsRes] = await Promise.all([
-      supabase.from("clients").select("*").order("name"),
-      supabase.from("settings").select("*").eq("id", 1).maybeSingle(),
-      supabase.from("weekly_routes").select("*").order("week_start", { ascending: false }),
-      supabase.from("route_visits").select("*"),
-      supabase.from("visits").select("*").order("visited_at", { ascending: false }).limit(500),
-      supabase.from("client_alerts").select("*").order("created_at", { ascending: false }),
-    ]);
+    const [clientsRes, settingsRes, routesRes, rvsRes, visitsRes, alertsRes, activitiesRes] =
+      await Promise.all([
+        supabase.from("clients").select("*").order("name"),
+        supabase.from("settings").select("*").eq("id", 1).maybeSingle(),
+        supabase.from("weekly_routes").select("*").order("week_start", { ascending: false }),
+        supabase.from("route_visits").select("*"),
+        supabase.from("visits").select("*").order("visited_at", { ascending: false }).limit(500),
+        supabase.from("client_alerts").select("*").order("created_at", { ascending: false }),
+        supabase.from("route_activities").select("*").order("created_at"),
+      ]);
 
     const clients = (clientsRes.data ?? []).map((r) => clientFromRow(r as unknown as Record<string, any>));
     const settings = settingsRes.data
@@ -487,6 +514,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const routeVisits = (rvsRes.data ?? []).map((r) => rvFromRow(r as unknown as Record<string, any>));
     const visits = (visitsRes.data ?? []).map((r) => visitFromRow(r as unknown as Record<string, any>));
     const alerts = (alertsRes.data ?? []).map((r) => alertFromRow(r as unknown as Record<string, any>));
+    const activities = (activitiesRes.data ?? []).map((r) =>
+      activityFromRow(r as unknown as Record<string, any>),
+    );
 
     // coordenaador: aplica cadência/frequência e última troca da planilha uma única vez
     let finalClients = clients;
@@ -510,6 +540,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       routeVisits,
       visits: visits.length > 0 ? visits : prev.visits,
       alerts,
+      activities,
     }));
     setCloudReady(true);
     setLastSyncAt(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }));
@@ -942,6 +973,43 @@ export function DataProvider({ children }: { children: ReactNode }) {
           const old = payload.old as Record<string, any>;
           if (!old?.id) return;
           setAppState((prev) => ({ ...prev, alerts: prev.alerts.filter((a) => a.id !== old.id) }));
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [user, setAppState]);
+
+  /* ---------- atividades extras do dia em tempo real ---------- */
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel("activities-realtime")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "route_activities" },
+        (payload) => {
+          const row = payload.new as Record<string, any>;
+          if (!row?.id) return;
+          setAppState((prev) =>
+            prev.activities.some((a) => a.id === row.id)
+              ? prev
+              : { ...prev, activities: [...prev.activities, activityFromRow(row)] },
+          );
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "route_activities" },
+        (payload) => {
+          const old = payload.old as Record<string, any>;
+          if (!old?.id) return;
+          setAppState((prev) => ({
+            ...prev,
+            activities: prev.activities.filter((a) => a.id !== old.id),
+          }));
         },
       )
       .subscribe();
@@ -1951,6 +2019,74 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [setAppState],
   );
 
+  /* ---------- atividades extras do dia (viagem, manutenção, reunião…) ---------- */
+
+  /** registra uma atividade do dia que não é visita a cliente */
+  const addActivity = useCallback(
+    (weekStart: string, day: number, titulo: string, obs: string, durationMin: number) => {
+      const texto = titulo.trim();
+      if (!texto) {
+        toast.error("Escreva o que foi feito nessa atividade.");
+        return;
+      }
+      const novo: RouteActivity = {
+        id: `act-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        weekStart,
+        day,
+        titulo: texto,
+        obs: obs.trim() || null,
+        durationMin: Math.max(0, Math.round(durationMin) || 0),
+        createdBy: uidRef.current,
+        createdByName: user?.fullName ?? null,
+        createdAt: new Date().toISOString(),
+      };
+      setAppState((prev) => ({ ...prev, activities: [...prev.activities, novo] }));
+      if (!uidRef.current) return;
+      void supabase
+        .from("route_activities")
+        .insert({
+          id: novo.id,
+          week_start: weekStart,
+          day,
+          titulo: texto,
+          obs: novo.obs,
+          duration_min: novo.durationMin,
+          created_by: uidRef.current,
+          created_by_name: novo.createdByName,
+        })
+        .then(({ error }) => {
+          if (error) {
+            console.error("registrar atividade:", error.message);
+            toast.error("Não foi possível salvar a atividade", { description: error.message });
+            return;
+          }
+          toast.success("Atividade registrada.");
+        });
+    },
+    [setAppState, user],
+  );
+
+  /** remove uma atividade (quem criou ou o coordenador) */
+  const deleteActivity = useCallback(
+    (id: string) => {
+      setAppState((prev) => ({ ...prev, activities: prev.activities.filter((a) => a.id !== id) }));
+      if (!uidRef.current) return;
+      void supabase
+        .from("route_activities")
+        .delete()
+        .eq("id", id)
+        .then(({ error }) => {
+          if (error) {
+            console.error("excluir atividade:", error.message);
+            toast.error("Não foi possível excluir a atividade", { description: error.message });
+            return;
+          }
+          toast.success("Atividade removida.");
+        });
+    },
+    [setAppState],
+  );
+
   /* ---------- backup / utilitários ---------- */
 
   const resetData = useCallback(() => {
@@ -1975,6 +2111,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         ...emptyState(),
         ...parsed,
         alerts: parsed.alerts ?? [],
+        activities: parsed.activities ?? [],
         settings: { ...defaultSettings, ...parsed.settings },
       });
       if (canWriteClientData()) {
@@ -2095,6 +2232,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
     markRouteVisitStatus,
     addAlert,
     deleteAlert,
+    addActivity,
+    deleteActivity,
     storageUsageKb,
     lastSyncAt,
   };

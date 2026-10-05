@@ -1,6 +1,15 @@
 import { cidadeComDistancia } from "@/components/clients/clientBits";
 import { useMemo, useState } from "react";
-import { CalendarCheck2, CheckCircle2, MapPin, Navigation, Plus, Search, UserPlus } from "lucide-react";
+import {
+  CalendarCheck2,
+  CalendarClock,
+  CheckCircle2,
+  MapPin,
+  Navigation,
+  Plus,
+  Search,
+  UserPlus,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -23,8 +32,13 @@ import { VisitForm } from "@/components/visitas/VisitForm";
 import { NotDoneDialog } from "@/components/visitas/NotDoneDialog";
 import { ProspectVisitDialog } from "@/components/visitas/ProspectVisitDialog";
 import { PhotoZoom } from "@/components/visitas/PhotoZoom";
+import { RouteActivities } from "@/components/rota/RouteActivities";
+import { formatDuracao, totalMinutos } from "@/lib/atividade";
 import { toast } from "sonner";
 import type { Client, RouteVisit, WeeklyRoute } from "@/lib/types";
+
+/** segunda a sexta — os mesmos dias que entram na rota do coordenador */
+const DIAS_DE_ROTA = [1, 2, 3, 4, 5];
 
 export default function MinhaRota() {
   const { state, markRouteVisitStatus, addRouteVisit } = useData();
@@ -59,6 +73,13 @@ export default function MinhaRota() {
 
   const visitByRouteVisit = (id: string | null) => visits.find((v) => v.routeVisitId === id);
 
+  const dayActivities = useMemo(
+    () => state.activities.filter((a) => a.weekStart === weekStart && a.day === day),
+    [state.activities, weekStart, day],
+  );
+  const extraMin = totalMinutos(dayActivities);
+  const podeLancarAtividade = DIAS_DE_ROTA.includes(day);
+
   if (day === 0) {
     return (
       <div className="space-y-4">
@@ -90,9 +111,27 @@ export default function MinhaRota() {
           <h2 className="text-lg font-semibold">Sem rota publicada</h2>
           <p className="max-w-md text-sm text-muted-foreground">
             O coordenador ainda não publicou a rota desta semana ({formatDateBR(weekStart)}). Você ainda
-            pode registrar uma prospecção normalmente.
+            pode registrar uma prospecção normalmente e lançar atividades extras do dia.
           </p>
         </div>
+
+        {podeLancarAtividade && (
+          <Card className="card-soft">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <CalendarClock className="h-4 w-4 text-amber-600 dark:text-amber-400" /> Atividades extras
+                de hoje
+              </CardTitle>
+              <CardDescription>
+                Viagem, manutenção do carro, reunião na empresa, prospecção fora de cliente… informe o
+                tempo gasto.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <RouteActivities weekStart={weekStart} day={day} canEdit showEmpty />
+            </CardContent>
+          </Card>
+        )}
         {prospectOpen && (
           <ProspectVisitDialog
             open
@@ -112,6 +151,7 @@ export default function MinhaRota() {
           <h1 className="text-2xl font-bold tracking-tight">Minha rota de hoje</h1>
           <p className="text-sm text-muted-foreground">
             {DAY_NAMES[day]}, {formatDateBR(todayIso)} · {scheduled.length} visitas
+            {extraMin > 0 ? ` · +${formatDuracao(extraMin)} em atividades extras` : ""}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -246,6 +286,24 @@ export default function MinhaRota() {
             );
           })}
         </div>
+      )}
+
+      {podeLancarAtividade && (
+        <Card className="card-soft">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <CalendarClock className="h-4 w-4 text-amber-600 dark:text-amber-400" /> Atividades extras
+              de hoje
+            </CardTitle>
+            <CardDescription>
+              Viagem, manutenção do carro, reunião na empresa, prospecção fora de cliente… informe o tempo
+              gasto para o coordenador acompanhar.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <RouteActivities weekStart={weekStart} day={day} canEdit showEmpty />
+          </CardContent>
+        </Card>
       )}
 
       {formClient && (

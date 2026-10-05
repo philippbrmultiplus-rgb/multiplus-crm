@@ -76,8 +76,10 @@ import {
 } from "@/components/clients/clientBits";
 import { cidadeComDistancia } from "@/components/clients/clientBits";
 import { ColetaBadge, TierBadge } from "@/components/clients/clientBadges";
+import { RouteActivities } from "@/components/rota/RouteActivities";
+import { formatDuracao, totalMinutos } from "@/lib/atividade";
 import { LeafletMap } from "@/components/map/LeafletMap";
-import type { Client, RouteVisit, Settings, WeeklyRoute } from "@/lib/types";
+import type { Client, RouteActivity, RouteVisit, Settings, WeeklyRoute } from "@/lib/types";
 
 const DAY_COLORS: Record<number, string> = {
   1: "#1e40af",
@@ -295,7 +297,11 @@ export default function RotaSemanal() {
                   key={day}
                   day={day}
                   date={addDays(weekStart, day - 1)}
+                  weekStart={weekStart}
                   visits={visits.filter((rv) => rv.day === day)}
+                  activities={state.activities.filter(
+                    (a) => a.weekStart === weekStart && a.day === day,
+                  )}
                   clients={clients}
                   settings={settings}
                   canEdit={podeEditar}
@@ -391,7 +397,9 @@ export default function RotaSemanal() {
 function DayColumn({
   day,
   date,
+  weekStart,
   visits,
+  activities,
   clients,
   settings,
   canEdit,
@@ -400,7 +408,9 @@ function DayColumn({
 }: {
   day: number;
   date: string;
+  weekStart: string;
   visits: RouteVisit[];
+  activities: RouteActivity[];
   clients: Client[];
   settings: Settings;
   canEdit: boolean;
@@ -413,6 +423,7 @@ function DayColumn({
   const last = scheduled[scheduled.length - 1];
   const budget = timeToMinutes(settings.workEnd) - timeToMinutes(settings.workStart);
   const overdue = last ? last.arrivalMin + last.visitMin > budget : false;
+  const extraMin = totalMinutos(activities);
 
   return (
     <div className="flex w-full min-w-0 flex-col">
@@ -426,6 +437,11 @@ function DayColumn({
             {visits.length} {visits.length === 1 ? "visita" : "visitas"}
           </div>
           {totalKm > 0 && <div>~{formatKm(totalKm)}</div>}
+          {extraMin > 0 && (
+            <div className="text-amber-600 dark:text-amber-400">
+              +{formatDuracao(extraMin)} extras
+            </div>
+          )}
           {last && <div className={overdue ? "font-medium text-destructive" : ""}>fim {last.depClock}</div>}
         </div>
       </div>
@@ -448,6 +464,7 @@ function DayColumn({
         {scheduled.length === 0 && (
           <p className="py-6 text-center text-xs text-muted-foreground">Sem visitas</p>
         )}
+        <RouteActivities weekStart={weekStart} day={day} canEdit={canEdit} />
         {canEdit && (
           <Button variant="ghost" size="sm" className="w-full text-xs" onClick={onAdd}>
             <Plus className="mr-1 h-3.5 w-3.5" /> Adicionar cliente

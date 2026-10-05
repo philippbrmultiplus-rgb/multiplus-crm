@@ -149,6 +149,23 @@ export interface ClientAlert {
   createdAt: string;
 }
 
+/** atividade extra do dia (viagem, manutenção, reunião…) — não é visita a cliente */
+export interface RouteActivity {
+  id: string;
+  /** segunda-feira da semana (yyyy-mm-dd) */
+  weekStart: string;
+  /** 1 = segunda … 6 = sábado */
+  day: number;
+  /** descrição curta: "Viagem a Caxias do Sul", "Carro em manutenção"… */
+  titulo: string;
+  obs?: string | null;
+  /** tempo gasto na atividade, em minutos */
+  durationMin: number;
+  createdBy?: string | null;
+  createdByName?: string | null;
+  createdAt: string;
+}
+
 export interface AppState {
   version: number;
   sessionRole: Role;
@@ -158,6 +175,7 @@ export interface AppState {
   routeVisits: RouteVisit[];
   visits: Visit[];
   alerts: ClientAlert[];
+  activities: RouteActivity[];
 }
 
 export interface DaySummary {

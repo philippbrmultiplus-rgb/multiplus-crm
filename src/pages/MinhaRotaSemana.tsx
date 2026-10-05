@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useData } from "@/lib/DataContext";
 import { DaySchedule } from "@/components/rota/DaySchedule";
+import { RouteActivities } from "@/components/rota/RouteActivities";
 import { VisitForm } from "@/components/visitas/VisitForm";
 import { ProspectVisitDialog } from "@/components/visitas/ProspectVisitDialog";
 import { NotDoneDialog } from "@/components/visitas/NotDoneDialog";
@@ -151,6 +152,9 @@ export default function MinhaRotaSemana() {
                   onNotDone={toggleNotDone}
                   onOpenDetails={(client, visit) => setDetail({ client, visit })}
                 />
+                <div className="mt-3 border-t pt-3">
+                  <RouteActivities weekStart={weekStart} day={day} canEdit={canAct} />
+                </div>
               </section>
             );
           })}
