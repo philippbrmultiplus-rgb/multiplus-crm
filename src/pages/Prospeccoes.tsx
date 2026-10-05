@@ -112,7 +112,8 @@ export default function Prospeccoes() {
   const prospects = useMemo(() => {
     const q = search.trim().toLowerCase();
     return clients
-      .filter((c) => c.isProspecao)
+      // as fechadas já são clientes ativos, mas continuam aparecendo aqui no histórico
+      .filter((c) => c.isProspecao || c.prospeccaoStatus === "fechado")
       .filter((c) =>
         situ === "todas"
           ? true
@@ -125,7 +126,7 @@ export default function Prospeccoes() {
   }, [clients, search, situ, diasRegistro]);
 
   const counts = useMemo(() => {
-    const all = clients.filter((c) => c.isProspecao);
+    const all = clients.filter((c) => c.isProspecao || c.prospeccaoStatus === "fechado");
     const por = (s: SituacaoProspeccao) =>
       all.filter((c) => situacaoOf(c.prospeccaoStatus, diasRegistro.get(c.id) ?? null) === s).length;
     return {
@@ -196,7 +197,8 @@ export default function Prospeccoes() {
           <h1 className="text-2xl font-bold tracking-tight">Prospecções</h1>
           <p className="text-sm text-muted-foreground">
             Toda prospecção entra como <b>Em negociação</b>. Depois só pode ser finalizada como{" "}
-            <b>Fechado</b> ou <b>Proposta recusada</b> — e não muda mais. Prospecções paradas há{" "}
+            <b>Fechado</b> ou <b>Proposta recusada</b> — e não muda mais. Ao marcar <b>Fechado</b>, o
+            cliente entra automaticamente na lista de clientes ativos. Prospecções paradas há{" "}
             {DIAS_SEM_DEFINICAO} dias ou mais aparecem em alerta.
           </p>
         </div>

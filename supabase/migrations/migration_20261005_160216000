@@ -1,0 +1,6 @@
+update public.clients
+set is_prospecao = false,
+    active = true,
+    updated_at = now()
+where prospeccao_status = 'fechado'
+  and (is_prospecao = true or active = false);

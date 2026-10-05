@@ -203,7 +203,8 @@ export default function Dashboard() {
 
   // Prospecções (atualiza sozinho: os clientes vêm em tempo real)
   const prospectStats = useMemo(() => {
-    const all = clients.filter((c) => c.isProspecao);
+    // prospecções: as fechadas já viraram clientes ativos, mas seguem contando na conversão
+    const all = clients.filter((c) => c.isProspecao || c.prospeccaoStatus === "fechado");
     const dias = diasRegistroPorCliente(visits);
     const conta = (s: SituacaoProspeccao) =>
       all.filter((c) => situacaoOf(c.prospeccaoStatus, dias.get(c.id) ?? null) === s).length;

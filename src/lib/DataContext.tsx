@@ -1773,10 +1773,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
       }
       const texto =
         status === "proposta_recusada" ? justificativa!.trim() : target?.prospeccaoJustificativa ?? null;
+      // fechado = virou cliente: sai da prospecção e entra na lista de clientes ativos
+      const virouCliente = status === "fechado";
       setAppState((prev) => ({
         ...prev,
         clients: prev.clients.map((c) =>
-          c.id === clientId ? { ...c, prospeccaoStatus: status, prospeccaoJustificativa: texto } : c,
+          c.id === clientId
+            ? {
+                ...c,
+                prospeccaoStatus: status,
+                prospeccaoJustificativa: texto,
+                isProspecao: virouCliente ? false : c.isProspecao,
+                active: virouCliente ? true : c.active,
+              }
+            : c,
         ),
       }));
       if (!uidRef.current) return;
@@ -1785,6 +1795,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         .update({
           prospeccao_status: status,
           prospeccao_justificativa: texto,
+          ...(virouCliente ? { is_prospecao: false, active: true } : {}),
           updated_at: new Date().toISOString(),
         })
         .eq("id", clientId)
@@ -1794,7 +1805,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
             toast.error("Não foi possível atualizar a prospecção", { description: error.message });
           } else {
             toast.success(
-              status === "fechado" ? "Prospecção marcada como fechada." : "Proposta recusada registrada.",
+              virouCliente
+                ? "Prospecção fechada — o cliente entrou na lista de clientes ativos."
+                : "Proposta recusada registrada.",
             );
           }
         });
