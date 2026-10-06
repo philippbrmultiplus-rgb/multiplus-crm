@@ -63,7 +63,7 @@ const NAV_ITEMS: NavItem[] = [
     to: "/comparativo",
     label: "Comparativo mensal",
     icon: BarChart3,
-    roles: ["coordenador", "gerente"],
+    roles: ["coordenador", "vendedor", "gerente"],
   },
   { to: "/backup", label: "Dados & backup", icon: Database, roles: ["coordenador", "gerente"] },
 ];

@@ -73,6 +73,8 @@ export default function ComparativoMensal() {
   const [ordem, setOrdem] = useState<"total" | "nome">("total");
   // comparação de queda entre dois meses seguidos, no formato "2026-07-01|2026-08-01"
   const [queda, setQueda] = useState("todas");
+  // mês escolhido para listar do maior volume de entrada para o menor
+  const [mesOrdem, setMesOrdem] = useState("todas");
 
   // meses que existem na base, do mais antigo para o mais novo
   const meses = useMemo(() => [...new Set(volumes.map((v) => v.month))].sort(), [volumes]);
@@ -81,6 +83,7 @@ export default function ComparativoMensal() {
   const pares = useMemo(() => meses.slice(1).map((m, i) => ({ de: meses[i], para: m })), [meses]);
   const [mesDe, mesPara] = queda === "todas" ? [null, null] : queda.split("|");
   const comparandoQueda = !!mesDe && !!mesPara;
+  const comparandoMes = mesOrdem !== "todas";
   /** percentual da queda em relação ao mês comparado */
   const quedaPct = (l: Linha) =>
     !mesDe || !l.valores[mesDe] ? 0 : Math.round((l.queda / l.valores[mesDe]) * 100);
@@ -144,14 +147,22 @@ export default function ComparativoMensal() {
       .filter((l) => (q ? `${l.nome} ${l.segmento}`.toLowerCase().includes(q) : true))
       // com a comparação de queda ativa entram só os clientes que caíram no mês seguinte
       .filter((l) => (comparandoQueda ? l.queda > 0 : true))
+      // com um mês escolhido entram só os clientes que tiveram volume naquele mês
+      .filter((l) => (comparandoMes ? (l.valores[mesOrdem] ?? 0) > 0 : true))
       .sort((a, b) => {
         // da maior queda para a menor queda
         if (comparandoQueda) return b.queda - a.queda || a.nome.localeCompare(b.nome, "pt-BR");
+        // do maior volume do mês escolhido para o menor
+        if (comparandoMes) {
+          const va = a.valores[mesOrdem] ?? 0;
+          const vb = b.valores[mesOrdem] ?? 0;
+          return vb - va || a.nome.localeCompare(b.nome, "pt-BR");
+        }
         return ordem === "nome"
           ? a.nome.localeCompare(b.nome, "pt-BR")
           : b.total - a.total || a.nome.localeCompare(b.nome, "pt-BR");
       });
-  }, [linhas, search, segmento, ordem, comparandoQueda]);
+  }, [linhas, search, segmento, ordem, comparandoQueda, comparandoMes, mesOrdem]);
 
   const totalFiltrado = useMemo(() => filtradas.reduce((acc, l) => acc + l.total, 0), [filtradas]);
   const mesFiltrado = (m: string) => filtradas.reduce((acc, l) => acc + (l.valores[m] ?? 0), 0);
@@ -168,6 +179,8 @@ export default function ComparativoMensal() {
           {semCadastro > 0 && ` · ${semCadastro} sem cadastro vinculado`}
           {comparandoQueda && mesDe && mesPara &&
             ` · ${filtradas.length} cliente(s) com queda de ${mesLabel(mesDe)} para ${mesLabel(mesPara)}`}
+          {comparandoMes &&
+            ` · ${filtradas.length} cliente(s) com volume em ${mesLabel(mesOrdem)}, do maior para o menor`}
         </p>
       </div>
 
@@ -224,7 +237,7 @@ export default function ComparativoMensal() {
           </SelectContent>
         </Select>
         <Select value={queda} onValueChange={setQueda}>
-          <SelectTrigger className="w-56">
+          <SelectTrigger className="w-56" disabled={comparandoMes}>
             <SelectValue placeholder="Queda de volume" />
           </SelectTrigger>
           <SelectContent>
@@ -236,8 +249,21 @@ export default function ComparativoMensal() {
             ))}
           </SelectContent>
         </Select>
+        <Select value={mesOrdem} onValueChange={setMesOrdem}>
+          <SelectTrigger className="w-60" disabled={comparandoQueda}>
+            <SelectValue placeholder="Volume no mês" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todas">Todos os meses</SelectItem>
+            {meses.map((m) => (
+              <SelectItem key={m} value={m}>
+                Maior volume em {mesLabel(m)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Select value={ordem} onValueChange={(v) => setOrdem(v as "total" | "nome")}>
-          <SelectTrigger className="w-48" disabled={comparandoQueda}>
+          <SelectTrigger className="w-48" disabled={comparandoQueda || comparandoMes}>
             <SelectValue placeholder="Ordem" />
           </SelectTrigger>
           <SelectContent>
@@ -264,7 +290,13 @@ export default function ComparativoMensal() {
                 {meses.map((m) => (
                   <div key={m} className="flex items-baseline justify-between gap-2">
                     <span className="text-[11px] text-muted-foreground">{mesLabel(m)}</span>
-                    <span className="tabular-nums">{m3(l.valores[m] ?? 0)}</span>
+                    <span
+                      className={`tabular-nums ${
+                        comparandoMes && mesOrdem === m ? "font-semibold" : ""
+                      }`}
+                    >
+                      {m3(l.valores[m] ?? 0)}
+                    </span>
                   </div>
                 ))}
                 <div className="flex items-baseline justify-between gap-2 border-t pt-1.5">
@@ -303,7 +335,16 @@ export default function ComparativoMensal() {
                 <TableHead>Segmento</TableHead>
                 {meses.map((m) => (
                   <TableHead key={m} className="text-center">
-                    {mesLabel(m)} (m³)
+                    <span
+                      title={comparandoMes && mesOrdem === m ? "Coluna usada para ordenar" : undefined}
+                      className={
+                        comparandoMes && mesOrdem === m
+                          ? "underline decoration-2 underline-offset-2"
+                          : ""
+                      }
+                    >
+                      {mesLabel(m)} (m³)
+                    </span>
                   </TableHead>
                 ))}
                 <TableHead className="text-center">Total (m³)</TableHead>
@@ -354,7 +395,9 @@ export default function ComparativoMensal() {
                   >
                     {comparandoQueda
                       ? "Nenhum cliente com queda neste par de meses."
-                      : "Nenhum cliente encontrado com os filtros atuais."}
+                      : comparandoMes
+                        ? `Nenhum cliente com volume em ${mesLabel(mesOrdem)}.`
+                        : "Nenhum cliente encontrado com os filtros atuais."}
                   </TableCell>
                 </TableRow>
               )}
