@@ -204,6 +204,8 @@ export interface ClientCadence {
   coletas: number;
   /** data da última coleta considerada (yyyy-mm-dd) */
   ultimaColeta: string | null;
+  /** datas das coletas que entraram no cálculo (yyyy-mm-dd) */
+  datas: string[];
 }
 
 export interface AppState {

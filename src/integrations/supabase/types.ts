@@ -3402,6 +3402,7 @@ export type Database = {
           atualizado_em: string
           client_id: string | null
           coletas: number
+          datas: string[] | null
           id: string
           media_dias: number | null
           nome_planilha: string
@@ -3411,6 +3412,7 @@ export type Database = {
           atualizado_em?: string
           client_id?: string | null
           coletas?: number
+          datas?: string[] | null
           id?: string
           media_dias?: number | null
           nome_planilha: string
@@ -3420,6 +3422,7 @@ export type Database = {
           atualizado_em?: string
           client_id?: string | null
           coletas?: number
+          datas?: string[] | null
           id?: string
           media_dias?: number | null
           nome_planilha?: string

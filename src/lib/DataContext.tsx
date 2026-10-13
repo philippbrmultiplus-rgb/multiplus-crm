@@ -189,6 +189,7 @@ function cadenceFromRow(r: Record<string, any>): ClientCadence {
     mediaDias: r.media_dias != null ? Number(r.media_dias) : null,
     coletas: Number(r.coletas ?? 0),
     ultimaColeta: r.ultima_coleta ? String(r.ultima_coleta).slice(0, 10) : null,
+    datas: Array.isArray(r.datas) ? r.datas.map((d: unknown) => String(d).slice(0, 10)) : [],
   };
 }
 
