@@ -3431,6 +3431,46 @@ export type Database = {
           },
         ]
       }
+      client_payments: {
+        Row: {
+          a_pagar_maquina: string | null
+          client_id: string | null
+          created_at: string
+          id: string
+          label: string | null
+          modalidade: string | null
+          tipo_servico: string | null
+          valor_a_pagar: string | null
+        }
+        Insert: {
+          a_pagar_maquina?: string | null
+          client_id?: string | null
+          created_at?: string
+          id?: string
+          label?: string | null
+          modalidade?: string | null
+          tipo_servico?: string | null
+          valor_a_pagar?: string | null
+        }
+        Update: {
+          a_pagar_maquina?: string | null
+          client_id?: string | null
+          created_at?: string
+          id?: string
+          label?: string | null
+          modalidade?: string | null
+          tipo_servico?: string | null
+          valor_a_pagar?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_payments_client_id_fkey"
+            columns: ["client_id"]
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clientes_excluidos: {
         Row: {
           deleted_at: string
@@ -3902,7 +3942,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_10_02: {
+      messages_2026_10_10: {
         Row: {
           event: string | null
           extension: string
@@ -3935,7 +3975,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_10_03: {
+      messages_2026_10_11: {
         Row: {
           event: string | null
           extension: string
@@ -3968,7 +4008,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_10_04: {
+      messages_2026_10_12: {
         Row: {
           event: string | null
           extension: string
@@ -4001,7 +4041,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_10_05: {
+      messages_2026_10_13: {
         Row: {
           event: string | null
           extension: string
@@ -4034,7 +4074,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_10_06: {
+      messages_2026_10_14: {
         Row: {
           event: string | null
           extension: string
@@ -4067,7 +4107,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_10_07: {
+      messages_2026_10_15: {
         Row: {
           event: string | null
           extension: string
@@ -4100,7 +4140,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_10_08: {
+      messages_2026_10_16: {
         Row: {
           event: string | null
           extension: string
