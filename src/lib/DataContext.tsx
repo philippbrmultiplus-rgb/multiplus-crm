@@ -1102,15 +1102,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
     };
   }, [user, setAppState]);
 
-  /* ---------- fotos pendentes: tenta anexar ao entrar no app e quando a conexão volta ---------- */
-  useEffect(() => {
-    if (!user) return;
-    void flushPendingPhotos();
-    const aoVoltarConexao = () => void flushPendingPhotos();
-    window.addEventListener("online", aoVoltarConexao);
-    return () => window.removeEventListener("online", aoVoltarConexao);
-  }, [user, flushPendingPhotos]);
-
   /* ---------- operações de dados (local + nuvem) ---------- */
 
   const canWriteClientData = () => roleRef.current === "coordenador" && !!uidRef.current;
@@ -1719,6 +1710,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }));
     toast.success(`${anexadas.length} visita(s) ficaram com as fotos anexadas agora.`);
   }, [attachVisitPhotos, setAppState]);
+
+  /* ---------- fotos pendentes: tenta anexar ao entrar no app e quando a conexão volta ---------- */
+  useEffect(() => {
+    if (!user) return;
+    void flushPendingPhotos();
+    const aoVoltarConexao = () => void flushPendingPhotos();
+    window.addEventListener("online", aoVoltarConexao);
+    return () => window.removeEventListener("online", aoVoltarConexao);
+  }, [user, flushPendingPhotos]);
 
   const addVisit = useCallback(
     (visit: Visit, opts?: { uploadPhoto?: boolean }) => {
