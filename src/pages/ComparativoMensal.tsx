@@ -20,6 +20,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useData } from "@/lib/DataContext";
+import { formatM3 } from "@/lib/geo";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 const MESES = [
@@ -44,9 +45,7 @@ function mesLabel(iso: string): string {
 }
 
 /** volume em m³ (sem casas decimais quando é inteiro) */
-function m3(n: number): string {
-  return n.toLocaleString("pt-BR", { maximumFractionDigits: 1 });
-}
+const m3 = formatM3;
 
 const SEM_CADASTRO = "sem_cadastro";
 

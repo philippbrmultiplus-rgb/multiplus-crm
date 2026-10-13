@@ -59,7 +59,7 @@ import { useData } from "@/lib/DataContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { LeafletMap } from "@/components/map/LeafletMap";
 import { cadenceLabel } from "@/lib/cadence";
-import { agruparCidades, cidadeKey, formatDateBR, formatKm } from "@/lib/geo";
+import { agruparCidades, cidadeKey, formatDateBR, formatKm, formatM3 } from "@/lib/geo";
 import {
   coletaDays,
   compareClients,
@@ -928,7 +928,9 @@ const HIST_STATUS_LABEL: Record<Visit["status"], string> = {
 /** histórico do cliente: visitas registradas pelo vendedor + trocas/coletas */
 function ClientHistoryDialog({ client, onClose }: { client: Client | null; onClose: () => void }) {
   const { state, loadClientColetas } = useData();
-  const [coletas, setColetas] = useState<Array<{ date: string; note: string }>>([]);
+  const [coletas, setColetas] = useState<
+    Array<{ date: string; note: string; volume: number | null; trocas: number }>
+  >([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -951,7 +953,14 @@ function ClientHistoryDialog({ client, onClose }: { client: Client | null; onClo
 
   type Linha =
     | { kind: "visita"; key: string; date: string; visit: Visit }
-    | { kind: "troca"; key: string; date: string; note: string };
+    | {
+        kind: "troca";
+        key: string;
+        date: string;
+        note: string;
+        volume: number | null;
+        trocas: number;
+      };
 
   const linhas: Linha[] = [
     ...visitas.map((v) => ({
@@ -960,7 +969,14 @@ function ClientHistoryDialog({ client, onClose }: { client: Client | null; onClo
       date: v.visitedAt.slice(0, 10),
       visit: v,
     })),
-    ...coletas.map((k) => ({ kind: "troca" as const, key: `c-${k.date}`, date: k.date, note: k.note })),
+    ...coletas.map((k) => ({
+      kind: "troca" as const,
+      key: `c-${k.date}`,
+      date: k.date,
+      note: k.note,
+      volume: k.volume,
+      trocas: k.trocas,
+    })),
   ].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
 
   return (
@@ -971,6 +987,7 @@ function ClientHistoryDialog({ client, onClose }: { client: Client | null; onClo
           <DialogDescription>
             Histórico de visitas e trocas/coletas · última troca:{" "}
             {client.lastCollectAt ? formatDateBR(client.lastCollectAt) : "—"}
+            {coletas.length > 0 && ` · ${coletas.length} registro(s) de troca/coleta`}
           </DialogDescription>
         </DialogHeader>
 
@@ -990,6 +1007,12 @@ function ClientHistoryDialog({ client, onClose }: { client: Client | null; onClo
                     <Badge className="bg-blue-500/15 text-blue-700 dark:text-blue-300">
                       Troca/coleta
                     </Badge>
+                    {l.volume != null && (
+                      <Badge className="bg-primary/10 text-primary">{formatM3(l.volume)} m³</Badge>
+                    )}
+                    {l.trocas > 1 && (
+                      <span className="text-xs text-muted-foreground">{l.trocas} trocas</span>
+                    )}
                   </div>
                   {l.note && <p className="mt-1 text-xs text-muted-foreground">{l.note}</p>}
                 </div>

@@ -3593,6 +3593,8 @@ export type Database = {
           created_by: string | null
           id: string
           note: string | null
+          trocas: number
+          volume_m3: number | null
         }
         Insert: {
           client_id: string
@@ -3601,6 +3603,8 @@ export type Database = {
           created_by?: string | null
           id?: string
           note?: string | null
+          trocas?: number
+          volume_m3?: number | null
         }
         Update: {
           client_id?: string
@@ -3609,6 +3613,8 @@ export type Database = {
           created_by?: string | null
           id?: string
           note?: string | null
+          trocas?: number
+          volume_m3?: number | null
         }
         Relationships: [
           {

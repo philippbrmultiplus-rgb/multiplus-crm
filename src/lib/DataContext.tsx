@@ -418,7 +418,9 @@ interface DataContextValue {
   updateClient: (id: string, patch: Partial<Client>) => void;
   createClient: (c: Client) => void;
   deleteClient: (id: string) => void;
-  loadClientColetas: (clientId: string) => Promise<Array<{ date: string; note: string }>>;
+  loadClientColetas: (
+    clientId: string,
+  ) => Promise<Array<{ date: string; note: string; volume: number | null; trocas: number }>>;
   listProfiles: () => Promise<Array<{ id: string; fullName: string; role: Role }>>;
   setUserRole: (id: string, role: Role) => Promise<string | null>;
   recomputeTiers: () => void;
@@ -1119,11 +1121,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [setAppState],
   );
 
-  /** histórico de trocas/coletas de um cliente */
+  /** histórico de trocas/coletas de um cliente (data, volume em m³ e nº de trocas) */
   const loadClientColetas = useCallback(async (clientId: string) => {
     const { data, error } = await supabase
       .from("coletas")
-      .select("collect_date, note")
+      .select("collect_date, note, volume_m3, trocas")
       .eq("client_id", clientId)
       .order("collect_date", { ascending: false });
     if (error) {
@@ -1132,7 +1134,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
     return (data ?? []).map((r) => {
       const row = r as Record<string, unknown>;
-      return { date: String(row.collect_date ?? ""), note: (row.note as string) ?? "" };
+      return {
+        date: String(row.collect_date ?? ""),
+        note: (row.note as string) ?? "",
+        volume: row.volume_m3 != null ? Number(row.volume_m3) : null,
+        trocas: Number(row.trocas ?? 1) || 1,
+      };
     });
   }, []);
 

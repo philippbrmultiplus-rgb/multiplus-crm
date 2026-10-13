@@ -104,6 +104,11 @@ export function daysSinceToday(iso: string | null | undefined): number | null {
   return Math.max(0, Math.floor((today - from) / 86400000));
 }
 
+/** volume em m³ (sem casas decimais quando é inteiro) */
+export function formatM3(n: number): string {
+  return n.toLocaleString("pt-BR", { maximumFractionDigits: 1 });
+}
+
 /** chave de comparação de cidade: sem acento, sem espaços repetidos e em minúsculas */
 export function cidadeKey(cidade: string | null | undefined): string {
   return (cidade ?? "")
