@@ -15,6 +15,7 @@ import type {
   AppState,
   Client,
   ClientAlert,
+  ClientPayment,
   MonthlyVolume,
   Role,
   RouteActivity,
@@ -169,6 +170,18 @@ async function geocodificarEndereco(endereco: string): Promise<{ lat: number; ln
   }
 }
 
+function paymentFromRow(r: Record<string, any>): ClientPayment {
+  return {
+    id: r.id,
+    clientId: r.client_id ?? null,
+    label: r.label ?? null,
+    valor: r.valor_a_pagar ?? "",
+    maquina: r.a_pagar_maquina ?? null,
+    servico: r.tipo_servico ?? null,
+    modalidade: r.modalidade ?? null,
+  };
+}
+
 function emptyState(): AppState {
   return {
     version: 1,
@@ -181,6 +194,7 @@ function emptyState(): AppState {
     alerts: [],
     activities: [],
     volumes: [],
+    payments: [],
   };
 }
 
@@ -195,6 +209,7 @@ function loadLocalCache(): AppState | null {
           alerts: parsed.alerts ?? [],
           activities: parsed.activities ?? [],
           volumes: parsed.volumes ?? [],
+          payments: parsed.payments ?? [],
         };
     }
   } catch {
@@ -495,6 +510,8 @@ interface DataContextValue {
     durationMin: number,
   ) => void;
   deleteActivity: (id: string) => void;
+  saveClientPayment: (payment: ClientPayment) => void;
+  deleteClientPayment: (id: string) => void;
   storageUsageKb: number;
   lastSyncAt: string | null;
 }
@@ -551,17 +568,27 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refreshAll = useCallback(async (uid: string, roleName: Role) => {
-    const [clientsRes, settingsRes, routesRes, rvsRes, visitsRes, alertsRes, activitiesRes, volumesRes] =
-      await Promise.all([
-        supabase.from("clients").select("*").order("name"),
-        supabase.from("settings").select("*").eq("id", 1).maybeSingle(),
-        supabase.from("weekly_routes").select("*").order("week_start", { ascending: false }),
-        supabase.from("route_visits").select("*"),
-        supabase.from("visits").select("*").order("visited_at", { ascending: false }).limit(500),
-        supabase.from("client_alerts").select("*").order("created_at", { ascending: false }),
-        supabase.from("route_activities").select("*").order("created_at"),
-        supabase.from("client_monthly_volumes").select("*").order("month"),
-      ]);
+    const [
+      clientsRes,
+      settingsRes,
+      routesRes,
+      rvsRes,
+      visitsRes,
+      alertsRes,
+      activitiesRes,
+      volumesRes,
+      paymentsRes,
+    ] = await Promise.all([
+      supabase.from("clients").select("*").order("name"),
+      supabase.from("settings").select("*").eq("id", 1).maybeSingle(),
+      supabase.from("weekly_routes").select("*").order("week_start", { ascending: false }),
+      supabase.from("route_visits").select("*"),
+      supabase.from("visits").select("*").order("visited_at", { ascending: false }).limit(500),
+      supabase.from("client_alerts").select("*").order("created_at", { ascending: false }),
+      supabase.from("route_activities").select("*").order("created_at"),
+      supabase.from("client_monthly_volumes").select("*").order("month"),
+      supabase.from("client_payments").select("*").order("created_at"),
+    ]);
 
     const clients = (clientsRes.data ?? []).map((r) => clientFromRow(r as unknown as Record<string, any>));
     const settings = settingsRes.data
@@ -583,6 +610,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
     );
     const volumes = (volumesRes.data ?? []).map((r) =>
       volumeFromRow(r as unknown as Record<string, any>),
+    );
+    const payments = (paymentsRes.data ?? []).map((r) =>
+      paymentFromRow(r as unknown as Record<string, any>),
     );
 
     // coordenaador: aplica cadência/frequência e última troca da planilha uma única vez
@@ -609,6 +639,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       alerts,
       activities,
       volumes,
+      payments,
     }));
     setCloudReady(true);
     setLastSyncAt(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }));
@@ -1087,11 +1118,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
     };
   }, [user, setAppState]);
 
-  /* ---------- volumes mensais em tempo real (comparativo mensal) ---------- */
+  /* ---------- dados importados em tempo real (volumes mensais e pagamentos) ---------- */
   useEffect(() => {
     if (!user) return;
     const channel = supabase
-      .channel("volumes-realtime")
+      .channel("imports-realtime")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "client_monthly_volumes" },
@@ -1108,6 +1139,28 @@ export function DataProvider({ children }: { children: ReactNode }) {
             volumes: prev.volumes.some((v) => v.id === volume.id)
               ? prev.volumes.map((v) => (v.id === volume.id ? volume : v))
               : [...prev.volumes, volume],
+          }));
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "client_payments" },
+        (payload) => {
+          const row = (payload.new ?? payload.old) as Record<string, any>;
+          if (!row?.id) return;
+          if (payload.eventType === "DELETE") {
+            setAppState((prev) => ({
+              ...prev,
+              payments: prev.payments.filter((p) => p.id !== row.id),
+            }));
+            return;
+          }
+          const payment = paymentFromRow(row);
+          setAppState((prev) => ({
+            ...prev,
+            payments: prev.payments.some((p) => p.id === payment.id)
+              ? prev.payments.map((p) => (p.id === payment.id ? payment : p))
+              : [...prev.payments, payment],
           }));
         },
       )
@@ -2326,6 +2379,60 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [setAppState],
   );
 
+  /* ---------- condições de pagamento do cliente ---------- */
+
+  /** cria ou atualiza uma condição de pagamento (coordenador) */
+  const saveClientPayment = useCallback(
+    (payment: ClientPayment) => {
+      setAppState((prev) => ({
+        ...prev,
+        payments: prev.payments.some((p) => p.id === payment.id)
+          ? prev.payments.map((p) => (p.id === payment.id ? payment : p))
+          : [...prev.payments, payment],
+      }));
+      if (!uidRef.current) return;
+      void supabase
+        .from("client_payments")
+        .upsert({
+          id: payment.id,
+          client_id: payment.clientId,
+          label: payment.label,
+          valor_a_pagar: payment.valor || null,
+          a_pagar_maquina: payment.maquina,
+          tipo_servico: payment.servico,
+          modalidade: payment.modalidade,
+        })
+        .then(({ error }) => {
+          if (error) {
+            console.error("salvar pagamento:", error.message);
+            toast.error("Não foi possível salvar o pagamento", { description: error.message });
+            return;
+          }
+          toast.success("Pagamento atualizado.");
+        });
+    },
+    [setAppState],
+  );
+
+  /** remove uma condição de pagamento (coordenador) */
+  const deleteClientPayment = useCallback(
+    (id: string) => {
+      setAppState((prev) => ({ ...prev, payments: prev.payments.filter((p) => p.id !== id) }));
+      if (!uidRef.current) return;
+      void supabase
+        .from("client_payments")
+        .delete()
+        .eq("id", id)
+        .then(({ error }) => {
+          if (error) {
+            console.error("excluir pagamento:", error.message);
+            toast.error("Não foi possível excluir o pagamento", { description: error.message });
+          }
+        });
+    },
+    [setAppState],
+  );
+
   /* ---------- backup / utilitários ---------- */
 
   const resetData = useCallback(() => {
@@ -2352,6 +2459,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         alerts: parsed.alerts ?? [],
         activities: parsed.activities ?? [],
         volumes: parsed.volumes ?? [],
+        payments: parsed.payments ?? [],
         settings: { ...defaultSettings, ...parsed.settings },
       });
       if (canWriteClientData()) {
@@ -2462,6 +2570,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
     deleteAlert,
     addActivity,
     deleteActivity,
+    saveClientPayment,
+    deleteClientPayment,
     storageUsageKb,
     lastSyncAt,
   };

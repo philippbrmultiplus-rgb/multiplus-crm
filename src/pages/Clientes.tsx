@@ -14,6 +14,7 @@ import {
   RotateCcw,
   Search,
   Trash2,
+  Wallet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -72,9 +73,20 @@ import { distanciaClienteKm, distanciaFaixa, distanciaTexto } from "@/components
 import { ColetaBadge, TierBadge, VisitaBadge } from "@/components/clients/clientBadges";
 import { PhotoZoom } from "@/components/visitas/PhotoZoom";
 import { NewClientDialog } from "@/components/clients/NewClientDialog";
+import { ClientPaymentsDialog } from "@/components/clients/ClientPaymentsDialog";
 import type { Client, Visit } from "@/lib/types";
 
 const PROSPECTA = "__prospecao__";
+
+/** coluna Pago: "Não" quando não há condição registrada; "Sim" abre os detalhes */
+function PagamentoCell({ tem, onOpen }: { tem: boolean; onOpen: () => void }) {
+  if (!tem) return <span className="text-xs text-muted-foreground">Não</span>;
+  return (
+    <Button variant="link" size="sm" className="h-auto p-0" onClick={onOpen}>
+      Sim
+    </Button>
+  );
+}
 
 
 function ColetaCell({ c, onDate }: { c: Client; onDate: (v: string | null) => void }) {
@@ -130,6 +142,7 @@ export default function Clientes() {
   const [onlyActive, setOnlyActive] = useState(true);
   const [editing, setEditing] = useState<Client | null>(null);
   const [toDelete, setToDelete] = useState<Client | null>(null);
+  const [pagamento, setPagamento] = useState<Client | null>(null);
   const [geocoding, setGeocoding] = useState<{ done: number; total: number; current: string } | null>(null);
   // atualiza o contador "há X dias" automaticamente
   const [, setNow] = useState(0);
@@ -254,6 +267,13 @@ export default function Clientes() {
 
   const prospectCount = useMemo(() => clients.filter((c) => c.isProspecao).length, [clients]);
 
+  // clientes com condição de pagamento registrada (planilha de pagamentos)
+  const comPagamento = useMemo(() => {
+    const ids = new Set<string>();
+    for (const p of state.payments) if (p.clientId) ids.add(p.clientId);
+    return ids;
+  }, [state.payments]);
+
   const anyFilter =
     search.trim() !== "" ||
     city !== "all" ||
@@ -350,7 +370,7 @@ export default function Clientes() {
           <p className="text-sm text-muted-foreground">
             {clients.filter((c) => !c.isProspecao).length} clientes ·{" "}
             {clients.filter((c) => c.active && !c.isProspecao).length} ativos · {prospectCount}{" "}
-            prospecção(ões)
+            prospecção(ões) · {comPagamento.size} pagos
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -573,8 +593,8 @@ export default function Clientes() {
                   <TierBadge tier={c.tier} />
                 </div>
                 <div>
-                  <span className="block text-[11px] text-muted-foreground">Status</span>
-                  {c.active ? <Badge variant="outline">Ativo</Badge> : <Badge variant="secondary">Inativo</Badge>}
+                  <span className="block text-[11px] text-muted-foreground">Pago</span>
+                  <PagamentoCell tem={comPagamento.has(c.id)} onOpen={() => setPagamento(c)} />
                 </div>
               </div>
               <div className="mt-2 space-y-2 border-t pt-2">
@@ -616,12 +636,12 @@ export default function Clientes() {
               <col className="w-[18%]" />
               <col className="w-[8%]" />
               <col className="w-[10%]" />
-              <col className="w-[10%]" />
-              <col className="w-[7%]" />
+              <col className="w-[11%]" />
+              <col className="w-[6%]" />
               <col className="w-[19%]" />
               <col className="w-[9%]" />
-              <col className="w-[9%]" />
-              <col className="w-[10%]" />
+              <col className="w-[8%]" />
+              <col className="w-[11%]" />
             </colgroup>
             <TableHeader>
               <TableRow>
@@ -632,7 +652,7 @@ export default function Clientes() {
                 <TableHead>Grupo</TableHead>
                 <TableHead>Últ. troca / dias</TableHead>
                 <TableHead>Últ. visita</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead>Pago</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
@@ -647,6 +667,7 @@ export default function Clientes() {
                           prospecção
                         </Badge>
                       )}
+                      <GeocodeStatus c={c} />
                     </div>
                     <div className="truncate text-xs text-muted-foreground">
                       {c.address || "—"}
@@ -684,14 +705,7 @@ export default function Clientes() {
                     <VisitaBadge c={c} />
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-1.5">
-                      {c.active ? (
-                        <Badge variant="outline">Ativo</Badge>
-                      ) : (
-                        <Badge variant="secondary">Inativo</Badge>
-                      )}
-                      <GeocodeStatus c={c} />
-                    </div>
+                    <PagamentoCell tem={comPagamento.has(c.id)} onOpen={() => setPagamento(c)} />
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
@@ -757,6 +771,12 @@ export default function Clientes() {
         onClose={() => setHistory(null)}
       />
 
+      <ClientPaymentsDialog
+        key={`p-${pagamento?.id ?? "none"}`}
+        client={pagamento}
+        onClose={() => setPagamento(null)}
+      />
+
       {novo && <NewClientDialog onClose={() => setNovo(false)} segmentOptions={segmentOptions} />}
 
       <AlertDialog open={!!toDelete} onOpenChange={(o) => !o && setToDelete(null)}>
@@ -798,6 +818,7 @@ function EditClientDialog({
   onClose: () => void;
   onSave: (patch: Partial<Client>) => void;
 }) {
+  const { state, saveClientPayment, deleteClientPayment } = useData();
   const [name, setName] = useState(client?.name ?? "");
   const [address, setAddress] = useState(client?.address ?? "");
   const [city, setCity] = useState(client?.city ?? "");
@@ -807,6 +828,31 @@ function EditClientDialog({
   const [isProsp, setIsProsp] = useState(client?.isProspecao ?? false);
   const [lat, setLat] = useState<number | null>(client?.lat ?? null);
   const [lng, setLng] = useState<number | null>(client?.lng ?? null);
+
+  // condições de pagamento (editáveis junto com o cadastro)
+  type PagamentoDraft = {
+    id: string;
+    novo: boolean;
+    valor: string;
+    servico: string;
+    modalidade: string;
+    maquina: string;
+  };
+  const [pagamentos, setPagamentos] = useState<PagamentoDraft[]>(() =>
+    client
+      ? state.payments
+          .filter((p) => p.clientId === client.id)
+          .map((p) => ({
+            id: p.id,
+            novo: false,
+            valor: p.valor ?? "",
+            servico: p.servico ?? "",
+            modalidade: p.modalidade ?? "",
+            maquina: p.maquina ?? "",
+          }))
+      : [],
+  );
+  const [removidos, setRemovidos] = useState<string[]>([]);
 
   const SEG_NONE = "__none__";
   const segOptions = useMemo(
@@ -819,14 +865,74 @@ function EditClientDialog({
 
   const points = lat != null && lng != null ? [{ lat, lng, label: client.name, color: "#2563eb" }] : [];
 
+  const atualizarPagamento = (id: string, patch: Partial<PagamentoDraft>) =>
+    setPagamentos((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
+
+  const adicionarPagamento = () =>
+    setPagamentos((prev) => [
+      ...prev,
+      {
+        id: `pag-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        novo: true,
+        valor: "",
+        servico: "",
+        modalidade: "",
+        maquina: "",
+      },
+    ]);
+
+  const removerPagamento = (p: PagamentoDraft) => {
+    if (!p.novo) setRemovidos((prev) => [...prev, p.id]);
+    setPagamentos((prev) => prev.filter((x) => x.id !== p.id));
+  };
+
+  /** salva o cadastro + as condições de pagamento (só o que mudou) */
+  const salvar = () => {
+    for (const id of removidos) deleteClientPayment(id);
+    const originais = new Map(state.payments.map((p) => [p.id, p]));
+    for (const p of pagamentos) {
+      const antes = originais.get(p.id);
+      const vazio = !p.valor.trim() && !p.servico.trim() && !p.modalidade.trim() && !p.maquina.trim();
+      if (!antes && vazio) continue;
+      const mudou =
+        !antes ||
+        (antes.valor ?? "") !== p.valor ||
+        (antes.servico ?? "") !== p.servico ||
+        (antes.modalidade ?? "") !== p.modalidade ||
+        (antes.maquina ?? "") !== p.maquina;
+      if (!mudou) continue;
+      saveClientPayment({
+        id: p.id,
+        clientId: client.id,
+        label: antes?.label ?? null,
+        valor: p.valor,
+        servico: p.servico || null,
+        modalidade: p.modalidade || null,
+        maquina: p.maquina || null,
+      });
+    }
+    onSave({
+      name,
+      address,
+      city,
+      segment,
+      contato: contato.trim() || null,
+      active,
+      isProspecao: isProsp,
+      lat,
+      lng,
+      geocodeStatus: lat != null ? "ok" : client.geocodeStatus,
+    });
+  };
+
   return (
     <Dialog open={!!client} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-h-[calc(100dvh-2.5rem)] max-w-2xl overflow-y-auto overscroll-contain">
         <DialogHeader>
           <DialogTitle>Editar cliente</DialogTitle>
           <DialogDescription>
-            Ajuste os dados e clique no mapa para posicionar o cliente (usado na rota e na validação de
-            presença).
+            Ajuste os dados, as condições de pagamento e clique no mapa para posicionar o cliente (usado na
+            rota e na validação de presença).
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -890,28 +996,80 @@ function EditClientDialog({
               : "Sem coordenadas — clique no mapa para marcar."}
           </p>
         </div>
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <Label className="flex items-center gap-1.5">
+              <Wallet className="h-3.5 w-3.5 text-primary" /> Pago
+              <span className="font-normal text-muted-foreground">(condições de pagamento)</span>
+            </Label>
+            <Button type="button" variant="outline" size="sm" onClick={adicionarPagamento}>
+              <Plus className="mr-1.5 h-3.5 w-3.5" /> Adicionar
+            </Button>
+          </div>
+          {pagamentos.length === 0 && (
+            <p className="text-xs text-muted-foreground">
+              Nenhuma condição registrada. Use “Adicionar” para lançar como o cliente paga.
+            </p>
+          )}
+          {pagamentos.map((p, i) => (
+            <div key={p.id} className="space-y-2 rounded-lg border p-3">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-medium text-muted-foreground">
+                  {p.novo ? "Nova condição" : `Condição ${i + 1}`}
+                </span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                  onClick={() => removerPagamento(p)}
+                  title="Remover esta condição"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Valor a pagar</Label>
+                  <Input
+                    value={p.valor}
+                    onChange={(e) => atualizarPagamento(p.id, { valor: e.target.value })}
+                    placeholder="R$ 800,00 · 35m³ · R$45,00 a ton"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Tipo de serviço</Label>
+                  <Input
+                    value={p.servico}
+                    onChange={(e) => atualizarPagamento(p.id, { servico: e.target.value })}
+                    placeholder="ROLL ON · POLI · PP · CARREG. NA HORA"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Modalidade</Label>
+                  <Input
+                    value={p.modalidade}
+                    onChange={(e) => atualizarPagamento(p.id, { modalidade: e.target.value })}
+                    placeholder="Fechamento mensal · Coletou pagou · Antecipação de 3 cargas"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">A pagar máquina</Label>
+                  <Input
+                    value={p.maquina}
+                    onChange={(e) => atualizarPagamento(p.id, { maquina: e.target.value })}
+                    placeholder="Não · Sim · R$440,00 (fixo)"
+                  />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
             Cancelar
           </Button>
-          <Button
-            onClick={() =>
-              onSave({
-                name,
-                address,
-                city,
-                segment,
-                contato: contato.trim() || null,
-                active,
-                isProspecao: isProsp,
-                lat,
-                lng,
-                geocodeStatus: lat != null ? "ok" : client.geocodeStatus,
-              })
-            }
-          >
-            Salvar
-          </Button>
+          <Button onClick={salvar}>Salvar</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

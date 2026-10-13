@@ -178,6 +178,23 @@ export interface MonthlyVolume {
   volumeM3: number;
 }
 
+/** condições de pagamento acertadas com o cliente (planilha de pagamentos) */
+export interface ClientPayment {
+  id: string;
+  /** cliente cadastrado; null quando a linha da planilha não tem cadastro */
+  clientId: string | null;
+  /** nome usado na planilha */
+  label: string | null;
+  /** "R$ 800.00", "35m³", "R$45,00 a ton", "16,00 m³"… */
+  valor: string;
+  /** como a máquina é paga ("Não", "Sim", "R$440,00 (fixo)"…) */
+  maquina: string | null;
+  /** tipo de serviço: ROLL ON, POLI, PP, CARREG. NA HORA… */
+  servico: string | null;
+  /** modalidade: "Fechamento mensal", "Coletou pagou", "Antecipação de 3 cargas"… */
+  modalidade: string | null;
+}
+
 export interface AppState {
   version: number;
   sessionRole: Role;
@@ -189,6 +206,7 @@ export interface AppState {
   alerts: ClientAlert[];
   activities: RouteActivity[];
   volumes: MonthlyVolume[];
+  payments: ClientPayment[];
 }
 
 export interface DaySummary {
