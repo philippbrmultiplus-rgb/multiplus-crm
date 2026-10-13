@@ -153,6 +153,22 @@ function volumeFromRow(r: Record<string, any>): MonthlyVolume {
   };
 }
 
+/** consulta um endereço no serviço de geocodificação (OpenStreetMap/Nominatim) */
+async function geocodificarEndereco(endereco: string): Promise<{ lat: number; lng: number } | null> {
+  if (endereco.replace(/\s|,|-/g, "").length <= 6) return null;
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=br&q=${encodeURIComponent(endereco)}`,
+      { headers: { "Accept-Language": "pt-BR" } },
+    );
+    const data = (await res.json()) as Array<{ lat: string; lon: string }>;
+    if (!data || !data[0]) return null;
+    return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+  } catch {
+    return null;
+  }
+}
+
 function emptyState(): AppState {
   return {
     version: 1,
@@ -1113,6 +1129,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const updateClient = useCallback(
     (id: string, patch: Partial<Client>) => {
+      const antes = state.clients.find((c) => c.id === id) ?? null;
       setAppState((prev) => ({
         ...prev,
         clients: prev.clients.map((c) => (c.id === id ? { ...c, ...patch } : c)),
@@ -1144,9 +1161,64 @@ export function DataProvider({ children }: { children: ReactNode }) {
             );
           if (cErr) console.warn("histórico de coleta:", cErr.message);
         }
+
+        // endereço/cidade mudaram? localiza no mapa para a distância da base ficar correta
+        const enderecoMudou =
+          (patch.address != null && patch.address.trim() !== (antes?.address ?? "").trim()) ||
+          (patch.city != null && patch.city.trim() !== (antes?.city ?? "").trim());
+        // se o usuário posicionou o pino no mapa, respeita a posição dele
+        const posicaoManual =
+          patch.lat != null &&
+          patch.lng != null &&
+          (patch.lat !== (antes?.lat ?? null) || patch.lng !== (antes?.lng ?? null));
+        if (!enderecoMudou || posicaoManual) return;
+
+        const endereco = [
+          patch.address ?? antes?.address ?? "",
+          patch.city ?? antes?.city ?? "",
+          antes?.state ?? "RS",
+          "Brasil",
+        ]
+          .map((p) => p.trim())
+          .filter(Boolean)
+          .join(", ");
+        const aviso = toast.loading("Localizando o novo endereço no mapa…");
+        const pos = await geocodificarEndereco(endereco);
+        if (!pos) {
+          toast.warning("Endereço salvo, mas não consegui localizá-lo no mapa.", {
+            id: aviso,
+            description: "Confira o endereço ou marque a posição no mapa do cadastro.",
+          });
+          return;
+        }
+        const { error: gErr } = await supabase
+          .from("clients")
+          .update({
+            lat: pos.lat,
+            lng: pos.lng,
+            geocode_status: "ok",
+            geo_aproximado: false,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", id);
+        if (gErr) {
+          console.warn("geocodificar cliente:", gErr.message);
+          toast.error("Não foi possível salvar a coordenada do novo endereço", {
+            id: aviso,
+            description: gErr.message,
+          });
+          return;
+        }
+        setAppState((prev) => ({
+          ...prev,
+          clients: prev.clients.map((c) =>
+            c.id === id ? { ...c, lat: pos.lat, lng: pos.lng, geocodeStatus: "ok", geoAproximado: false } : c,
+          ),
+        }));
+        toast.success("Endereço localizado no mapa — distância da base atualizada.", { id: aviso });
       })();
     },
-    [setAppState],
+    [setAppState, state.clients],
   );
 
   /** histórico de trocas/coletas de um cliente (data, volume em m³ e nº de trocas) */
@@ -2308,24 +2380,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
         let lat: number | null = null;
         let lng: number | null = null;
         let status: Client["geocodeStatus"] = "falha";
-        if (query.replace(/\s|,|-/g, "").length > 6) {
-          try {
-            const res = await fetch(
-              `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=br&q=${encodeURIComponent(query)}`,
-              { headers: { "Accept-Language": "pt-BR" } },
-            );
-            const data = (await res.json()) as Array<{ lat: string; lon: string }>;
-            if (data && data[0]) {
-              lat = parseFloat(data[0].lat);
-              lng = parseFloat(data[0].lon);
-              status = "ok";
-              ok++;
-            } else {
-              failed++;
-            }
-          } catch {
-            failed++;
-          }
+        const pos = await geocodificarEndereco(query);
+        if (pos) {
+          lat = pos.lat;
+          lng = pos.lng;
+          status = "ok";
+          ok++;
         } else {
           failed++;
         }
