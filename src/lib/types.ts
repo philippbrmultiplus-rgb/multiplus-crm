@@ -195,6 +195,17 @@ export interface ClientPayment {
   modalidade: string | null;
 }
 
+/** cadência de troca de um cliente: média de dias entre coletas (planilha de cadência) */
+export interface ClientCadence {
+  clientId: string | null;
+  /** média de dias entre uma coleta e a próxima */
+  mediaDias: number | null;
+  /** quantas coletas do cliente entraram no cálculo */
+  coletas: number;
+  /** data da última coleta considerada (yyyy-mm-dd) */
+  ultimaColeta: string | null;
+}
+
 export interface AppState {
   version: number;
   sessionRole: Role;
@@ -207,6 +218,7 @@ export interface AppState {
   activities: RouteActivity[];
   volumes: MonthlyVolume[];
   payments: ClientPayment[];
+  cadence: ClientCadence[];
 }
 
 export interface DaySummary {

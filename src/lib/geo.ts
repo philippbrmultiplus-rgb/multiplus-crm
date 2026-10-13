@@ -126,9 +126,14 @@ export function mesLabel(iso: string): string {
   return `${MESES[(m || 1) - 1]}/${y}`;
 }
 
+/** número no padrão pt-BR com até 1 casa decimal (ex.: 13,4) */
+export function formatNumero(n: number): string {
+  return n.toLocaleString("pt-BR", { maximumFractionDigits: 1 });
+}
+
 /** volume em m³ (sem casas decimais quando é inteiro) */
 export function formatM3(n: number): string {
-  return n.toLocaleString("pt-BR", { maximumFractionDigits: 1 });
+  return formatNumero(n);
 }
 
 /** chave de comparação de cidade: sem acento, sem espaços repetidos e em minúsculas */

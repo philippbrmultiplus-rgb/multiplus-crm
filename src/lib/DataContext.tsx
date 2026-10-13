@@ -15,6 +15,7 @@ import type {
   AppState,
   Client,
   ClientAlert,
+  ClientCadence,
   ClientPayment,
   MonthlyVolume,
   Role,
@@ -182,6 +183,15 @@ function paymentFromRow(r: Record<string, any>): ClientPayment {
   };
 }
 
+function cadenceFromRow(r: Record<string, any>): ClientCadence {
+  return {
+    clientId: r.client_id ?? null,
+    mediaDias: r.media_dias != null ? Number(r.media_dias) : null,
+    coletas: Number(r.coletas ?? 0),
+    ultimaColeta: r.ultima_coleta ? String(r.ultima_coleta).slice(0, 10) : null,
+  };
+}
+
 function emptyState(): AppState {
   return {
     version: 1,
@@ -195,6 +205,7 @@ function emptyState(): AppState {
     activities: [],
     volumes: [],
     payments: [],
+    cadence: [],
   };
 }
 
@@ -210,6 +221,7 @@ function loadLocalCache(): AppState | null {
           activities: parsed.activities ?? [],
           volumes: parsed.volumes ?? [],
           payments: parsed.payments ?? [],
+          cadence: parsed.cadence ?? [],
         };
     }
   } catch {
@@ -578,6 +590,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       activitiesRes,
       volumesRes,
       paymentsRes,
+      cadenceRes,
     ] = await Promise.all([
       supabase.from("clients").select("*").order("name"),
       supabase.from("settings").select("*").eq("id", 1).maybeSingle(),
@@ -588,6 +601,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       supabase.from("route_activities").select("*").order("created_at"),
       supabase.from("client_monthly_volumes").select("*").order("month"),
       supabase.from("client_payments").select("*").order("created_at"),
+      supabase.from("client_cadence").select("*").order("media_dias"),
     ]);
 
     const clients = (clientsRes.data ?? []).map((r) => clientFromRow(r as unknown as Record<string, any>));
@@ -613,6 +627,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
     );
     const payments = (paymentsRes.data ?? []).map((r) =>
       paymentFromRow(r as unknown as Record<string, any>),
+    );
+    const cadence = (cadenceRes.data ?? []).map((r) =>
+      cadenceFromRow(r as unknown as Record<string, any>),
     );
 
     // coordenaador: aplica cadência/frequência e última troca da planilha uma única vez
@@ -640,6 +657,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       activities,
       volumes,
       payments,
+      cadence,
     }));
     setCloudReady(true);
     setLastSyncAt(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }));
@@ -1161,6 +1179,21 @@ export function DataProvider({ children }: { children: ReactNode }) {
             payments: prev.payments.some((p) => p.id === payment.id)
               ? prev.payments.map((p) => (p.id === payment.id ? payment : p))
               : [...prev.payments, payment],
+          }));
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "client_cadence" },
+        (payload) => {
+          const row = (payload.new ?? payload.old) as Record<string, any>;
+          if (!row?.client_id) return;
+          const cadence = cadenceFromRow(row);
+          setAppState((prev) => ({
+            ...prev,
+            cadence: prev.cadence.some((c) => c.clientId === cadence.clientId)
+              ? prev.cadence.map((c) => (c.clientId === cadence.clientId ? cadence : c))
+              : [...prev.cadence, cadence],
           }));
         },
       )
@@ -2460,6 +2493,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         activities: parsed.activities ?? [],
         volumes: parsed.volumes ?? [],
         payments: parsed.payments ?? [],
+        cadence: parsed.cadence ?? [],
         settings: { ...defaultSettings, ...parsed.settings },
       });
       if (canWriteClientData()) {

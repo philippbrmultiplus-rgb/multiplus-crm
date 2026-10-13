@@ -3397,6 +3397,43 @@ export type Database = {
           },
         ]
       }
+      client_cadence: {
+        Row: {
+          atualizado_em: string
+          client_id: string | null
+          coletas: number
+          id: string
+          media_dias: number | null
+          nome_planilha: string
+          ultima_coleta: string | null
+        }
+        Insert: {
+          atualizado_em?: string
+          client_id?: string | null
+          coletas?: number
+          id?: string
+          media_dias?: number | null
+          nome_planilha: string
+          ultima_coleta?: string | null
+        }
+        Update: {
+          atualizado_em?: string
+          client_id?: string | null
+          coletas?: number
+          id?: string
+          media_dias?: number | null
+          nome_planilha?: string
+          ultima_coleta?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_cadence_client_id_fkey"
+            columns: ["client_id"]
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_monthly_volumes: {
         Row: {
           client_id: string | null
