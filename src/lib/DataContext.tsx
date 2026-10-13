@@ -34,6 +34,34 @@ import { toLocalDateKey } from "./geo";
 
 const STORAGE_KEY = "rs-app-state.v1";
 
+/** fotos já enviadas que não conseguiram anexar à visita (queda de conexão no meio do caminho) */
+const PENDING_PHOTOS_KEY = "rs-pending-photos.v1";
+
+interface PendingPhoto {
+  visitId: string;
+  urls: string[];
+}
+
+function loadPendingPhotos(): PendingPhoto[] {
+  try {
+    const raw = localStorage.getItem(PENDING_PHOTOS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as PendingPhoto[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function savePendingPhotos(list: PendingPhoto[]) {
+  try {
+    if (list.length === 0) localStorage.removeItem(PENDING_PHOTOS_KEY);
+    else localStorage.setItem(PENDING_PHOTOS_KEY, JSON.stringify(list));
+  } catch {
+    // storage indisponível — ignora
+  }
+}
+
 // eslint-disable-next-line react-refresh/only-export-components
 export const defaultSettings: Settings = {
   homeLat: -30.0346,
@@ -1074,6 +1102,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
     };
   }, [user, setAppState]);
 
+  /* ---------- fotos pendentes: tenta anexar ao entrar no app e quando a conexão volta ---------- */
+  useEffect(() => {
+    if (!user) return;
+    void flushPendingPhotos();
+    const aoVoltarConexao = () => void flushPendingPhotos();
+    window.addEventListener("online", aoVoltarConexao);
+    return () => window.removeEventListener("online", aoVoltarConexao);
+  }, [user, flushPendingPhotos]);
+
   /* ---------- operações de dados (local + nuvem) ---------- */
 
   const canWriteClientData = () => roleRef.current === "coordenador" && !!uidRef.current;
@@ -1628,6 +1665,61 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [uploadVisitPhoto],
   );
 
+  /**
+   * Anexa na visita as fotos que já subiram para o storage, com novas tentativas.
+   * Confirma que a linha foi realmente alterada — sem isso uma falha de rede passaria batido.
+   */
+  const attachVisitPhotos = useCallback(async (visitId: string, urls: string[]) => {
+    const esperas = [0, 1500, 4000];
+    for (const espera of esperas) {
+      if (espera) await new Promise((r) => setTimeout(r, espera));
+      const { data, error } = await supabase
+        .from("visits")
+        .update({ photo_url: urls[0] ?? null, photos: urls })
+        .eq("id", visitId)
+        .select("id");
+      if (!error && data && data.length > 0) return true;
+      if (error) console.warn("anexar fotos à visita:", error.message);
+    }
+    return false;
+  }, []);
+
+  /** guarda as fotos que não anexaram para tentar de novo quando a conexão voltar */
+  const enqueuePendingPhotos = useCallback((visitId: string, urls: string[]) => {
+    const pendentes = loadPendingPhotos().filter((p) => p.visitId !== visitId);
+    pendentes.push({ visitId, urls });
+    savePendingPhotos(pendentes);
+  }, []);
+
+  /** tenta anexar de novo as fotos pendentes (ao entrar no app e ao voltar a conexão) */
+  const flushPendingPhotos = useCallback(async () => {
+    const pendentes = loadPendingPhotos();
+    if (pendentes.length === 0) return;
+    const anexadas: PendingPhoto[] = [];
+    const restantes: PendingPhoto[] = [];
+    for (const item of pendentes) {
+      const ok = await attachVisitPhotos(item.visitId, item.urls);
+      (ok ? anexadas : restantes).push(item);
+    }
+    savePendingPhotos(restantes);
+    if (anexadas.length === 0) return;
+    setAppState((prev) => ({
+      ...prev,
+      visits: prev.visits.map((v) => {
+        const anexada = anexadas.find((a) => a.visitId === v.id);
+        return anexada
+          ? {
+              ...v,
+              photos: anexada.urls,
+              photoUrl: anexada.urls[0] ?? null,
+              photoData: anexada.urls[0],
+            }
+          : v;
+      }),
+    }));
+    toast.success(`${anexadas.length} visita(s) ficaram com as fotos anexadas agora.`);
+  }, [attachVisitPhotos, setAppState]);
+
   const addVisit = useCallback(
     (visit: Visit, opts?: { uploadPhoto?: boolean }) => {
       const localDate = toLocalDateKey(visit.visitedAt);
@@ -1675,22 +1767,22 @@ export function DataProvider({ children }: { children: ReactNode }) {
             photoData: uploaded[0],
             photoDataList: undefined,
           };
-          const { error: upErr } = await supabase
-            .from("visits")
-            .update({ photo_url: synced.photoUrl, photos: synced.photos })
-            .eq("id", visit.id);
-          if (upErr) {
-            console.warn("falha ao salvar fotos da visita", upErr.message);
-          } else {
+          const anexado = await attachVisitPhotos(visit.id, uploaded);
+          if (anexado) {
             setAppState((prev) => ({
               ...prev,
               visits: prev.visits.map((v) => (v.id === visit.id ? synced : v)),
             }));
+          } else {
+            enqueuePendingPhotos(visit.id, uploaded);
+            toast.warning("As fotos foram enviadas, mas não anexaram à visita.", {
+              description: "Vamos tentar de novo automaticamente quando a conexão voltar.",
+            });
           }
         }
       })();
     },
-    [setAppState, uploadVisitPhotos],
+    [setAppState, uploadVisitPhotos, attachVisitPhotos, enqueuePendingPhotos],
   );
 
   /**
@@ -1802,20 +1894,22 @@ export function DataProvider({ children }: { children: ReactNode }) {
             photoData: uploaded[0],
             photoDataList: undefined,
           };
-          const { error: upErr } = await supabase
-            .from("visits")
-            .update({ photo_url: synced.photoUrl, photos: synced.photos })
-            .eq("id", visit.id);
-          if (!upErr) {
+          const anexado = await attachVisitPhotos(visit.id, uploaded);
+          if (anexado) {
             setAppState((prev) => ({
               ...prev,
               visits: prev.visits.map((v) => (v.id === visit.id ? synced : v)),
             }));
+          } else {
+            enqueuePendingPhotos(visit.id, uploaded);
+            toast.warning("As fotos foram enviadas, mas não anexaram à visita.", {
+              description: "Vamos tentar de novo automaticamente quando a conexão voltar.",
+            });
           }
         }
       })();
     },
-    [setAppState, state.routeVisits, state.settings, uploadVisitPhotos],
+    [setAppState, state.routeVisits, state.settings, uploadVisitPhotos, attachVisitPhotos, enqueuePendingPhotos],
   );
 
   /** finaliza a prospecção (fechado ou proposta recusada) — trava depois de decidido */
