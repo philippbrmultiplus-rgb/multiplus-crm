@@ -20,29 +20,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useData } from "@/lib/DataContext";
-import { formatM3 } from "@/lib/geo";
+import { formatM3, mesLabel } from "@/lib/geo";
 import { useIsMobile } from "@/hooks/use-mobile";
-
-const MESES = [
-  "Janeiro",
-  "Fevereiro",
-  "Março",
-  "Abril",
-  "Maio",
-  "Junho",
-  "Julho",
-  "Agosto",
-  "Setembro",
-  "Outubro",
-  "Novembro",
-  "Dezembro",
-];
-
-/** "2026-07-01" -> "Julho/2026" */
-function mesLabel(iso: string): string {
-  const [y, m] = iso.split("-").map(Number);
-  return `${MESES[(m || 1) - 1]}/${y}`;
-}
 
 /** volume em m³ (sem casas decimais quando é inteiro) */
 const m3 = formatM3;

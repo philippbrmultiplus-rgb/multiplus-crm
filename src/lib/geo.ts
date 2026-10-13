@@ -104,6 +104,28 @@ export function daysSinceToday(iso: string | null | undefined): number | null {
   return Math.max(0, Math.floor((today - from) / 86400000));
 }
 
+/** nomes dos meses em português */
+export const MESES = [
+  "Janeiro",
+  "Fevereiro",
+  "Março",
+  "Abril",
+  "Maio",
+  "Junho",
+  "Julho",
+  "Agosto",
+  "Setembro",
+  "Outubro",
+  "Novembro",
+  "Dezembro",
+];
+
+/** "2026-07-01" -> "Julho/2026" */
+export function mesLabel(iso: string): string {
+  const [y, m] = iso.split("-").map(Number);
+  return `${MESES[(m || 1) - 1]}/${y}`;
+}
+
 /** volume em m³ (sem casas decimais quando é inteiro) */
 export function formatM3(n: number): string {
   return n.toLocaleString("pt-BR", { maximumFractionDigits: 1 });

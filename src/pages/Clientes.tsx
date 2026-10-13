@@ -59,7 +59,7 @@ import { useData } from "@/lib/DataContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { LeafletMap } from "@/components/map/LeafletMap";
 import { cadenceLabel } from "@/lib/cadence";
-import { agruparCidades, cidadeKey, formatDateBR, formatKm, formatM3 } from "@/lib/geo";
+import { agruparCidades, cidadeKey, formatDateBR, formatKm, formatM3, mesLabel } from "@/lib/geo";
 import {
   coletaDays,
   compareClients,
@@ -951,6 +951,12 @@ function ClientHistoryDialog({ client, onClose }: { client: Client | null; onClo
     .filter((v) => v.clientId === client.id)
     .sort((a, b) => (a.visitedAt < b.visitedAt ? 1 : -1));
 
+  // volume coletado por mês (das planilhas de entrada) — do mês mais recente para o mais antigo
+  const volumes = state.volumes
+    .filter((v) => v.clientId === client.id)
+    .sort((a, b) => (a.month < b.month ? 1 : -1));
+  const volumeTotal = volumes.reduce((acc, v) => acc + v.volumeM3, 0);
+
   type Linha =
     | { kind: "visita"; key: string; date: string; visit: Visit }
     | {
@@ -990,6 +996,25 @@ function ClientHistoryDialog({ client, onClose }: { client: Client | null; onClo
             {coletas.length > 0 && ` · ${coletas.length} registro(s) de troca/coleta`}
           </DialogDescription>
         </DialogHeader>
+
+        {volumes.length > 0 && (
+          <div className="rounded-lg border p-3">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <span className="text-xs font-medium text-muted-foreground">Volume por mês (m³)</span>
+              <span className="text-xs text-muted-foreground">
+                total {formatM3(volumeTotal)} m³
+              </span>
+            </div>
+            <div className="mt-2 space-y-1 text-sm">
+              {volumes.map((v) => (
+                <div key={v.month} className="flex items-baseline justify-between gap-2">
+                  <span className="text-muted-foreground">{mesLabel(v.month)}</span>
+                  <span className="tabular-nums">{formatM3(v.volumeM3)} m³</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {loading && <p className="text-sm text-muted-foreground">Carregando histórico…</p>}
 
