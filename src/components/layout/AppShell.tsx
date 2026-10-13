@@ -11,6 +11,7 @@ import {
   LogOut,
   Map as MapIcon,
   MapPin,
+  Repeat,
   Route as RouteIcon,
   Target,
   Users,
@@ -64,6 +65,12 @@ const NAV_ITEMS: NavItem[] = [
     label: "Comparativo mensal",
     icon: BarChart3,
     roles: ["coordenador", "vendedor", "gerente"],
+  },
+  {
+    to: "/cadencia",
+    label: "Cadência de troca",
+    icon: Repeat,
+    roles: ["coordenador", "gerente"],
   },
   { to: "/backup", label: "Dados & backup", icon: Database, roles: ["coordenador", "gerente"] },
 ];

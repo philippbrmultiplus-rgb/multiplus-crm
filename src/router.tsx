@@ -12,6 +12,7 @@ import MinhaRotaMes from "./pages/MinhaRotaMes";
 import Visitas from "./pages/Visitas";
 import Alertas from "./pages/Alertas";
 import ComparativoMensal from "./pages/ComparativoMensal";
+import Cadencia from "./pages/Cadencia";
 import Backup from "./pages/Backup";
 import NotFound from "./pages/NotFound";
 
@@ -117,6 +118,15 @@ export const routers = [
     element: (
       <AppShell>
         <ComparativoMensal />
+      </AppShell>
+    ),
+  },
+  {
+    path: "/cadencia",
+    name: "cadencia",
+    element: (
+      <AppShell>
+        <Cadencia />
       </AppShell>
     ),
   },

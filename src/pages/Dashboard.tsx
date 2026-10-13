@@ -5,25 +5,15 @@ import {
   ArrowRight,
   CalendarCheck2,
   Plus,
-  Repeat,
   Route as RouteIcon,
-  Search,
   Target,
   Users,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useData } from "@/lib/DataContext";
-import { addDays, daysSinceToday, formatDateBR, formatNumero, mondayOf, todayKey } from "@/lib/geo";
+import { addDays, daysSinceToday, formatDateBR, mondayOf, todayKey } from "@/lib/geo";
 import {
   coletaDays,
   coletaStatus,
@@ -130,11 +120,8 @@ function CoberturaBarra({
 
 export default function Dashboard() {
   const { state, role } = useData();
-  const { clients, visits, routes, routeVisits, alerts, cadence } = state;
+  const { clients, visits, routes, routeVisits, alerts } = state;
   const [novoAlerta, setNovoAlerta] = useState(false);
-  // cadência de troca: busca e ordem da lista
-  const [buscaCad, setBuscaCad] = useState("");
-  const [ordemCad, setOrdemCad] = useState<"menor" | "maior" | "nome">("menor");
 
   const activeClients = useMemo(() => clients.filter((c) => c.active), [clients]);
   const weekStart = mondayOf(todayKey());
@@ -264,44 +251,6 @@ export default function Dashboard() {
       ],
     };
   }, [clients, visits]);
-
-  // cadência de troca: média de dias entre coletas de cada cliente (planilha de cadência)
-  const cadencia = useMemo(
-    () =>
-      cadence
-        .filter((c) => c.clientId && c.mediaDias != null)
-        .map((c) => {
-          const cliente = clients.find((x) => x.id === c.clientId);
-          return {
-            id: c.clientId as string,
-            nome: cliente?.name ?? "",
-            segmento: cliente?.segment ?? "",
-            mediaDias: c.mediaDias as number,
-            coletas: c.coletas,
-            ultimaColeta: c.ultimaColeta,
-          };
-        })
-        .filter((c) => c.nome !== ""),
-    [cadence, clients],
-  );
-
-  const cadenciaMedia = useMemo(
-    () => (cadencia.length ? cadencia.reduce((acc, c) => acc + c.mediaDias, 0) / cadencia.length : 0),
-    [cadencia],
-  );
-
-  const cadenciaLista = useMemo(() => {
-    const q = buscaCad.trim().toLowerCase();
-    return cadencia
-      .filter((c) => (q ? `${c.nome} ${c.segmento}`.toLowerCase().includes(q) : true))
-      .sort((a, b) =>
-        ordemCad === "nome"
-          ? a.nome.localeCompare(b.nome, "pt-BR")
-          : ordemCad === "menor"
-            ? a.mediaDias - b.mediaDias || a.nome.localeCompare(b.nome, "pt-BR")
-            : b.mediaDias - a.mediaDias || a.nome.localeCompare(b.nome, "pt-BR"),
-      );
-  }, [cadencia, buscaCad, ordemCad]);
 
   const stats = [
     {
@@ -562,87 +511,6 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       )}
-
-      <Card className="card-soft">
-        <CardHeader className="pb-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Repeat className="h-4 w-4 text-primary" /> Cadência de troca
-              </CardTitle>
-              <CardDescription>
-                Média de dias entre uma coleta e a seguinte, por cliente (base: coletas de junho a
-                outubro/2026). O segmento vem do cadastro.
-              </CardDescription>
-            </div>
-            <div className="flex flex-wrap items-center gap-2 text-xs">
-              <Badge className="bg-primary/10 text-primary">
-                {cadencia.length} cliente(s) analisado(s)
-              </Badge>
-              <Badge variant="outline">média geral {formatNumero(cadenciaMedia)} dias</Badge>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="relative min-w-52 flex-1">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                className="pl-8"
-                placeholder="Buscar cliente ou segmento…"
-                value={buscaCad}
-                onChange={(e) => setBuscaCad(e.target.value)}
-              />
-            </div>
-            <Select value={ordemCad} onValueChange={(v) => setOrdemCad(v as typeof ordemCad)}>
-              <SelectTrigger className="w-64">
-                <SelectValue placeholder="Ordem" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="menor">Menor média de dias (mais frequente)</SelectItem>
-                <SelectItem value="maior">Maior média de dias (mais espaçada)</SelectItem>
-                <SelectItem value="nome">Nome A–Z</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {cadencia.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              Ainda não há cadência calculada — ela vem da planilha de cadência de coletas.
-            </p>
-          ) : (
-            <div className="max-h-96 space-y-1.5 overflow-y-auto overscroll-contain pr-1">
-              {cadenciaLista.map((c) => (
-                <div
-                  key={c.id}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-2 text-sm"
-                >
-                  <span className="min-w-0 flex-1">
-                    <span className="truncate font-medium">{c.nome}</span>
-                    <span className="ml-1.5 text-xs text-muted-foreground">
-                      {c.segmento || "sem segmento"}
-                    </span>
-                  </span>
-                  <span className="flex shrink-0 flex-wrap items-center gap-2 text-xs">
-                    <Badge className="bg-primary/10 text-primary">
-                      a cada {formatNumero(c.mediaDias)} dias
-                    </Badge>
-                    <span className="text-muted-foreground">
-                      {c.coletas} {c.coletas === 1 ? "coleta" : "coletas"}
-                      {c.ultimaColeta ? ` · última ${formatDateBR(c.ultimaColeta)}` : ""}
-                    </span>
-                  </span>
-                </div>
-              ))}
-              {cadenciaLista.length === 0 && (
-                <p className="py-6 text-center text-sm text-muted-foreground">
-                  Nenhum cliente encontrado com a busca atual.
-                </p>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
 
       <Card className="card-soft">
         <CardHeader className="pb-3">
