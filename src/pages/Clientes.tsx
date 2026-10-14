@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import {
   CheckCircle2,
   Download,
+  Filter,
   History,
   Loader2,
   Map as MapIcon,
@@ -209,7 +210,8 @@ export default function Clientes() {
     return (["A", "B", "C", "D"] as const).filter((t) => tiers.has(t) || tier === t);
   }, [clients, matchOutros, tier]);
 
-  const filtered = useMemo(() => {
+  /** lista já filtrada e ordenada (sem o corte de 300) */
+  const matching = useMemo(() => {
     const q = search.trim().toLowerCase();
     return clients
       .filter((c) => (onlyActive ? c.active : true))
@@ -252,9 +254,12 @@ export default function Clientes() {
           return da - db || compareClients(a, b, "grupo");
         }
         return compareClients(a, b, sortBy);
-      })
-      .slice(0, 300);
+      });
   }, [clients, search, city, tier, segment, situ, situVisita, dist, sortBy, onlyActive]);
+
+  /** a lista é longa: mostra até 300, mas o total filtrado continua contando todos */
+  const filtered = useMemo(() => matching.slice(0, 300), [matching]);
+  const filteredTotal = matching.length;
 
   const segmentOptions = useMemo(
     () =>
@@ -373,7 +378,13 @@ export default function Clientes() {
             prospecção(ões) · {comPagamento.size} pagos
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {anyFilter && (
+            <Badge className="gap-1.5 bg-primary/10 px-3 py-1.5 text-sm text-primary">
+              <Filter className="h-3.5 w-3.5" />
+              {filteredTotal} {filteredTotal === 1 ? "cliente filtrado" : "clientes filtrados"}
+            </Badge>
+          )}
           {podeEditar && (
             <Button onClick={() => setNovo(true)}>
               <Plus className="mr-2 h-4 w-4" /> Novo cliente
