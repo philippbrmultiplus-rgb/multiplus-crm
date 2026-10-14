@@ -70,7 +70,7 @@ const NAV_ITEMS: NavItem[] = [
     to: "/cadencia",
     label: "Cadência de troca",
     icon: Repeat,
-    roles: ["coordenador", "gerente"],
+    roles: ["coordenador", "vendedor", "gerente"],
   },
   { to: "/backup", label: "Dados & backup", icon: Database, roles: ["coordenador", "gerente"] },
 ];
