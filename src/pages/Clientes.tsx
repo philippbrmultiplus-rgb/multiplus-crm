@@ -61,7 +61,15 @@ import { useData } from "@/lib/DataContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { LeafletMap } from "@/components/map/LeafletMap";
 import { cadenceLabel } from "@/lib/cadence";
-import { agruparCidades, cidadeKey, formatDateBR, formatKm, formatM3, mesLabel } from "@/lib/geo";
+import {
+  agruparCidades,
+  cidadeKey,
+  formatDateBR,
+  formatKm,
+  formatM3,
+  formatNumero,
+  mesLabel,
+} from "@/lib/geo";
 import {
   coletaDays,
   compareClients,
@@ -139,7 +147,8 @@ export default function Clientes() {
   const [situ, setSitu] = useState(params.get("situ") ?? "todas");
   const [situVisita, setSituVisita] = useState(params.get("situVisita") ?? "todas");
   const [dist, setDist] = useState("todas");
-  const [sortBy, setSortBy] = useState<ClientSort>("grupo");
+  const [pago, setPago] = useState("todos");
+  const [sortBy, setSortBy] = useState<ClientSort>("nome");
   const [onlyActive, setOnlyActive] = useState(true);
   const [editing, setEditing] = useState<Client | null>(null);
   const [toDelete, setToDelete] = useState<Client | null>(null);
@@ -210,6 +219,22 @@ export default function Clientes() {
     return (["A", "B", "C", "D"] as const).filter((t) => tiers.has(t) || tier === t);
   }, [clients, matchOutros, tier]);
 
+  // clientes com condição de pagamento registrada (planilha de pagamentos)
+  const comPagamento = useMemo(() => {
+    const ids = new Set<string>();
+    for (const p of state.payments) if (p.clientId) ids.add(p.clientId);
+    return ids;
+  }, [state.payments]);
+
+  // média de dias entre coletas de cada cliente (vem da Cadência de troca)
+  const cadenciaPorCliente = useMemo(() => {
+    const mapa = new Map<string, number>();
+    for (const c of state.cadence) {
+      if (c.clientId && c.mediaDias != null) mapa.set(c.clientId, c.mediaDias);
+    }
+    return mapa;
+  }, [state.cadence]);
+
   /** lista já filtrada e ordenada (sem o corte de 300) */
   const matching = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -238,9 +263,14 @@ export default function Clientes() {
       })
       .filter((c) => (dist === "todas" ? true : distanciaFaixa(c) === dist))
       .filter((c) =>
+        pago === "todos" ? true : pago === "sim" ? comPagamento.has(c.id) : !comPagamento.has(c.id),
+      )
+      .filter((c) =>
         q ? `${c.name} ${c.address} ${c.city} ${c.segment}`.toLowerCase().includes(q) : true,
       )
       .sort((a, b) => {
+        // a ordem escolhida manda: nome A–Z sempre alfabético
+        if (sortBy === "nome") return compareClients(a, b, "nome");
         // a situação escolhida define a ordem: atrasada = da mais atrasada para baixo;
         // em dia = da mais em dia (menos dias sem coleta) para baixo
         if (situ === "atrasada") {
@@ -255,7 +285,7 @@ export default function Clientes() {
         }
         return compareClients(a, b, sortBy);
       });
-  }, [clients, search, city, tier, segment, situ, situVisita, dist, sortBy, onlyActive]);
+  }, [clients, search, city, tier, segment, situ, situVisita, dist, pago, sortBy, onlyActive, comPagamento]);
 
   /** a lista é longa: mostra até 300, mas o total filtrado continua contando todos */
   const filtered = useMemo(() => matching.slice(0, 300), [matching]);
@@ -272,13 +302,6 @@ export default function Clientes() {
 
   const prospectCount = useMemo(() => clients.filter((c) => c.isProspecao).length, [clients]);
 
-  // clientes com condição de pagamento registrada (planilha de pagamentos)
-  const comPagamento = useMemo(() => {
-    const ids = new Set<string>();
-    for (const p of state.payments) if (p.clientId) ids.add(p.clientId);
-    return ids;
-  }, [state.payments]);
-
   const anyFilter =
     search.trim() !== "" ||
     city !== "all" ||
@@ -286,7 +309,8 @@ export default function Clientes() {
     segment !== "all" ||
     situ !== "todas" ||
     situVisita !== "todas" ||
-    dist !== "todas";
+    dist !== "todas" ||
+    pago !== "todos";
 
   const resetFilters = () => {
     setSearch("");
@@ -296,6 +320,7 @@ export default function Clientes() {
     setSitu("todas");
     setSituVisita("todas");
     setDist("todas");
+    setPago("todos");
   };
 
   const pendingGeocode = clients.filter((c) => c.lat == null || c.geocodeStatus !== "ok").length;
@@ -331,10 +356,12 @@ export default function Clientes() {
       "Última troca": c.lastCollectAt ? formatDateBR(c.lastCollectAt) : "",
       "Dias sem troca": coletaDays(c) ?? "",
       "Situação da troca": situacaoTroca(c),
+      "Cadência de troca (dias)": cadenciaPorCliente.get(c.id) ?? "",
       "Última visita": c.lastVisitAt ? formatDateBR(c.lastVisitAt) : "",
       "Dias sem visita": lastVisitDays(c) ?? "",
       "Situação da visita": situacaoVisita(c),
       Ativo: c.active ? "Sim" : "Não",
+      Pago: comPagamento.has(c.id) ? "Sim" : "Não",
       Prospecção: c.isProspecao ? "Sim" : "Não",
       Observações: c.obs ?? "",
       Latitude: c.lat ?? "",
@@ -517,15 +544,25 @@ export default function Clientes() {
             <SelectItem value="sem_ou_atrasada">Sem visita ou atrasada (&gt;30 dias)</SelectItem>
           </SelectContent>
         </Select>
+        <Select value={pago} onValueChange={setPago}>
+          <SelectTrigger className="w-40">
+            <SelectValue placeholder="Pago" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Pago: todos</SelectItem>
+            <SelectItem value="sim">Pago: sim ({comPagamento.size})</SelectItem>
+            <SelectItem value="nao">Pago: não</SelectItem>
+          </SelectContent>
+        </Select>
         <Select value={sortBy} onValueChange={(v) => setSortBy(v as ClientSort)}>
           <SelectTrigger className="w-56">
             <SelectValue placeholder="Ordem" />
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value="nome">Nome A–Z</SelectItem>
             <SelectItem value="grupo">Grupo + mais tempo sem coleta</SelectItem>
             <SelectItem value="atraso">Mais tempo sem coleta</SelectItem>
             <SelectItem value="volume">Maior volume (t/mês)</SelectItem>
-            <SelectItem value="nome">Nome A–Z</SelectItem>
           </SelectContent>
         </Select>
         <label className="flex h-9 items-center gap-2 text-sm text-muted-foreground">
@@ -622,6 +659,14 @@ export default function Clientes() {
                     </span>
                   )}
                 </div>
+                {cadenciaPorCliente.has(c.id) && (
+                  <p
+                    className="text-[11px] text-muted-foreground"
+                    title="Média de dias entre coletas (Cadência de troca)"
+                  >
+                    cadência de troca: a cada {formatNumero(cadenciaPorCliente.get(c.id) as number)} dias
+                  </p>
+                )}
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[11px] text-muted-foreground">Última visita</span>
                   <VisitaBadge c={c} />
@@ -710,6 +755,14 @@ export default function Clientes() {
                         </span>
                         <ColetaBadge c={c} />
                       </span>
+                    )}
+                    {cadenciaPorCliente.has(c.id) && (
+                      <div
+                        className="text-[11px] text-muted-foreground"
+                        title="Média de dias entre coletas (Cadência de troca)"
+                      >
+                        a cada {formatNumero(cadenciaPorCliente.get(c.id) as number)} dias
+                      </div>
                     )}
                   </TableCell>
                   <TableCell>
