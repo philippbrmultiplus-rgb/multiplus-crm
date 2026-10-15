@@ -877,16 +877,26 @@ function ProspecaoDialog({
   route: WeeklyRoute | null;
   onClose: () => void;
 }) {
-  const { createClient, addRouteVisit } = useData();
+  const { state, createClient, addRouteVisit } = useData();
   const [nome, setNome] = useState("Prospecção");
   const [cidade, setCidade] = useState("");
   const [endereco, setEndereco] = useState("");
   const [segmento, setSegmento] = useState("");
+  const [segmentoComercial, setSegmentoComercial] = useState("");
   const [contato, setContato] = useState("");
   const [freq, setFreq] = useState("1");
   const [obs, setObs] = useState("");
   const [ativo, setAtivo] = useState(true);
   const [pos, setPos] = useState<{ lat: number; lng: number } | null>(null);
+
+  /** segmentos logísticos já usados na carteira (lista fechada) */
+  const segmentOptions = useMemo(
+    () =>
+      [...new Set(state.clients.map((c) => c.segment).filter(Boolean))].sort((a, b) =>
+        a.localeCompare(b, "pt-BR"),
+      ),
+    [state.clients],
+  );
 
   const salvar = () => {
     if (!route) {
@@ -898,6 +908,7 @@ function ProspecaoDialog({
       id: `cli-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       name: nome.trim() || "Prospecção",
       segment: segmento.trim(),
+      segmentoComercial: segmentoComercial.trim() || null,
       address: endereco.trim(),
       city: cidade.trim(),
       state: "RS",
@@ -944,16 +955,38 @@ function ProspecaoDialog({
             />
           </div>
           <div className="space-y-1.5">
+            <Label>Segmento logístico</Label>
+            <Select value={segmento || "__none__"} onValueChange={(v) => setSegmento(v === "__none__" ? "" : v)}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Selecionar segmento" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">—</SelectItem>
+                {segmentOptions.map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {s}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>
+              Segmento comercial <span className="font-normal text-muted-foreground">(opcional)</span>
+            </Label>
+            <Input
+              value={segmentoComercial}
+              onChange={(e) => setSegmentoComercial(e.target.value)}
+              placeholder="Ex.: construtora, gesseiro, entulho…"
+            />
+          </div>
+          <div className="space-y-1.5">
             <Label>Cidade</Label>
             <Input value={cidade} onChange={(e) => setCidade(e.target.value)} placeholder="Porto Alegre" />
           </div>
           <div className="space-y-1.5">
             <Label>Contato</Label>
             <Input value={contato} onChange={(e) => setContato(e.target.value)} placeholder="(51) 9 9999-9999" />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Segmento</Label>
-            <Input value={segmento} onChange={(e) => setSegmento(e.target.value)} placeholder="Construção civil…" />
           </div>
           <div className="space-y-1.5 sm:col-span-2">
             <Label>Endereço</Label>
