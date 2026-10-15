@@ -59,6 +59,7 @@ import {
 } from "@/components/ui/table";
 import { useData } from "@/lib/DataContext";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useStickyState } from "@/hooks/use-sticky-state";
 import { LeafletMap } from "@/components/map/LeafletMap";
 import { cadenceLabel } from "@/lib/cadence";
 import {
@@ -139,21 +140,33 @@ export default function Clientes() {
   const [history, setHistory] = useState<Client | null>(null);
   const [novo, setNovo] = useState(false);
 
-  const [search, setSearch] = useState("");
-  const [city, setCity] = useState("all");
-  const [tier, setTier] = useState("all");
-  const [segment, setSegment] = useState("all");
+  // filtros ficam guardados: ao sair da tela e voltar, continuam como você deixou
+  const [search, setSearch] = useStickyState("rs-clientes-search", "");
+  const [city, setCity] = useStickyState("rs-clientes-city", "all");
+  const [tier, setTier] = useStickyState("rs-clientes-tier", "all");
+  const [segment, setSegment] = useStickyState("rs-clientes-segment", "all");
   const [params] = useSearchParams();
-  const [situ, setSitu] = useState(params.get("situ") ?? "todas");
-  const [situVisita, setSituVisita] = useState(params.get("situVisita") ?? "todas");
-  const [dist, setDist] = useState("todas");
-  const [pago, setPago] = useState("todos");
-  const [sortBy, setSortBy] = useState<ClientSort>("nome");
-  const [onlyActive, setOnlyActive] = useState(true);
+  const [situ, setSitu] = useStickyState("rs-clientes-situ", params.get("situ") ?? "todas");
+  const [situVisita, setSituVisita] = useStickyState(
+    "rs-clientes-situ-visita",
+    params.get("situVisita") ?? "todas",
+  );
+  const [dist, setDist] = useStickyState("rs-clientes-dist", "todas");
+  const [pago, setPago] = useStickyState("rs-clientes-pago", "todos");
+  const [sortBy, setSortBy] = useStickyState<ClientSort>("rs-clientes-ordem", "nome");
+  const [onlyActive, setOnlyActive] = useStickyState("rs-clientes-apenas-ativos", true);
   const [editing, setEditing] = useState<Client | null>(null);
   const [toDelete, setToDelete] = useState<Client | null>(null);
   const [pagamento, setPagamento] = useState<Client | null>(null);
   const [geocoding, setGeocoding] = useState<{ done: number; total: number; current: string } | null>(null);
+  // links do painel (ex.: "Em risco") aplicam a situação ao abrir a tela
+  useEffect(() => {
+    const s = params.get("situ");
+    const sv = params.get("situVisita");
+    if (s) setSitu(s);
+    if (sv) setSituVisita(sv);
+  }, [params, setSitu, setSituVisita]);
+
   // atualiza o contador "há X dias" automaticamente
   const [, setNow] = useState(0);
   useEffect(() => {
