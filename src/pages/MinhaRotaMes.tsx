@@ -14,6 +14,7 @@ import { RouteActivities } from "@/components/rota/RouteActivities";
 import { rotaStatusDot } from "@/components/clients/clientBits";
 import { VisitForm } from "@/components/visitas/VisitForm";
 import { NotDoneDialog } from "@/components/visitas/NotDoneDialog";
+import { PhoneContactDialog } from "@/components/visitas/PhoneContactDialog";
 import { VisitDetailsDialog } from "@/components/visitas/VisitDetailsDialog";
 import { DAY_NAMES, mondayOf, todayKey } from "@/lib/geo";import type { Client, RouteVisit, Visit } from "@/lib/types";
 
@@ -38,6 +39,9 @@ export default function MinhaRotaMes() {
   const [openDate, setOpenDate] = useState<string | null>(null);
   const [formClient, setFormClient] = useState<{ client: Client; routeVisitId: string } | null>(null);
   const [notDone, setNotDone] = useState<{ routeVisitId: string; clientName: string } | null>(null);
+  const [phoneContact, setPhoneContact] = useState<{ client: Client; routeVisitId: string } | null>(
+    null,
+  );
   const [detail, setDetail] = useState<{ client: Client; visit: Visit } | null>(null);
 
   const gridDates = useMemo(() => {
@@ -236,6 +240,7 @@ export default function MinhaRotaMes() {
                     setOpenDate(null);
                   }}
                   onNotDone={toggleNotDone}
+                  onPhoneContact={(c, rv) => setPhoneContact({ client: c, routeVisitId: rv.id })}
                   onOpenDetails={(client, visit) => setDetail({ client, visit })}
                 />
               ) : (
@@ -268,6 +273,14 @@ export default function MinhaRotaMes() {
           clientName={notDone.clientName}
           onClose={() => setNotDone(null)}
           onConfirm={(reason) => markRouteVisitStatus(notDone.routeVisitId, "nao_realizada", reason)}
+        />
+      )}
+
+      {phoneContact && (
+        <PhoneContactDialog
+          client={phoneContact.client}
+          routeVisitId={phoneContact.routeVisitId}
+          onClose={() => setPhoneContact(null)}
         />
       )}
 

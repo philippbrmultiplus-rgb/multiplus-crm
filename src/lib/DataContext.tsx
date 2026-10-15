@@ -437,6 +437,7 @@ function visitFromRow(r: Record<string, any>): Visit {
     photos: Array.isArray(r.photos) ? (r.photos as string[]) : r.photo_url ? [r.photo_url] : [],
     alerta: r.alerta ?? false,
     alertaMotivo: r.alerta_motivo ?? "",
+    tipoContato: r.tipo_contato === "telefone" ? "telefone" : null,
     createdBy: r.created_by ?? undefined,
   };
 }
@@ -459,6 +460,7 @@ function visitToRow(v: Visit): Record<string, any> {
     photos: v.photos ?? null,
     alerta: v.alerta ?? false,
     alerta_motivo: v.alertaMotivo ?? null,
+    tipo_contato: v.tipoContato ?? null,
   };
 }
 

@@ -11,6 +11,7 @@ import {
   MapPin,
   MapPinOff,
   Pencil,
+  Phone,
   Plus,
   RotateCcw,
   Search,
@@ -247,6 +248,18 @@ export default function Clientes() {
     }
     return mapa;
   }, [state.cadence]);
+
+  // clientes cujo último contato registrado foi por telefone
+  const ultimoContatoTelefone = useMemo(() => {
+    const ultimo = new Map<string, Visit>();
+    for (const v of state.visits) {
+      const atual = ultimo.get(v.clientId);
+      if (!atual || v.visitedAt > atual.visitedAt) ultimo.set(v.clientId, v);
+    }
+    const ids = new Set<string>();
+    for (const [id, v] of ultimo) if (v.tipoContato === "telefone") ids.add(id);
+    return ids;
+  }, [state.visits]);
 
   /** lista já filtrada e ordenada (sem o corte de 300) */
   const matching = useMemo(() => {
@@ -682,7 +695,14 @@ export default function Clientes() {
                 )}
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[11px] text-muted-foreground">Última visita</span>
-                  <VisitaBadge c={c} />
+                  <span className="flex flex-wrap items-center gap-1.5">
+                    <VisitaBadge c={c} />
+                    {ultimoContatoTelefone.has(c.id) && (
+                      <Badge className="border border-violet-500/50 bg-violet-500/10 text-violet-600 dark:text-violet-300">
+                        <Phone className="mr-1 h-3 w-3" /> telefone
+                      </Badge>
+                    )}
+                  </span>
                 </div>
               </div>
             </div>
@@ -779,7 +799,14 @@ export default function Clientes() {
                     )}
                   </TableCell>
                   <TableCell>
-                    <VisitaBadge c={c} />
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <VisitaBadge c={c} />
+                      {ultimoContatoTelefone.has(c.id) && (
+                        <Badge className="border border-violet-500/50 bg-violet-500/10 text-violet-600 dark:text-violet-300">
+                          <Phone className="mr-1 h-3 w-3" /> telefone
+                        </Badge>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell>
                     <PagamentoCell tem={comPagamento.has(c.id)} onOpen={() => setPagamento(c)} />
@@ -1300,6 +1327,11 @@ function ClientHistoryDialog({ client, onClose }: { client: Client | null; onClo
                       minute: "2-digit",
                     })}
                   </span>
+                  {v.tipoContato === "telefone" && (
+                    <Badge className="border border-violet-500/50 bg-violet-500/10 text-violet-600 dark:text-violet-300">
+                      <Phone className="mr-1 h-3 w-3" /> Contato via telefone
+                    </Badge>
+                  )}
                   <Badge
                     className={
                       v.status === "realizada"

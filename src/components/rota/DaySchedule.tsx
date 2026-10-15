@@ -1,4 +1,4 @@
-import { CheckCircle2, Clock, MapPin } from "lucide-react";
+import { CheckCircle2, Clock, MapPin, Phone } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ColetaBadge, TierBadge, VisitaBadge } from "@/components/clients/clientBadges";
@@ -16,6 +16,8 @@ export interface ScheduleRowProps {
   canAct: boolean;
   onRegister: (client: Client, routeVisit: RouteVisit) => void;
   onNotDone: (routeVisitId: string) => void;
+  /** contato feito por telefone (opcional) */
+  onPhoneContact?: (client: Client, routeVisit: RouteVisit) => void;
   /** abre os detalhes da visita já registrada naquele cliente */
   onOpenDetails?: (client: Client, visit: Visit) => void;
 }
@@ -30,6 +32,7 @@ export function DaySchedule({
   canAct,
   onRegister,
   onNotDone,
+  onPhoneContact,
   onOpenDetails,
 }: ScheduleRowProps) {
   const scheduled = computeSchedule(visits, clients, settings, day);
@@ -104,6 +107,15 @@ export function DaySchedule({
                 <Button variant="ghost" size="sm" onClick={() => onNotDone(s.routeVisit.id)}>
                   Não deu
                 </Button>
+                {onPhoneContact && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onPhoneContact(s.client, s.routeVisit)}
+                  >
+                    <Phone className="mr-1 h-3.5 w-3.5" /> Telefone
+                  </Button>
+                )}
               </div>
             )}
             {missed && canAct && (

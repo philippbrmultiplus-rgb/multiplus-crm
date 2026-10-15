@@ -138,6 +138,8 @@ export interface Visit {
   alerta?: boolean;
   /** motivo do alerta */
   alertaMotivo?: string;
+  /** como o contato foi feito: presencial (vazio) ou por telefone */
+  tipoContato?: "telefone" | null;
   createdBy?: string;
 }
 

@@ -3837,6 +3837,7 @@ export type Database = {
           result_comments: string | null
           route_visit_id: string | null
           status: string | null
+          tipo_contato: string | null
           visited_at: string
           within_radius: boolean | null
         }
@@ -3857,6 +3858,7 @@ export type Database = {
           result_comments?: string | null
           route_visit_id?: string | null
           status?: string | null
+          tipo_contato?: string | null
           visited_at?: string
           within_radius?: boolean | null
         }
@@ -3877,6 +3879,7 @@ export type Database = {
           result_comments?: string | null
           route_visit_id?: string | null
           status?: string | null
+          tipo_contato?: string | null
           visited_at?: string
           within_radius?: boolean | null
         }

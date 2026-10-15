@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { CalendarX2, ChevronDown, Search, Trash2 } from "lucide-react";
+import { CalendarX2, ChevronDown, Phone, Search, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -141,6 +141,11 @@ function VisitCard({
           </Badge>
           {v.withinRadius === false && (
             <Badge className="bg-destructive/10 text-destructive">Fora do raio</Badge>
+          )}
+          {v.tipoContato === "telefone" && (
+            <Badge className="border border-violet-500/50 bg-violet-500/10 text-violet-600 dark:text-violet-300">
+              <Phone className="mr-1 h-3 w-3" /> Contato via telefone
+            </Badge>
           )}
           {v.alerta && (
             <Badge className="border border-destructive/50 bg-destructive/10 text-destructive">
@@ -462,6 +467,11 @@ export default function Visitas() {
                     </Badge>
                     {v.withinRadius === false && (
                       <Badge className="bg-destructive/10 text-destructive">Fora do raio</Badge>
+                    )}
+                    {v.tipoContato === "telefone" && (
+                      <Badge className="border border-violet-500/50 bg-violet-500/10 text-violet-600 dark:text-violet-300">
+                        <Phone className="mr-1 h-3 w-3" /> Contato via telefone
+                      </Badge>
                     )}
                     {v.alerta && (
                       <Badge className="border border-destructive/50 bg-destructive/10 text-destructive">

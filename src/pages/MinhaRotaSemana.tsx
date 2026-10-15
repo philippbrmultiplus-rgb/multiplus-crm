@@ -8,6 +8,7 @@ import { RouteActivities } from "@/components/rota/RouteActivities";
 import { VisitForm } from "@/components/visitas/VisitForm";
 import { ProspectVisitDialog } from "@/components/visitas/ProspectVisitDialog";
 import { NotDoneDialog } from "@/components/visitas/NotDoneDialog";
+import { PhoneContactDialog } from "@/components/visitas/PhoneContactDialog";
 import { VisitDetailsDialog } from "@/components/visitas/VisitDetailsDialog";
 import {
   addDays,
@@ -26,6 +27,9 @@ export default function MinhaRotaSemana() {
   const [formClient, setFormClient] = useState<{ client: Client; routeVisitId: string } | null>(null);
   const [prospectDay, setProspectDay] = useState<number | null>(null);
   const [notDone, setNotDone] = useState<{ routeVisitId: string; clientName: string } | null>(null);
+  const [phoneContact, setPhoneContact] = useState<{ client: Client; routeVisitId: string } | null>(
+    null,
+  );
   const [detail, setDetail] = useState<{ client: Client; visit: Visit } | null>(null);
 
   const route = useMemo(() => {
@@ -150,6 +154,7 @@ export default function MinhaRotaSemana() {
                   canAct={canAct}
                   onRegister={(c, rv) => setFormClient({ client: c, routeVisitId: rv.id })}
                   onNotDone={toggleNotDone}
+                  onPhoneContact={(c, rv) => setPhoneContact({ client: c, routeVisitId: rv.id })}
                   onOpenDetails={(client, visit) => setDetail({ client, visit })}
                 />
                 <div className="mt-3 border-t pt-3">
@@ -184,6 +189,14 @@ export default function MinhaRotaSemana() {
           clientName={notDone.clientName}
           onClose={() => setNotDone(null)}
           onConfirm={(reason) => markRouteVisitStatus(notDone.routeVisitId, "nao_realizada", reason)}
+        />
+      )}
+
+      {phoneContact && (
+        <PhoneContactDialog
+          client={phoneContact.client}
+          routeVisitId={phoneContact.routeVisitId}
+          onClose={() => setPhoneContact(null)}
         />
       )}
 

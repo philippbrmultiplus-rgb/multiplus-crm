@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   MapPin,
   Navigation,
+  Phone,
   Plus,
   Search,
   UserPlus,
@@ -31,6 +32,7 @@ import { ColetaBadge, TierBadge, VisitaBadge } from "@/components/clients/client
 import { VisitForm } from "@/components/visitas/VisitForm";
 import { NotDoneDialog } from "@/components/visitas/NotDoneDialog";
 import { ProspectVisitDialog } from "@/components/visitas/ProspectVisitDialog";
+import { PhoneContactDialog } from "@/components/visitas/PhoneContactDialog";
 import { PhotoZoom } from "@/components/visitas/PhotoZoom";
 import { RouteActivities } from "@/components/rota/RouteActivities";
 import { formatDuracao, totalMinutos } from "@/lib/atividade";
@@ -45,6 +47,9 @@ export default function MinhaRota() {
   const { routes, routeVisits, clients, visits } = state;
   const [formClient, setFormClient] = useState<{ client: Client; routeVisitId: string | null } | null>(null);
   const [notDone, setNotDone] = useState<{ client: Client; routeVisitId: string } | null>(null);
+  const [phoneContact, setPhoneContact] = useState<{ client: Client; routeVisitId: string } | null>(
+    null,
+  );
   const [prospectOpen, setProspectOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
 
@@ -232,6 +237,15 @@ export default function MinhaRota() {
                       >
                         Não deu para visitar
                       </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          setPhoneContact({ client: s.client, routeVisitId: s.routeVisit.id })
+                        }
+                      >
+                        <Phone className="mr-1.5 h-4 w-4" /> Contato via telefone
+                      </Button>
                     </>
                   )}
                   {missed && (
@@ -320,6 +334,14 @@ export default function MinhaRota() {
           clientName={notDone.client.name}
           onClose={() => setNotDone(null)}
           onConfirm={(reason) => markRouteVisitStatus(notDone.routeVisitId, "nao_realizada", reason)}
+        />
+      )}
+
+      {phoneContact && (
+        <PhoneContactDialog
+          client={phoneContact.client}
+          routeVisitId={phoneContact.routeVisitId}
+          onClose={() => setPhoneContact(null)}
         />
       )}
 
