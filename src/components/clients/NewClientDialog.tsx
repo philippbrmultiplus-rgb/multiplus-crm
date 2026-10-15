@@ -43,6 +43,7 @@ export function NewClientDialog({
   const { createClient } = useData();
   const [nome, setNome] = useState("");
   const [segmento, setSegmento] = useState("");
+  const [segmentoComercial, setSegmentoComercial] = useState("");
   const [cidade, setCidade] = useState("");
   const [endereco, setEndereco] = useState("");
   const [contato, setContato] = useState("");
@@ -67,6 +68,7 @@ export function NewClientDialog({
       id: `cli-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       name: nome.trim(),
       segment: segmento.trim(),
+      segmentoComercial: segmentoComercial.trim() || null,
       city: cidade.trim(),
       address: endereco.trim(),
       state: "RS",
@@ -112,7 +114,7 @@ export function NewClientDialog({
           </div>
 
           <div className="space-y-2">
-            <Label>Segmento</Label>
+            <Label>Segmento logístico</Label>
             <Select value={segmento || "__none__"} onValueChange={(v) => setSegmento(v === "__none__" ? "" : v)}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Selecionar segmento" />
@@ -126,6 +128,15 @@ export function NewClientDialog({
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Segmento comercial</Label>
+            <Input
+              value={segmentoComercial}
+              onChange={(e) => setSegmentoComercial(e.target.value)}
+              placeholder="Ex.: construtora, gesseiro, entulho…"
+            />
           </div>
 
           <div className="space-y-2">

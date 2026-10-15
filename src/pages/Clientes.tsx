@@ -900,6 +900,7 @@ function EditClientDialog({
   const [address, setAddress] = useState(client?.address ?? "");
   const [city, setCity] = useState(client?.city ?? "");
   const [segment, setSegment] = useState(client?.segment ?? "");
+  const [segmentoComercial, setSegmentoComercial] = useState(client?.segmentoComercial ?? "");
   const [contato, setContato] = useState(client?.contato ?? "");
   const [active, setActive] = useState(client?.active ?? true);
   const [isProsp, setIsProsp] = useState(client?.isProspecao ?? false);
@@ -993,6 +994,7 @@ function EditClientDialog({
       address,
       city,
       segment,
+      segmentoComercial: segmentoComercial.trim() || null,
       contato: contato.trim() || null,
       active,
       isProspecao: isProsp,
@@ -1022,7 +1024,7 @@ function EditClientDialog({
             <Input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Porto Alegre" />
           </div>
           <div className="space-y-2">
-            <Label>Segmento</Label>
+            <Label>Segmento logístico</Label>
             <Select value={segment || SEG_NONE} onValueChange={(v) => setSegment(v === SEG_NONE ? "" : v)}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Selecionar segmento" />
@@ -1036,6 +1038,14 @@ function EditClientDialog({
                 ))}
               </SelectContent>
             </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Segmento comercial</Label>
+            <Input
+              value={segmentoComercial}
+              onChange={(e) => setSegmentoComercial(e.target.value)}
+              placeholder="Ex.: construtora, gesseiro, entulho…"
+            />
           </div>
           <div className="space-y-2">
             <Label>Contato</Label>

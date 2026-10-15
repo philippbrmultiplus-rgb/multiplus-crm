@@ -88,6 +88,9 @@ export default function Prospeccoes() {
   const [search, setSearch] = useState("");
   // permite abrir a tela já filtrada (ex.: /prospeccoes?situ=fechado)
   const [situ, setSitu] = useState(params.get("situ") ?? "todas");
+  // filtros por segmento logístico e cidade (igual à lista de clientes)
+  const [segmento, setSegmento] = useState("all");
+  const [cidade, setCidade] = useState("all");
   const [lostTarget, setLostTarget] = useState<Client | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Client | null>(null);
   const [detailTarget, setDetailTarget] = useState<Client | null>(null);
@@ -109,34 +112,52 @@ export default function Prospeccoes() {
   /** dias desde o registro de cada prospecção (visita mais recente) */
   const diasRegistro = useMemo(() => diasRegistroPorCliente(visits), [visits]);
 
+  /** universo das prospecções: as fechadas já são clientes ativos, mas seguem no histórico */
+  const universo = useMemo(
+    () => clients.filter((c) => c.isProspecao || c.prospeccaoStatus === "fechado"),
+    [clients],
+  );
+
+  /** opções dos filtros (segmento logístico e cidade) */
+  const segmentosLog = useMemo(() => {
+    const set = new Set<string>();
+    for (const c of universo) set.add(c.segment || "(sem segmento)");
+    return [...set].sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [universo]);
+
+  const cidades = useMemo(() => {
+    const set = new Set<string>();
+    for (const c of universo) set.add(c.city || "(sem cidade)");
+    return [...set].sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [universo]);
+
   const prospects = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return clients
-      // as fechadas já são clientes ativos, mas continuam aparecendo aqui no histórico
-      .filter((c) => c.isProspecao || c.prospeccaoStatus === "fechado")
+    return universo
       .filter((c) =>
         situ === "todas"
           ? true
           : situacaoOf(c.prospeccaoStatus, diasRegistro.get(c.id) ?? null) === situ,
       )
+      .filter((c) => (segmento === "all" ? true : (c.segment || "(sem segmento)") === segmento))
+      .filter((c) => (cidade === "all" ? true : (c.city || "(sem cidade)") === cidade))
       .filter((c) =>
         q ? `${c.name} ${c.responsavel ?? ""} ${c.city} ${c.segment}`.toLowerCase().includes(q) : true,
       )
       .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
-  }, [clients, search, situ, diasRegistro]);
+  }, [universo, search, situ, segmento, cidade, diasRegistro]);
 
   const counts = useMemo(() => {
-    const all = clients.filter((c) => c.isProspecao || c.prospeccaoStatus === "fechado");
     const por = (s: SituacaoProspeccao) =>
-      all.filter((c) => situacaoOf(c.prospeccaoStatus, diasRegistro.get(c.id) ?? null) === s).length;
+      universo.filter((c) => situacaoOf(c.prospeccaoStatus, diasRegistro.get(c.id) ?? null) === s).length;
     return {
-      total: all.length,
+      total: universo.length,
       em_negociacao: por("em_negociacao"),
       sem_definicao: por("sem_definicao"),
       fechado: por("fechado"),
       proposta_recusada: por("proposta_recusada"),
     };
-  }, [clients, diasRegistro]);
+  }, [universo, diasRegistro]);
 
   /** agrupa por mês > semana > dia (data do registro da prospecção); sem data vai no fim */
   const { hierarchy, semData } = useMemo(() => {
@@ -246,6 +267,32 @@ export default function Prospeccoes() {
             <SelectItem value="sem_definicao">{SITUACAO_LABEL.sem_definicao}</SelectItem>
             <SelectItem value="fechado">{SITUACAO_LABEL.fechado}</SelectItem>
             <SelectItem value="proposta_recusada">{SITUACAO_LABEL.proposta_recusada}</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={segmento} onValueChange={setSegmento}>
+          <SelectTrigger className="w-52">
+            <SelectValue placeholder="Segmento logístico" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os segmentos logísticos</SelectItem>
+            {segmentosLog.map((s) => (
+              <SelectItem key={s} value={s}>
+                {s}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={cidade} onValueChange={setCidade}>
+          <SelectTrigger className="w-44">
+            <SelectValue placeholder="Cidade" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas as cidades</SelectItem>
+            {cidades.map((c) => (
+              <SelectItem key={c} value={c}>
+                {c}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
@@ -429,6 +476,11 @@ function ProspectCard({
             {client.segment && <span>{client.segment}</span>}
             <span>· {cidadeComDistancia(client)}</span>
           </div>
+          {client.segmentoComercial && (
+            <div className="mt-0.5 text-xs text-muted-foreground">
+              Comercial: <span className="text-foreground">{client.segmentoComercial}</span>
+            </div>
+          )}
         </div>
         <Badge className={SITUACAO_TONE[situacao]}>
           {parada && <AlertTriangle className="mr-1 h-3 w-3" />}
@@ -634,8 +686,18 @@ function DetailDialog({
           )}
           {client.segment && (
             <div>
-              <span className="block text-xs font-medium text-muted-foreground">Segmento</span>
+              <span className="block text-xs font-medium text-muted-foreground">
+                Segmento logístico
+              </span>
               {client.segment}
+            </div>
+          )}
+          {client.segmentoComercial && (
+            <div>
+              <span className="block text-xs font-medium text-muted-foreground">
+                Segmento comercial
+              </span>
+              {client.segmentoComercial}
             </div>
           )}
           {client.city && (

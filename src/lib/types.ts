@@ -10,7 +10,10 @@ export type ProspeccaoStatus = "em_negociacao" | "fechado" | "proposta_recusada"
 export interface Client {
   id: string;
   name: string;
+  /** segmento logístico (como a coleta é feita: Rollon, Poli, Porta a Porta…) */
   segment: string;
+  /** segmento comercial (como o cliente atua no mercado) */
+  segmentoComercial?: string | null;
   address: string;
   city: string;
   state: string;
@@ -90,7 +93,10 @@ export interface ProspectVisitInput {
   contato?: string;
   endereco?: string;
   cidade?: string;
+  /** segmento logístico (escolhido entre os já cadastrados) */
   segmento?: string;
+  /** segmento comercial informado pelo vendedor */
+  segmentoComercial?: string;
   obs?: string;
   status: VisitStatus;
   comments: string;

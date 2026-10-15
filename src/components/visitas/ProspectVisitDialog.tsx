@@ -62,6 +62,7 @@ export function ProspectVisitDialog({
   const [endereco, setEndereco] = useState("");
   const [cidade, setCidade] = useState("");
   const [segmento, setSegmento] = useState("");
+  const [segmentoComercial, setSegmentoComercial] = useState("");
   const [obs, setObs] = useState("");
   const [status, setStatus] = useState<VisitStatus>("realizada");
   const [comments, setComments] = useState("");
@@ -177,6 +178,7 @@ export function ProspectVisitDialog({
       endereco,
       cidade,
       segmento,
+      segmentoComercial,
       obs,
       status,
       comments,
@@ -252,7 +254,7 @@ export function ProspectVisitDialog({
               <Input value={contato} onChange={(e) => setContato(e.target.value)} placeholder="(51) 9 9999-9999" />
             </div>
             <div className="space-y-1.5">
-              <Label>Segmento</Label>
+              <Label>Segmento logístico</Label>
               <Select value={segmento} onValueChange={setSegmento}>
                 <SelectTrigger>
                   <SelectValue placeholder="Selecionar segmento" />
@@ -265,6 +267,17 @@ export function ProspectVisitDialog({
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>
+                Segmento comercial{" "}
+                <span className="font-normal text-muted-foreground">(opcional)</span>
+              </Label>
+              <Input
+                value={segmentoComercial}
+                onChange={(e) => setSegmentoComercial(e.target.value)}
+                placeholder="Ex.: construtora, gesseiro, entulho…"
+              />
             </div>
             <div className="space-y-1.5">
               <Label>Cidade</Label>
