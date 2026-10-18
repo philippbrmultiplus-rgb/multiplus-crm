@@ -138,23 +138,37 @@ export default function RotaSemanal() {
     [route, routeVisits],
   );
 
-  /** visitas agendadas nas fichas de prospecção interna dentro da semana em montagem */
+  /** visitas agendadas (prospecção interna e clientes prospectados) dentro da semana em montagem */
   const agendadasSemana = useMemo(() => {
     const fim = addDays(weekStart, 6);
-    return state.internalProspects
-      .filter(
-        (p) => !!p.visitaAgendada && p.visitaAgendada >= weekStart && p.visitaAgendada <= fim,
-      )
-      .sort((a, b) => ((a.visitaAgendada ?? "") < (b.visitaAgendada ?? "") ? -1 : 1));
-  }, [state.internalProspects, weekStart]);
+    const internas = state.internalProspects
+      .filter((p) => !!p.visitaAgendada && p.visitaAgendada >= weekStart && p.visitaAgendada <= fim)
+      .map((p) => ({
+        id: p.id,
+        nome: p.nome,
+        detalhe: [p.cidade, p.segmentoLogistico, p.telefone].filter(Boolean).join(" · "),
+        data: p.visitaAgendada as string,
+      }));
+    const clientes = state.clients
+      .filter((c) => !!c.visitaAgendada && c.visitaAgendada >= weekStart && c.visitaAgendada <= fim)
+      .map((c) => ({
+        id: c.id,
+        nome: c.name,
+        detalhe: [c.city, c.segment, c.contato ?? ""].filter(Boolean).join(" · "),
+        data: c.visitaAgendada as string,
+      }));
+    return [...internas, ...clientes].sort((a, b) => (a.data < b.data ? -1 : 1));
+  }, [state.internalProspects, state.clients, weekStart]);
 
   /** agendamentos em outras semanas (só para avisar) */
   const agendadasOutras = useMemo(() => {
     const fim = addDays(weekStart, 6);
-    return state.internalProspects.filter(
-      (p) => !!p.visitaAgendada && (p.visitaAgendada < weekStart || p.visitaAgendada > fim),
-    ).length;
-  }, [state.internalProspects, weekStart]);
+    const fora = (d: string | null | undefined) => !!d && (d < weekStart || d > fim);
+    return (
+      state.internalProspects.filter((p) => fora(p.visitaAgendada)).length +
+      state.clients.filter((c) => fora(c.visitaAgendada)).length
+    );
+  }, [state.internalProspects, state.clients, weekStart]);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
@@ -315,7 +329,7 @@ export default function RotaSemanal() {
           <CardHeader className="pb-2">
             <CardTitle className="flex flex-wrap items-center gap-2 text-base">
               <CalendarDays className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-              Visitas agendadas na prospecção interna
+              Visitas agendadas (prospecção)
               {agendadasSemana.length > 0 && (
                 <Badge className="border border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-300">
                   {agendadasSemana.length} nesta semana
@@ -323,7 +337,8 @@ export default function RotaSemanal() {
               )}
             </CardTitle>
             <CardDescription>
-              Clientes com visita marcada na ficha de prospecção interna — programe-os no dia da semana.
+              Clientes com visita marcada no cadastro ou na ficha de prospecção — programe-os no dia da
+              semana.
               {agendadasOutras > 0 && ` Há também ${agendadasOutras} agendada(s) em outras semanas.`}
             </CardDescription>
           </CardHeader>
@@ -336,17 +351,15 @@ export default function RotaSemanal() {
                 >
                   <span className="min-w-0 flex-1">
                     <span className="truncate font-medium">{p.nome}</span>
-                    <span className="ml-1.5 text-xs text-muted-foreground">
-                      {[p.cidade, p.segmentoLogistico, p.telefone].filter(Boolean).join(" · ")}
-                    </span>
+                    <span className="ml-1.5 text-xs text-muted-foreground">{p.detalhe}</span>
                   </span>
                   <span className="flex shrink-0 items-center gap-2 text-xs">
                     <span className="font-medium text-amber-700 dark:text-amber-300">
-                      {DAY_NAMES[new Date(`${p.visitaAgendada}T12:00:00`).getDay()]}
+                      {DAY_NAMES[new Date(`${p.data}T12:00:00`).getDay()]}
                     </span>
                     <Badge className="border border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-300">
                       <CalendarDays className="mr-1 h-3 w-3" />
-                      {formatDateBR(p.visitaAgendada ?? "")}
+                      {formatDateBR(p.data)}
                     </Badge>
                   </span>
                 </div>
@@ -949,6 +962,7 @@ function ProspecaoDialog({
   const [endereco, setEndereco] = useState("");
   const [segmento, setSegmento] = useState("");
   const [segmentoComercial, setSegmentoComercial] = useState("");
+  const [visitaAgendada, setVisitaAgendada] = useState("");
   const [contato, setContato] = useState("");
   const [freq, setFreq] = useState("1");
   const [obs, setObs] = useState("");
@@ -985,6 +999,7 @@ function ProspecaoDialog({
       tier: tierOfFreq(f),
       freqMonth: f,
       isProspecao: true,
+      visitaAgendada: visitaAgendada || null,
       contato: contato.trim() || null,
       lastCollectAt: null,
       lastVisitAt: null,
@@ -1087,6 +1102,27 @@ function ProspecaoDialog({
               onChange={(e) => setObs(e.target.value)}
               placeholder="Anotações da prospecção…"
             />
+          </div>
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label>
+              Agendar visita <span className="font-normal text-muted-foreground">(opcional)</span>
+            </Label>
+            <div className="flex flex-wrap items-center gap-2">
+              <Input
+                type="date"
+                className="w-44"
+                value={visitaAgendada}
+                onChange={(e) => setVisitaAgendada(e.target.value)}
+              />
+              {visitaAgendada && (
+                <Button variant="ghost" size="sm" onClick={() => setVisitaAgendada("")}>
+                  Remover data
+                </Button>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Marcando uma data, o cliente aparece em destaque na montagem da rota da semana.
+            </p>
           </div>
           <div className="space-y-1.5 sm:col-span-2">
             <Label>Posição no mapa (opcional)</Label>

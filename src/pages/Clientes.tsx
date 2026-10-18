@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
+  CalendarDays,
   CheckCircle2,
   Download,
   Filter,
@@ -702,6 +703,12 @@ export default function Clientes() {
                         <Phone className="mr-1 h-3 w-3" /> telefone
                       </Badge>
                     )}
+                    {c.visitaAgendada && (
+                      <Badge className="border border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-300">
+                        <CalendarDays className="mr-1 h-3 w-3" /> agendada{" "}
+                        {formatDateBR(c.visitaAgendada)}
+                      </Badge>
+                    )}
                   </span>
                 </div>
               </div>
@@ -804,6 +811,12 @@ export default function Clientes() {
                       {ultimoContatoTelefone.has(c.id) && (
                         <Badge className="border border-violet-500/50 bg-violet-500/10 text-violet-600 dark:text-violet-300">
                           <Phone className="mr-1 h-3 w-3" /> telefone
+                        </Badge>
+                      )}
+                      {c.visitaAgendada && (
+                        <Badge className="border border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-300">
+                          <CalendarDays className="mr-1 h-3 w-3" /> agendada{" "}
+                          {formatDateBR(c.visitaAgendada)}
                         </Badge>
                       )}
                     </div>
@@ -928,6 +941,7 @@ function EditClientDialog({
   const [city, setCity] = useState(client?.city ?? "");
   const [segment, setSegment] = useState(client?.segment ?? "");
   const [segmentoComercial, setSegmentoComercial] = useState(client?.segmentoComercial ?? "");
+  const [visitaAgendada, setVisitaAgendada] = useState(client?.visitaAgendada ?? "");
   const [contato, setContato] = useState(client?.contato ?? "");
   const [active, setActive] = useState(client?.active ?? true);
   const [isProsp, setIsProsp] = useState(client?.isProspecao ?? false);
@@ -1022,6 +1036,7 @@ function EditClientDialog({
       city,
       segment,
       segmentoComercial: segmentoComercial.trim() || null,
+      visitaAgendada: visitaAgendada || null,
       contato: contato.trim() || null,
       active,
       isProspecao: isProsp,
@@ -1077,6 +1092,24 @@ function EditClientDialog({
           <div className="space-y-2">
             <Label>Contato</Label>
             <Input value={contato} onChange={(e) => setContato(e.target.value)} placeholder="(51) 9 9999-9999" />
+          </div>
+          <div className="space-y-2">
+            <Label>
+              Visita agendada <span className="font-normal text-muted-foreground">(opcional)</span>
+            </Label>
+            <div className="flex flex-wrap items-center gap-2">
+              <Input
+                type="date"
+                className="w-44"
+                value={visitaAgendada}
+                onChange={(e) => setVisitaAgendada(e.target.value)}
+              />
+              {visitaAgendada && (
+                <Button type="button" variant="ghost" size="sm" onClick={() => setVisitaAgendada("")}>
+                  Remover data
+                </Button>
+              )}
+            </div>
           </div>
           <div className="space-y-2 sm:col-span-2">
             <Label>Endereço</Label>

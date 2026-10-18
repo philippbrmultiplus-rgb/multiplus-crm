@@ -3567,6 +3567,7 @@ export type Database = {
           total_2025: number | null
           total_2026: number | null
           updated_at: string
+          visita_agendada: string | null
         }
         Insert: {
           active?: boolean | null
@@ -3596,6 +3597,7 @@ export type Database = {
           total_2025?: number | null
           total_2026?: number | null
           updated_at?: string
+          visita_agendada?: string | null
         }
         Update: {
           active?: boolean | null
@@ -3625,6 +3627,7 @@ export type Database = {
           total_2025?: number | null
           total_2026?: number | null
           updated_at?: string
+          visita_agendada?: string | null
         }
         Relationships: []
       }

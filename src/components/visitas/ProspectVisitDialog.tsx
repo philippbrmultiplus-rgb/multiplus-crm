@@ -63,6 +63,7 @@ export function ProspectVisitDialog({
   const [cidade, setCidade] = useState("");
   const [segmento, setSegmento] = useState("");
   const [segmentoComercial, setSegmentoComercial] = useState("");
+  const [visitaAgendada, setVisitaAgendada] = useState("");
   const [obs, setObs] = useState("");
   const [status, setStatus] = useState<VisitStatus>("realizada");
   const [comments, setComments] = useState("");
@@ -179,6 +180,7 @@ export function ProspectVisitDialog({
       cidade,
       segmento,
       segmentoComercial,
+      visitaAgendada,
       obs,
       status,
       comments,
@@ -278,6 +280,27 @@ export function ProspectVisitDialog({
                 onChange={(e) => setSegmentoComercial(e.target.value)}
                 placeholder="Ex.: construtora, gesseiro, entulho…"
               />
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label>
+                Agendar visita <span className="font-normal text-muted-foreground">(opcional)</span>
+              </Label>
+              <div className="flex flex-wrap items-center gap-2">
+                <Input
+                  type="date"
+                  className="w-44"
+                  value={visitaAgendada}
+                  onChange={(e) => setVisitaAgendada(e.target.value)}
+                />
+                {visitaAgendada && (
+                  <Button variant="ghost" size="sm" onClick={() => setVisitaAgendada("")}>
+                    Remover data
+                  </Button>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Marcando uma data, o cliente aparece em destaque na montagem da rota da semana.
+              </p>
             </div>
             <div className="space-y-1.5">
               <Label>Cidade</Label>

@@ -30,6 +30,8 @@ export interface Client {
   lastVisitAt?: string | null;
   /** cliente marcado como prospecção (novo cliente em negociação) */
   isProspecao: boolean;
+  /** data (yyyy-mm-dd) agendada para visitar este cliente */
+  visitaAgendada?: string | null;
   /** telefone/whatsapp de contato */
   contato?: string | null;
   /** nome do responsável (contato principal) */
@@ -97,6 +99,8 @@ export interface ProspectVisitInput {
   segmento?: string;
   /** segmento comercial informado pelo vendedor */
   segmentoComercial?: string;
+  /** data (yyyy-mm-dd) agendada para visitar o cliente */
+  visitaAgendada?: string;
   obs?: string;
   status: VisitStatus;
   comments: string;

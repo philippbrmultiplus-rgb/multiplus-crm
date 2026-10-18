@@ -294,6 +294,7 @@ function clientFromRow(r: Record<string, any>): Client {
     lastCollectAt: r.last_collect_at ?? null,
     lastVisitAt: r.last_visit_at ?? null,
     isProspecao: r.is_prospecao ?? false,
+    visitaAgendada: r.visita_agendada ? String(r.visita_agendada).slice(0, 10) : null,
     contato: r.contato ?? null,
     responsavel: r.responsavel ?? null,
     prospeccaoStatus: r.prospeccao_status ?? null,
@@ -324,6 +325,7 @@ function clientToRow(c: Client): Record<string, any> {
     last_collect_at: c.lastCollectAt ?? null,
     last_visit_at: c.lastVisitAt ?? null,
     is_prospecao: c.isProspecao ?? false,
+    visita_agendada: c.visitaAgendada ?? null,
     contato: c.contato ?? null,
     responsavel: c.responsavel ?? null,
     prospeccao_status: c.prospeccaoStatus ?? null,
@@ -356,6 +358,7 @@ function clientPatchToRow(patch: Partial<Client>): Record<string, any> {
     lastCollectAt: "last_collect_at",
     lastVisitAt: "last_visit_at",
     isProspecao: "is_prospecao",
+    visitaAgendada: "visita_agendada",
     contato: "contato",
     responsavel: "responsavel",
     prospeccaoStatus: "prospeccao_status",
@@ -2012,6 +2015,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
           return;
         }
 
+        // visita registrada: limpa um eventual agendamento deste cliente
+        const clienteAtual = state.clients.find((c) => c.id === visit.clientId);
+        if (clienteAtual?.visitaAgendada) {
+          await supabase.from("clients").update({ visita_agendada: null }).eq("id", visit.clientId);
+          setAppState((prev) => ({
+            ...prev,
+            clients: prev.clients.map((c) =>
+              c.id === visit.clientId ? { ...c, visitaAgendada: null } : c,
+            ),
+          }));
+        }
+
         // 2) agora sobe as fotos e completa o registro (se falhar, a visita já está salva)
         const list = visit.photoDataList?.length
           ? visit.photoDataList
@@ -2044,7 +2059,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }
       })();
     },
-    [setAppState, uploadVisitPhotos, attachVisitPhotos, enqueuePendingPhotos],
+    [setAppState, state.clients, uploadVisitPhotos, attachVisitPhotos, enqueuePendingPhotos],
   );
 
   /**
@@ -2072,6 +2087,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         tier: "D",
         freqMonth: 1,
         isProspecao: true,
+        visitaAgendada: args.visitaAgendada || null,
         contato: args.contato?.trim() || null,
         responsavel: args.responsavel?.trim() || null,
         prospeccaoStatus: "em_negociacao",
