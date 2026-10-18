@@ -3716,6 +3716,7 @@ export type Database = {
           segmento_comercial: string | null
           segmento_logistico: string | null
           telefone: string | null
+          visita_agendada: string | null
         }
         Insert: {
           cidade?: string | null
@@ -3730,6 +3731,7 @@ export type Database = {
           segmento_comercial?: string | null
           segmento_logistico?: string | null
           telefone?: string | null
+          visita_agendada?: string | null
         }
         Update: {
           cidade?: string | null
@@ -3744,6 +3746,7 @@ export type Database = {
           segmento_comercial?: string | null
           segmento_logistico?: string | null
           telefone?: string | null
+          visita_agendada?: string | null
         }
         Relationships: []
       }

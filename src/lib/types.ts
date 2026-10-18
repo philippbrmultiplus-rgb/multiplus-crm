@@ -231,6 +231,8 @@ export interface InternalProspect {
   segmentoLogistico: string;
   /** o que foi conversado com o cliente */
   observacoes: string;
+  /** data (yyyy-mm-dd) agendada para visitar o cliente */
+  visitaAgendada?: string | null;
   createdBy?: string | null;
   createdByName?: string | null;
   createdAt: string;

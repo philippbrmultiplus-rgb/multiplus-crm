@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ClipboardList, Plus, RotateCcw, Trash2 } from "lucide-react";
+import { CalendarDays, ClipboardList, Plus, RotateCcw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -359,6 +359,12 @@ export default function ProspeccaoInterna() {
                     </div>
 
                     <div className="flex flex-wrap gap-1.5">
+                      {p.visitaAgendada && (
+                        <Badge className="border border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-300">
+                          <CalendarDays className="mr-1 h-3 w-3" /> Visita agendada{" "}
+                          {formatDateBR(p.visitaAgendada)}
+                        </Badge>
+                      )}
                       {p.segmentoLogistico && <Badge variant="outline">{p.segmentoLogistico}</Badge>}
                       {p.segmentoComercial && (
                         <Badge className="bg-primary/10 text-primary">{p.segmentoComercial}</Badge>
@@ -404,7 +410,11 @@ export default function ProspeccaoInterna() {
         </CardContent>
       </Card>
 
-      <ProspectDetailDialog prospect={detalhe} onClose={() => setDetalhe(null)} />
+      <ProspectDetailDialog
+        key={detalhe?.id ?? "none"}
+        prospect={detalhe}
+        onClose={() => setDetalhe(null)}
+      />
 
       <AlertDialog open={!!excluir} onOpenChange={(o) => !o && setExcluir(null)}>
         <AlertDialogContent>
@@ -440,13 +450,25 @@ function ProspectDetailDialog({
   prospect: InternalProspect | null;
   onClose: () => void;
 }) {
-  const { state, role, user, addInternalProspectNote, deleteInternalProspectNote } = useData();
+  const {
+    state,
+    role,
+    user,
+    addInternalProspectNote,
+    deleteInternalProspectNote,
+    scheduleInternalVisit,
+  } = useData();
   const [texto, setTexto] = useState("");
-  if (!prospect) return null;
+  const [dataVisita, setDataVisita] = useState(prospect?.visitaAgendada ?? "");
+  // a ficha pode mudar enquanto a janela está aberta (ex.: agendar visita)
+  const atual = prospect
+    ? (state.internalProspects.find((p) => p.id === prospect.id) ?? prospect)
+    : null;
+  if (!atual) return null;
 
   const podeEscrever = role === "coordenador" || role === "vendedor";
   const notas = state.internalProspectNotes
-    .filter((n) => n.prospectId === prospect.id)
+    .filter((n) => n.prospectId === atual.id)
     .sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1));
 
   // histórico: o que foi conversado no cadastro + o que foi acrescentado depois
@@ -457,13 +479,13 @@ function ProspectDetailDialog({
     createdByName?: string | null;
     inicial: boolean;
   }> = [
-    ...(prospect.observacoes
+    ...(atual.observacoes
       ? [
           {
             id: "cadastro",
-            texto: prospect.observacoes,
-            createdAt: prospect.createdAt,
-            createdByName: prospect.createdByName,
+            texto: atual.observacoes,
+            createdAt: atual.createdAt,
+            createdByName: atual.createdByName,
             inicial: true,
           },
         ]
@@ -479,7 +501,7 @@ function ProspectDetailDialog({
 
   const acrescentar = () => {
     if (!texto.trim()) return;
-    addInternalProspectNote(prospect.id, texto);
+    addInternalProspectNote(atual.id, texto);
     setTexto("");
   };
 
@@ -487,46 +509,94 @@ function ProspectDetailDialog({
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-h-[calc(100dvh-2.5rem)] max-w-lg overflow-y-auto overscroll-contain">
         <DialogHeader>
-          <DialogTitle>{prospect.nome}</DialogTitle>
+          <DialogTitle>{atual.nome}</DialogTitle>
           <DialogDescription>
-            {[prospect.cidade, prospect.segmentoLogistico].filter(Boolean).join(" · ") ||
+            {[atual.cidade, atual.segmentoLogistico].filter(Boolean).join(" · ") ||
               "Prospecção interna"}{" "}
-            · cadastrada em {formatDateBR(prospect.createdAt.slice(0, 10))}
-            {prospect.createdByName ? ` por ${prospect.createdByName}` : ""}
+            · cadastrada em {formatDateBR(atual.createdAt.slice(0, 10))}
+            {atual.createdByName ? ` por ${atual.createdByName}` : ""}
           </DialogDescription>
         </DialogHeader>
 
+        {atual.visitaAgendada && (
+          <Badge className="w-fit border border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-300">
+            <CalendarDays className="mr-1 h-3 w-3" /> Visita agendada{" "}
+            {formatDateBR(atual.visitaAgendada)}
+          </Badge>
+        )}
+
         <div className="space-y-1.5 text-sm">
-          {prospect.endereco && (
+          {atual.endereco && (
             <div>
               <span className="block text-xs font-medium text-muted-foreground">Endereço completo</span>
-              {prospect.endereco}
+              {atual.endereco}
             </div>
           )}
-          {prospect.contato && (
+          {atual.contato && (
             <div>
               <span className="block text-xs font-medium text-muted-foreground">Contato</span>
-              {prospect.contato}
+              {atual.contato}
             </div>
           )}
-          {prospect.telefone && (
+          {atual.telefone && (
             <div>
               <span className="block text-xs font-medium text-muted-foreground">Telefone</span>
-              {prospect.telefone}
+              {atual.telefone}
             </div>
           )}
-          {prospect.segmentoComercial && (
+          {atual.segmentoComercial && (
             <div>
               <span className="block text-xs font-medium text-muted-foreground">Segmento comercial</span>
-              {prospect.segmentoComercial}
+              {atual.segmentoComercial}
             </div>
           )}
-          {prospect.segmentoLogistico && (
+          {atual.segmentoLogistico && (
             <div>
               <span className="block text-xs font-medium text-muted-foreground">Segmento logístico</span>
-              {prospect.segmentoLogistico}
+              {atual.segmentoLogistico}
             </div>
           )}
+        </div>
+
+        <div className="space-y-2 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3">
+          <Label className="flex items-center gap-1.5">
+            <CalendarDays className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" /> Agendar visita
+          </Label>
+          {podeEscrever ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <Input
+                type="date"
+                className="w-40"
+                value={dataVisita}
+                onChange={(e) => setDataVisita(e.target.value)}
+              />
+              <Button
+                size="sm"
+                onClick={() => scheduleInternalVisit(atual.id, dataVisita || null)}
+                disabled={!dataVisita}
+              >
+                Salvar data
+              </Button>
+              {atual.visitaAgendada && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-muted-foreground"
+                  onClick={() => {
+                    setDataVisita("");
+                    scheduleInternalVisit(atual.id, null);
+                  }}
+                >
+                  Remover agendamento
+                </Button>
+              )}
+            </div>
+          ) : null}
+          <p className="text-xs text-muted-foreground">
+            {atual.visitaAgendada
+              ? `Visita marcada para ${formatDateBR(atual.visitaAgendada)} — aparece em destaque na montagem da rota da semana.`
+              : "Sem visita agendada. Ao marcar uma data, ela aparece em destaque na montagem da rota da semana."}
+          </p>
         </div>
 
         <div className="space-y-2">

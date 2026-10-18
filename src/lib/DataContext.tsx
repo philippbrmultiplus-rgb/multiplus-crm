@@ -206,6 +206,7 @@ function internalProspectFromRow(r: Record<string, any>): InternalProspect {
     segmentoComercial: r.segmento_comercial ?? "",
     segmentoLogistico: r.segmento_logistico ?? "",
     observacoes: r.observacoes ?? "",
+    visitaAgendada: r.visita_agendada ? String(r.visita_agendada).slice(0, 10) : null,
     createdBy: r.created_by ?? null,
     createdByName: r.created_by_name ?? null,
     createdAt: r.created_at ?? new Date().toISOString(),
@@ -570,6 +571,7 @@ interface DataContextValue {
   deleteInternalProspect: (id: string) => void;
   addInternalProspectNote: (prospectId: string, texto: string) => void;
   deleteInternalProspectNote: (id: string) => void;
+  scheduleInternalVisit: (id: string, data: string | null) => void;
   storageUsageKb: number;
   lastSyncAt: string | null;
 }
@@ -2702,6 +2704,32 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [setAppState],
   );
 
+  /** agenda (ou desmarca) a visita a uma prospecção interna */
+  const scheduleInternalVisit = useCallback(
+    (id: string, data: string | null) => {
+      setAppState((prev) => ({
+        ...prev,
+        internalProspects: prev.internalProspects.map((p) =>
+          p.id === id ? { ...p, visitaAgendada: data } : p,
+        ),
+      }));
+      if (!uidRef.current) return;
+      void supabase
+        .from("internal_prospects")
+        .update({ visita_agendada: data })
+        .eq("id", id)
+        .then(({ error }) => {
+          if (error) {
+            console.error("agendar visita:", error.message);
+            toast.error("Não foi possível salvar o agendamento", { description: error.message });
+            return;
+          }
+          toast.success(data ? "Visita agendada." : "Agendamento removido.");
+        });
+    },
+    [setAppState],
+  );
+
   /* ---------- backup / utilitários ---------- */
 
   const resetData = useCallback(() => {
@@ -2848,6 +2876,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     deleteInternalProspect,
     addInternalProspectNote,
     deleteInternalProspectNote,
+    scheduleInternalVisit,
     storageUsageKb,
     lastSyncAt,
   };

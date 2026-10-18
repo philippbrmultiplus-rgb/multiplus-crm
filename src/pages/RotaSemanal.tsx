@@ -16,6 +16,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import {
   AlertCircle,
+  CalendarDays,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
@@ -28,6 +29,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -135,6 +137,24 @@ export default function RotaSemanal() {
     () => (route ? routeVisits.filter((rv) => rv.routeId === route.id) : []),
     [route, routeVisits],
   );
+
+  /** visitas agendadas nas fichas de prospecção interna dentro da semana em montagem */
+  const agendadasSemana = useMemo(() => {
+    const fim = addDays(weekStart, 6);
+    return state.internalProspects
+      .filter(
+        (p) => !!p.visitaAgendada && p.visitaAgendada >= weekStart && p.visitaAgendada <= fim,
+      )
+      .sort((a, b) => ((a.visitaAgendada ?? "") < (b.visitaAgendada ?? "") ? -1 : 1));
+  }, [state.internalProspects, weekStart]);
+
+  /** agendamentos em outras semanas (só para avisar) */
+  const agendadasOutras = useMemo(() => {
+    const fim = addDays(weekStart, 6);
+    return state.internalProspects.filter(
+      (p) => !!p.visitaAgendada && (p.visitaAgendada < weekStart || p.visitaAgendada > fim),
+    ).length;
+  }, [state.internalProspects, weekStart]);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
@@ -288,6 +308,52 @@ export default function RotaSemanal() {
             ))}
           </AlertDescription>
         </Alert>
+      )}
+
+      {(agendadasSemana.length > 0 || agendadasOutras > 0) && (
+        <Card className="border-amber-500/40 bg-amber-500/5">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex flex-wrap items-center gap-2 text-base">
+              <CalendarDays className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              Visitas agendadas na prospecção interna
+              {agendadasSemana.length > 0 && (
+                <Badge className="border border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-300">
+                  {agendadasSemana.length} nesta semana
+                </Badge>
+              )}
+            </CardTitle>
+            <CardDescription>
+              Clientes com visita marcada na ficha de prospecção interna — programe-os no dia da semana.
+              {agendadasOutras > 0 && ` Há também ${agendadasOutras} agendada(s) em outras semanas.`}
+            </CardDescription>
+          </CardHeader>
+          {agendadasSemana.length > 0 && (
+            <CardContent className="space-y-1.5">
+              {agendadasSemana.map((p) => (
+                <div
+                  key={p.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-500/40 bg-card p-2 text-sm"
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="truncate font-medium">{p.nome}</span>
+                    <span className="ml-1.5 text-xs text-muted-foreground">
+                      {[p.cidade, p.segmentoLogistico, p.telefone].filter(Boolean).join(" · ")}
+                    </span>
+                  </span>
+                  <span className="flex shrink-0 items-center gap-2 text-xs">
+                    <span className="font-medium text-amber-700 dark:text-amber-300">
+                      {DAY_NAMES[new Date(`${p.visitaAgendada}T12:00:00`).getDay()]}
+                    </span>
+                    <Badge className="border border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-300">
+                      <CalendarDays className="mr-1 h-3 w-3" />
+                      {formatDateBR(p.visitaAgendada ?? "")}
+                    </Badge>
+                  </span>
+                </div>
+              ))}
+            </CardContent>
+          )}
+        </Card>
       )}
 
       {!route ? (
