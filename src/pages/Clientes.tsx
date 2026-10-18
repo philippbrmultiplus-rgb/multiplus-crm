@@ -64,15 +64,8 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useStickyState } from "@/hooks/use-sticky-state";
 import { LeafletMap } from "@/components/map/LeafletMap";
 import { cadenceLabel } from "@/lib/cadence";
-import {
-  agruparCidades,
-  cidadeKey,
-  formatDateBR,
-  formatKm,
-  formatM3,
-  formatNumero,
-  mesLabel,
-} from "@/lib/geo";
+import { agruparCidades, cidadeKey, formatDateBR, formatKm, formatM3, formatNumero, mesLabel } from "@/lib/geo";
+import { SEGMENTOS_LOGISTICOS } from "@/lib/segmentos";
 import {
   coletaDays,
   compareClients,
@@ -317,15 +310,6 @@ export default function Clientes() {
   /** a lista é longa: mostra até 300, mas o total filtrado continua contando todos */
   const filtered = useMemo(() => matching.slice(0, 300), [matching]);
   const filteredTotal = matching.length;
-
-  const segmentOptions = useMemo(
-    () =>
-      segments
-        .map(([s]) => s)
-        .filter((s) => s !== "(sem segmento)")
-        .sort((a, b) => a.localeCompare(b, "pt-BR")),
-    [segments],
-  );
 
   const prospectCount = useMemo(() => clients.filter((c) => c.isProspecao).length, [clients]);
 
@@ -874,7 +858,7 @@ export default function Clientes() {
       <EditClientDialog
         key={editing?.id ?? "none"}
         client={editing}
-        segmentOptions={segmentOptions}
+        segmentOptions={SEGMENTOS_LOGISTICOS}
         onClose={() => setEditing(null)}
         onSave={(patch) => {
           if (editing) updateClient(editing.id, patch);
@@ -894,7 +878,9 @@ export default function Clientes() {
         onClose={() => setPagamento(null)}
       />
 
-      {novo && <NewClientDialog onClose={() => setNovo(false)} segmentOptions={segmentOptions} />}
+      {novo && (
+        <NewClientDialog onClose={() => setNovo(false)} segmentOptions={SEGMENTOS_LOGISTICOS} />
+      )}
 
       <AlertDialog open={!!toDelete} onOpenChange={(o) => !o && setToDelete(null)}>
         <AlertDialogContent>

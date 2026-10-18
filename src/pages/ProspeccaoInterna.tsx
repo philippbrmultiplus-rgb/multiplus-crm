@@ -34,6 +34,7 @@ import {
 import { useData } from "@/lib/DataContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { formatDateBR } from "@/lib/geo";
+import { SEGMENTOS_LOGISTICOS } from "@/lib/segmentos";
 import type { InternalProspect } from "@/lib/types";
 
 const VAZIO = "";
@@ -51,7 +52,7 @@ function dataHora(iso: string): string {
 /** cadastro interno de prospecção: ficha do cliente conversado, sem visita em campo */
 export default function ProspeccaoInterna() {
   const { state, role, user, addInternalProspect, deleteInternalProspect } = useData();
-  const { clients, internalProspects, internalProspectNotes } = state;
+  const { internalProspects, internalProspectNotes } = state;
   const isMobile = useIsMobile();
   // o gerente é somente leitura; coordenador e vendedor cadastram
   const podeCadastrar = role === "coordenador" || role === "vendedor";
@@ -111,14 +112,8 @@ export default function ProspeccaoInterna() {
 
   const temFiltro = filtroCidade !== "all" || filtroSegmento !== "all";
 
-  /** segmentos logísticos já usados na carteira */
-  const segmentos = useMemo(
-    () =>
-      [...new Set(clients.map((c) => c.segment).filter(Boolean))].sort((a, b) =>
-        a.localeCompare(b, "pt-BR"),
-      ),
-    [clients],
-  );
+  /** segmentos logísticos liberados no cadastro */
+  const segmentos = SEGMENTOS_LOGISTICOS;
 
   const salvar = () => {
     if (!nome.trim()) {

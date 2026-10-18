@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { useData } from "@/lib/DataContext";
+import { SEGMENTOS_LOGISTICOS } from "@/lib/segmentos";
 import { DAY_NAMES } from "@/lib/geo";
 import { compressImage, estimateKb } from "@/lib/image";
 import type { VisitStatus } from "@/lib/types";
@@ -48,13 +49,7 @@ export function ProspectVisitDialog({
     () => [...(state.settings.workingDays as number[])].sort((a, b) => a - b),
     [state.settings.workingDays],
   );
-  const segmentOptions = useMemo(
-    () =>
-      [...new Set(state.clients.map((c) => c.segment).filter(Boolean))].sort((a, b) =>
-        a.localeCompare(b, "pt-BR"),
-      ),
-    [state.clients],
-  );
+  const segmentOptions = SEGMENTOS_LOGISTICOS;
 
   const [dia, setDia] = useState(day);  const [nome, setNome] = useState("");
   const [responsavel, setResponsavel] = useState("");

@@ -76,6 +76,7 @@ import {
 } from "@/lib/geo";
 import { computeSchedule, newestRoute } from "@/lib/route";
 import { cadenceLabel, tierOfFreq } from "@/lib/cadence";
+import { SEGMENTOS_LOGISTICOS } from "@/lib/segmentos";
 import {
   COLETA_TEXT_TONE,
   coletaDays,
@@ -956,7 +957,7 @@ function ProspecaoDialog({
   route: WeeklyRoute | null;
   onClose: () => void;
 }) {
-  const { state, createClient, addRouteVisit } = useData();
+  const { createClient, addRouteVisit } = useData();
   const [nome, setNome] = useState("Prospecção");
   const [cidade, setCidade] = useState("");
   const [endereco, setEndereco] = useState("");
@@ -969,14 +970,7 @@ function ProspecaoDialog({
   const [ativo, setAtivo] = useState(true);
   const [pos, setPos] = useState<{ lat: number; lng: number } | null>(null);
 
-  /** segmentos logísticos já usados na carteira (lista fechada) */
-  const segmentOptions = useMemo(
-    () =>
-      [...new Set(state.clients.map((c) => c.segment).filter(Boolean))].sort((a, b) =>
-        a.localeCompare(b, "pt-BR"),
-      ),
-    [state.clients],
-  );
+  const segmentOptions = SEGMENTOS_LOGISTICOS;
 
   const salvar = () => {
     if (!route) {
