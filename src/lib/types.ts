@@ -216,6 +216,26 @@ export interface ClientCadence {
   datas: string[];
 }
 
+/** prospecção interna: ficha preenchida pela equipe (sem visita em campo) */
+export interface InternalProspect {
+  id: string;
+  nome: string;
+  cidade: string;
+  endereco: string;
+  /** pessoa de contato na empresa */
+  contato: string;
+  /** número de telefone */
+  telefone: string;
+  segmentoComercial: string;
+  /** segmento logístico (lista dos já cadastrados) */
+  segmentoLogistico: string;
+  /** o que foi conversado com o cliente */
+  observacoes: string;
+  createdBy?: string | null;
+  createdByName?: string | null;
+  createdAt: string;
+}
+
 export interface AppState {
   version: number;
   sessionRole: Role;
@@ -229,6 +249,7 @@ export interface AppState {
   volumes: MonthlyVolume[];
   payments: ClientPayment[];
   cadence: ClientCadence[];
+  internalProspects: InternalProspect[];
 }
 
 export interface DaySummary {

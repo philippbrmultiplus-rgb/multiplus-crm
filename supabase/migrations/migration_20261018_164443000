@@ -1,0 +1,34 @@
+create table if not exists public.internal_prospects (
+  id text primary key default gen_random_uuid()::text,
+  nome text not null,
+  cidade text,
+  endereco text,
+  contato text,
+  telefone text,
+  segmento_comercial text,
+  segmento_logistico text,
+  observacoes text,
+  created_by uuid,
+  created_by_name text,
+  created_at timestamptz not null default now()
+);
+
+grant select, insert, delete on public.internal_prospects to authenticated;
+
+alter table public.internal_prospects enable row level security;
+
+create policy ip_select on public.internal_prospects for select to authenticated using (true);
+
+create policy ip_insert on public.internal_prospects for insert to authenticated
+with check (
+  created_by = auth.uid()
+  and exists (
+    select 1 from public.profiles p
+    where p.id = auth.uid() and p.role in ('coordenador', 'vendedor')
+  )
+);
+
+create policy ip_delete on public.internal_prospects for delete to authenticated
+using (created_by = auth.uid() or public.is_coordenador());
+
+alter publication supabase_realtime add table public.internal_prospects;

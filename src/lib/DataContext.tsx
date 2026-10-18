@@ -17,6 +17,7 @@ import type {
   ClientAlert,
   ClientCadence,
   ClientPayment,
+  InternalProspect,
   MonthlyVolume,
   Role,
   RouteActivity,
@@ -193,6 +194,23 @@ function cadenceFromRow(r: Record<string, any>): ClientCadence {
   };
 }
 
+function internalProspectFromRow(r: Record<string, any>): InternalProspect {
+  return {
+    id: r.id,
+    nome: r.nome ?? "",
+    cidade: r.cidade ?? "",
+    endereco: r.endereco ?? "",
+    contato: r.contato ?? "",
+    telefone: r.telefone ?? "",
+    segmentoComercial: r.segmento_comercial ?? "",
+    segmentoLogistico: r.segmento_logistico ?? "",
+    observacoes: r.observacoes ?? "",
+    createdBy: r.created_by ?? null,
+    createdByName: r.created_by_name ?? null,
+    createdAt: r.created_at ?? new Date().toISOString(),
+  };
+}
+
 function emptyState(): AppState {
   return {
     version: 1,
@@ -207,6 +225,7 @@ function emptyState(): AppState {
     volumes: [],
     payments: [],
     cadence: [],
+    internalProspects: [],
   };
 }
 
@@ -223,6 +242,7 @@ function loadLocalCache(): AppState | null {
           volumes: parsed.volumes ?? [],
           payments: parsed.payments ?? [],
           cadence: parsed.cadence ?? [],
+          internalProspects: parsed.internalProspects ?? [],
         };
     }
   } catch {
@@ -530,6 +550,10 @@ interface DataContextValue {
   deleteActivity: (id: string) => void;
   saveClientPayment: (payment: ClientPayment) => void;
   deleteClientPayment: (id: string) => void;
+  addInternalProspect: (
+    dados: Omit<InternalProspect, "id" | "createdAt" | "createdBy" | "createdByName">,
+  ) => void;
+  deleteInternalProspect: (id: string) => void;
   storageUsageKb: number;
   lastSyncAt: string | null;
 }
@@ -597,6 +621,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       volumesRes,
       paymentsRes,
       cadenceRes,
+      internalProspectsRes,
     ] = await Promise.all([
       supabase.from("clients").select("*").order("name"),
       supabase.from("settings").select("*").eq("id", 1).maybeSingle(),
@@ -608,6 +633,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       supabase.from("client_monthly_volumes").select("*").order("month"),
       supabase.from("client_payments").select("*").order("created_at"),
       supabase.from("client_cadence").select("*").order("media_dias"),
+      supabase.from("internal_prospects").select("*").order("created_at", { ascending: false }),
     ]);
 
     const clients = (clientsRes.data ?? []).map((r) => clientFromRow(r as unknown as Record<string, any>));
@@ -637,6 +663,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const cadence = (cadenceRes.data ?? []).map((r) =>
       cadenceFromRow(r as unknown as Record<string, any>),
     );
+    const internalProspects = (internalProspectsRes.data ?? []).map((r) =>
+      internalProspectFromRow(r as unknown as Record<string, any>),
+    );
 
     // coordenaador: aplica cadência/frequência e última troca da planilha uma única vez
     let finalClients = clients;
@@ -664,6 +693,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       volumes,
       payments,
       cadence,
+      internalProspects,
     }));
     setCloudReady(true);
     setLastSyncAt(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }));
@@ -1200,6 +1230,28 @@ export function DataProvider({ children }: { children: ReactNode }) {
             cadence: prev.cadence.some((c) => c.clientId === cadence.clientId)
               ? prev.cadence.map((c) => (c.clientId === cadence.clientId ? cadence : c))
               : [...prev.cadence, cadence],
+          }));
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "internal_prospects" },
+        (payload) => {
+          const row = (payload.new ?? payload.old) as Record<string, any>;
+          if (!row?.id) return;
+          if (payload.eventType === "DELETE") {
+            setAppState((prev) => ({
+              ...prev,
+              internalProspects: prev.internalProspects.filter((p) => p.id !== row.id),
+            }));
+            return;
+          }
+          const item = internalProspectFromRow(row);
+          setAppState((prev) => ({
+            ...prev,
+            internalProspects: prev.internalProspects.some((p) => p.id === item.id)
+              ? prev.internalProspects.map((p) => (p.id === item.id ? item : p))
+              : [item, ...prev.internalProspects],
           }));
         },
       )
@@ -2473,6 +2525,75 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [setAppState],
   );
 
+  /* ---------- prospecção interna (ficha preenchida pela equipe) ---------- */
+
+  /** registra uma prospecção interna */
+  const addInternalProspect = useCallback(
+    (dados: Omit<InternalProspect, "id" | "createdAt" | "createdBy" | "createdByName">) => {
+      if (!dados.nome.trim()) {
+        toast.error("Informe o nome do cliente.");
+        return;
+      }
+      const novo: InternalProspect = {
+        ...dados,
+        id: `ip-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        createdBy: uidRef.current,
+        createdByName: user?.fullName ?? null,
+        createdAt: new Date().toISOString(),
+      };
+      setAppState((prev) => ({ ...prev, internalProspects: [novo, ...prev.internalProspects] }));
+      if (!uidRef.current) return;
+      void supabase
+        .from("internal_prospects")
+        .insert({
+          id: novo.id,
+          nome: novo.nome,
+          cidade: novo.cidade || null,
+          endereco: novo.endereco || null,
+          contato: novo.contato || null,
+          telefone: novo.telefone || null,
+          segmento_comercial: novo.segmentoComercial || null,
+          segmento_logistico: novo.segmentoLogistico || null,
+          observacoes: novo.observacoes || null,
+          created_by: uidRef.current,
+          created_by_name: novo.createdByName,
+        })
+        .then(({ error }) => {
+          if (error) {
+            console.error("registrar prospecção interna:", error.message);
+            toast.error("Não foi possível salvar a prospecção interna", { description: error.message });
+            return;
+          }
+          toast.success("Prospecção interna registrada.");
+        });
+    },
+    [setAppState, user],
+  );
+
+  /** remove uma prospecção interna (quem criou ou o coordenador) */
+  const deleteInternalProspect = useCallback(
+    (id: string) => {
+      setAppState((prev) => ({
+        ...prev,
+        internalProspects: prev.internalProspects.filter((p) => p.id !== id),
+      }));
+      if (!uidRef.current) return;
+      void supabase
+        .from("internal_prospects")
+        .delete()
+        .eq("id", id)
+        .then(({ error }) => {
+          if (error) {
+            console.error("excluir prospecção interna:", error.message);
+            toast.error("Não foi possível excluir a prospecção interna", { description: error.message });
+            return;
+          }
+          toast.success("Prospecção interna removida.");
+        });
+    },
+    [setAppState],
+  );
+
   /* ---------- backup / utilitários ---------- */
 
   const resetData = useCallback(() => {
@@ -2501,6 +2622,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         volumes: parsed.volumes ?? [],
         payments: parsed.payments ?? [],
         cadence: parsed.cadence ?? [],
+        internalProspects: parsed.internalProspects ?? [],
         settings: { ...defaultSettings, ...parsed.settings },
       });
       if (canWriteClientData()) {
@@ -2613,6 +2735,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
     deleteActivity,
     saveClientPayment,
     deleteClientPayment,
+    addInternalProspect,
+    deleteInternalProspect,
     storageUsageKb,
     lastSyncAt,
   };

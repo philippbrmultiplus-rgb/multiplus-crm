@@ -13,6 +13,7 @@ import Visitas from "./pages/Visitas";
 import Alertas from "./pages/Alertas";
 import ComparativoMensal from "./pages/ComparativoMensal";
 import Cadencia from "./pages/Cadencia";
+import ProspeccaoInterna from "./pages/ProspeccaoInterna";
 import Backup from "./pages/Backup";
 import NotFound from "./pages/NotFound";
 
@@ -127,6 +128,15 @@ export const routers = [
     element: (
       <AppShell>
         <Cadencia />
+      </AppShell>
+    ),
+  },
+  {
+    path: "/prospeccao-interna",
+    name: "prospeccao-interna",
+    element: (
+      <AppShell>
+        <ProspeccaoInterna />
       </AppShell>
     ),
   },
