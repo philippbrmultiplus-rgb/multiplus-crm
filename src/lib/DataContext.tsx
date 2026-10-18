@@ -17,6 +17,7 @@ import type {
   ClientAlert,
   ClientCadence,
   ClientPayment,
+  ClientProspectNote,
   InternalProspect,
   InternalProspectNote,
   MonthlyVolume,
@@ -213,6 +214,17 @@ function internalProspectFromRow(r: Record<string, any>): InternalProspect {
   };
 }
 
+function clientProspectNoteFromRow(r: Record<string, any>): ClientProspectNote {
+  return {
+    id: r.id,
+    clientId: r.client_id,
+    texto: r.texto ?? "",
+    createdBy: r.created_by ?? null,
+    createdByName: r.created_by_name ?? null,
+    createdAt: r.created_at ?? new Date().toISOString(),
+  };
+}
+
 function internalProspectNoteFromRow(r: Record<string, any>): InternalProspectNote {
   return {
     id: r.id,
@@ -240,6 +252,7 @@ function emptyState(): AppState {
     cadence: [],
     internalProspects: [],
     internalProspectNotes: [],
+    clientProspectNotes: [],
   };
 }
 
@@ -258,6 +271,7 @@ function loadLocalCache(): AppState | null {
           cadence: parsed.cadence ?? [],
           internalProspects: parsed.internalProspects ?? [],
           internalProspectNotes: parsed.internalProspectNotes ?? [],
+          clientProspectNotes: parsed.clientProspectNotes ?? [],
         };
     }
   } catch {
@@ -575,6 +589,8 @@ interface DataContextValue {
   addInternalProspectNote: (prospectId: string, texto: string) => void;
   deleteInternalProspectNote: (id: string) => void;
   scheduleInternalVisit: (id: string, data: string | null) => void;
+  addClientProspectNote: (clientId: string, texto: string) => void;
+  deleteClientProspectNote: (id: string) => void;
   storageUsageKb: number;
   lastSyncAt: string | null;
 }
@@ -644,6 +660,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       cadenceRes,
       internalProspectsRes,
       internalProspectNotesRes,
+      clientProspectNotesRes,
     ] = await Promise.all([
       supabase.from("clients").select("*").order("name"),
       supabase.from("settings").select("*").eq("id", 1).maybeSingle(),
@@ -657,6 +674,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       supabase.from("client_cadence").select("*").order("media_dias"),
       supabase.from("internal_prospects").select("*").order("created_at", { ascending: false }),
       supabase.from("internal_prospect_notes").select("*").order("created_at"),
+      supabase.from("client_prospect_notes").select("*").order("created_at"),
     ]);
 
     const clients = (clientsRes.data ?? []).map((r) => clientFromRow(r as unknown as Record<string, any>));
@@ -692,6 +710,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const internalProspectNotes = (internalProspectNotesRes.data ?? []).map((r) =>
       internalProspectNoteFromRow(r as unknown as Record<string, any>),
     );
+    const clientProspectNotes = (clientProspectNotesRes.data ?? []).map((r) =>
+      clientProspectNoteFromRow(r as unknown as Record<string, any>),
+    );
 
     // coordenaador: aplica cadência/frequência e última troca da planilha uma única vez
     let finalClients = clients;
@@ -721,6 +742,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       cadence,
       internalProspects,
       internalProspectNotes,
+      clientProspectNotes,
     }));
     setCloudReady(true);
     setLastSyncAt(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }));
@@ -1301,6 +1323,28 @@ export function DataProvider({ children }: { children: ReactNode }) {
             internalProspectNotes: prev.internalProspectNotes.some((n) => n.id === note.id)
               ? prev.internalProspectNotes.map((n) => (n.id === note.id ? note : n))
               : [...prev.internalProspectNotes, note],
+          }));
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "client_prospect_notes" },
+        (payload) => {
+          const row = (payload.new ?? payload.old) as Record<string, any>;
+          if (!row?.id) return;
+          if (payload.eventType === "DELETE") {
+            setAppState((prev) => ({
+              ...prev,
+              clientProspectNotes: prev.clientProspectNotes.filter((n) => n.id !== row.id),
+            }));
+            return;
+          }
+          const note = clientProspectNoteFromRow(row);
+          setAppState((prev) => ({
+            ...prev,
+            clientProspectNotes: prev.clientProspectNotes.some((n) => n.id === note.id)
+              ? prev.clientProspectNotes.map((n) => (n.id === note.id ? note : n))
+              : [...prev.clientProspectNotes, note],
           }));
         },
       )
@@ -2747,6 +2791,70 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [setAppState],
   );
 
+  /** acrescenta uma informação no histórico de conversa de uma prospecção do cliente */
+  const addClientProspectNote = useCallback(
+    (clientId: string, texto: string) => {
+      const conteudo = texto.trim();
+      if (!conteudo) {
+        toast.error("Escreva a informação que quer acrescentar.");
+        return;
+      }
+      const nota: ClientProspectNote = {
+        id: `cpn-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        clientId,
+        texto: conteudo,
+        createdBy: uidRef.current,
+        createdByName: user?.fullName ?? null,
+        createdAt: new Date().toISOString(),
+      };
+      setAppState((prev) => ({
+        ...prev,
+        clientProspectNotes: [...prev.clientProspectNotes, nota],
+      }));
+      if (!uidRef.current) return;
+      void supabase
+        .from("client_prospect_notes")
+        .insert({
+          id: nota.id,
+          client_id: clientId,
+          texto: conteudo,
+          created_by: uidRef.current,
+          created_by_name: nota.createdByName,
+        })
+        .then(({ error }) => {
+          if (error) {
+            console.error("acrescentar informação:", error.message);
+            toast.error("Não foi possível salvar a informação", { description: error.message });
+            return;
+          }
+          toast.success("Informação acrescentada ao histórico.");
+        });
+    },
+    [setAppState, user],
+  );
+
+  /** remove uma informação do histórico (quem escreveu ou o coordenador) */
+  const deleteClientProspectNote = useCallback(
+    (id: string) => {
+      setAppState((prev) => ({
+        ...prev,
+        clientProspectNotes: prev.clientProspectNotes.filter((n) => n.id !== id),
+      }));
+      if (!uidRef.current) return;
+      void supabase
+        .from("client_prospect_notes")
+        .delete()
+        .eq("id", id)
+        .then(({ error }) => {
+          if (error) {
+            console.error("excluir informação:", error.message);
+            toast.error("Não foi possível excluir a informação", { description: error.message });
+          }
+        });
+    },
+    [setAppState],
+  );
+
   /* ---------- backup / utilitários ---------- */
 
   const resetData = useCallback(() => {
@@ -2777,6 +2885,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         cadence: parsed.cadence ?? [],
         internalProspects: parsed.internalProspects ?? [],
         internalProspectNotes: parsed.internalProspectNotes ?? [],
+        clientProspectNotes: parsed.clientProspectNotes ?? [],
         settings: { ...defaultSettings, ...parsed.settings },
       });
       if (canWriteClientData()) {
@@ -2894,6 +3003,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
     addInternalProspectNote,
     deleteInternalProspectNote,
     scheduleInternalVisit,
+    addClientProspectNote,
+    deleteClientProspectNote,
     storageUsageKb,
     lastSyncAt,
   };

@@ -3511,6 +3511,40 @@ export type Database = {
           },
         ]
       }
+      client_prospect_notes: {
+        Row: {
+          client_id: string
+          created_at: string
+          created_by: string | null
+          created_by_name: string | null
+          id: string
+          texto: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          id?: string
+          texto: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          id?: string
+          texto?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_prospect_notes_client_id_fkey"
+            columns: ["client_id"]
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clientes_excluidos: {
         Row: {
           deleted_at: string

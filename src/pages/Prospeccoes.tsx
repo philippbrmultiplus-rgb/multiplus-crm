@@ -201,6 +201,7 @@ export default function Prospeccoes() {
       key={c.id}
       client={c}
       visit={lastVisitOf.get(c.id)}
+      notas={state.clientProspectNotes.filter((n) => n.clientId === c.id).length}
       canDelete={podeExcluir}
       canFinalize={podeFinalizar}
       onOpen={() => setDetailTarget(c)}
@@ -441,6 +442,7 @@ export default function Prospeccoes() {
 function ProspectCard({
   client,
   visit,
+  notas,
   canDelete,
   canFinalize,
   onOpen,
@@ -449,6 +451,7 @@ function ProspectCard({
 }: {
   client: Client;
   visit?: Visit;
+  notas: number;
   canDelete: boolean;
   canFinalize: boolean;
   onOpen: () => void;
@@ -515,6 +518,11 @@ function ProspectCard({
         {visit && (
           <p className="text-xs text-muted-foreground">
             Prospecção registrada em {formatDateBR(visit.visitedAt.slice(0, 10))}
+          </p>
+        )}
+        {notas > 0 && (
+          <p className="text-xs text-muted-foreground">
+            {notas} informação(ões) no histórico de conversa
           </p>
         )}
         {parada && dias != null && (
@@ -632,6 +640,16 @@ function LostDialog({
   );
 }
 
+/** data e hora (fuso local) de uma anotação do histórico */
+function dataHora(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return `${d.toLocaleDateString("pt-BR")} ${d.toLocaleTimeString("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  })}`;
+}
+
 /** janela com TODAS as informações da prospecção, incluindo fotos */
 function DetailDialog({
   client,
@@ -642,6 +660,47 @@ function DetailDialog({
   visit?: Visit;
   onClose: () => void;
 }) {
+  const { state, role, user, addClientProspectNote, deleteClientProspectNote } = useData();
+  const [novaInfo, setNovaInfo] = useState("");
+  const podeEscrever = role === "coordenador" || role === "vendedor";
+  const notas = state.clientProspectNotes
+    .filter((n) => n.clientId === client.id)
+    .sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1));
+
+  // histórico: o registro da prospecção + o que foi acrescentado depois
+  const historico: Array<{
+    id: string;
+    texto: string;
+    createdAt: string;
+    createdByName?: string | null;
+    inicial: boolean;
+  }> = [
+    ...(visit?.resultComments
+      ? [
+          {
+            id: "registro",
+            texto: visit.resultComments,
+            createdAt: visit.visitedAt,
+            createdByName: null,
+            inicial: true,
+          },
+        ]
+      : []),
+    ...notas.map((n) => ({
+      id: n.id,
+      texto: n.texto,
+      createdAt: n.createdAt,
+      createdByName: n.createdByName,
+      inicial: false,
+    })),
+  ];
+
+  const acrescentar = () => {
+    if (!novaInfo.trim()) return;
+    addClientProspectNote(client.id, novaInfo);
+    setNovaInfo("");
+  };
+
   const dias = visit ? daysSinceToday(visit.visitedAt.slice(0, 10)) : null;
   const situacao: SituacaoProspeccao = situacaoOf(client.prospeccaoStatus, dias);
   const fotos = visit
@@ -744,6 +803,74 @@ function DetailDialog({
           <p className="rounded-md bg-destructive/5 p-2 text-sm text-destructive">
             <b>Justificativa:</b> {client.prospeccaoJustificativa}
           </p>
+        )}
+
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <span className="text-xs font-medium text-muted-foreground">Histórico de conversa</span>
+            <span className="text-xs text-muted-foreground">{historico.length} registro(s)</span>
+          </div>
+          {historico.length === 0 ? (
+            <p className="text-xs text-muted-foreground">
+              Nenhuma conversa registrada ainda. Use o campo abaixo para acrescentar.
+            </p>
+          ) : (
+            <ol className="space-y-2">
+              {historico.map((h) => {
+                const nota = notas.find((n) => n.id === h.id);
+                const podeExcluir = !!nota && (role === "coordenador" || nota.createdBy === user?.id);
+                return (
+                  <li
+                    key={h.id}
+                    className={`rounded-lg border p-2 text-sm ${h.inicial ? "bg-secondary/40" : ""}`}
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+                      <span>
+                        {dataHora(h.createdAt)}
+                        {h.createdByName ? ` · ${h.createdByName}` : ""}
+                        {h.inicial ? " · registro da prospecção" : ""}
+                      </span>
+                      {podeExcluir && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                          title="Excluir esta anotação"
+                          onClick={() => deleteClientProspectNote(h.id)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                    </div>
+                    <p className="mt-1 whitespace-pre-wrap">{h.texto}</p>
+                  </li>
+                );
+              })}
+            </ol>
+          )}
+        </div>
+
+        {podeEscrever && (
+          <div className="space-y-1.5">
+            <Label htmlFor="prosp-nova-info">
+              Acrescentar informação{" "}
+              <span className="font-normal text-muted-foreground">
+                (não precisa fechar a prospecção)
+              </span>
+            </Label>
+            <Textarea
+              id="prosp-nova-info"
+              rows={3}
+              value={novaInfo}
+              onChange={(e) => setNovaInfo(e.target.value)}
+              placeholder="Ex.: cliente pediu para retornar semana que vem; recebeu a proposta e vai avaliar…"
+            />
+            <div className="flex justify-end">
+              <Button size="sm" onClick={acrescentar} disabled={!novaInfo.trim()}>
+                <Plus className="mr-1.5 h-4 w-4" /> Acrescentar
+              </Button>
+            </div>
+          </div>
         )}
 
         {fotos.length > 0 && (
