@@ -64,6 +64,7 @@ export default function ProspeccaoInterna() {
   const [segmentoComercial, setSegmentoComercial] = useState(VAZIO);
   const [segmentoLogistico, setSegmentoLogistico] = useState(VAZIO);
   const [observacoes, setObservacoes] = useState(VAZIO);
+  const [visitaAgendada, setVisitaAgendada] = useState(VAZIO);
   const [erro, setErro] = useState<string | null>(null);
   const [excluir, setExcluir] = useState<InternalProspect | null>(null);
   // ficha aberta para visualizar / acrescentar informações
@@ -134,6 +135,7 @@ export default function ProspeccaoInterna() {
       segmentoComercial: segmentoComercial.trim(),
       segmentoLogistico,
       observacoes: observacoes.trim(),
+      visitaAgendada: visitaAgendada || null,
     });
     setNome(VAZIO);
     setCidade(VAZIO);
@@ -143,6 +145,7 @@ export default function ProspeccaoInterna() {
     setSegmentoComercial(VAZIO);
     setSegmentoLogistico(VAZIO);
     setObservacoes(VAZIO);
+    setVisitaAgendada(VAZIO);
   };
 
   return (
@@ -242,6 +245,27 @@ export default function ProspeccaoInterna() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label>
+                  Agendar visita <span className="font-normal text-muted-foreground">(opcional)</span>
+                </Label>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Input
+                    type="date"
+                    className="w-44"
+                    value={visitaAgendada}
+                    onChange={(e) => setVisitaAgendada(e.target.value)}
+                  />
+                  {visitaAgendada && (
+                    <Button variant="ghost" size="sm" onClick={() => setVisitaAgendada("")}>
+                      Remover data
+                    </Button>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Marcando uma data, ela aparece em destaque na montagem da rota da semana.
+                </p>
               </div>
               <div className="space-y-1.5 sm:col-span-2">
                 <Label htmlFor="ip-obs">Observações — o que foi conversado</Label>

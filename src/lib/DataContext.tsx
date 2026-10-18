@@ -2617,6 +2617,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           segmento_comercial: novo.segmentoComercial || null,
           segmento_logistico: novo.segmentoLogistico || null,
           observacoes: novo.observacoes || null,
+          visita_agendada: novo.visitaAgendada || null,
           created_by: uidRef.current,
           created_by_name: novo.createdByName,
         })
