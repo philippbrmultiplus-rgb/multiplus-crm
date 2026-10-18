@@ -236,6 +236,16 @@ export interface InternalProspect {
   createdAt: string;
 }
 
+/** anotação datada do histórico de conversa de uma prospecção interna */
+export interface InternalProspectNote {
+  id: string;
+  prospectId: string;
+  texto: string;
+  createdBy?: string | null;
+  createdByName?: string | null;
+  createdAt: string;
+}
+
 export interface AppState {
   version: number;
   sessionRole: Role;
@@ -250,6 +260,7 @@ export interface AppState {
   payments: ClientPayment[];
   cadence: ClientCadence[];
   internalProspects: InternalProspect[];
+  internalProspectNotes: InternalProspectNote[];
 }
 
 export interface DaySummary {

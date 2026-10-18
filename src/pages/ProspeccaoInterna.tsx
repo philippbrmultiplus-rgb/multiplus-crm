@@ -23,6 +23,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useData } from "@/lib/DataContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { formatDateBR } from "@/lib/geo";
@@ -30,10 +38,20 @@ import type { InternalProspect } from "@/lib/types";
 
 const VAZIO = "";
 
+/** data e hora (fuso local) de uma anotação */
+function dataHora(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return `${d.toLocaleDateString("pt-BR")} ${d.toLocaleTimeString("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  })}`;
+}
+
 /** cadastro interno de prospecção: ficha do cliente conversado, sem visita em campo */
 export default function ProspeccaoInterna() {
   const { state, role, user, addInternalProspect, deleteInternalProspect } = useData();
-  const { clients, internalProspects } = state;
+  const { clients, internalProspects, internalProspectNotes } = state;
   const isMobile = useIsMobile();
   // o gerente é somente leitura; coordenador e vendedor cadastram
   const podeCadastrar = role === "coordenador" || role === "vendedor";
@@ -48,6 +66,17 @@ export default function ProspeccaoInterna() {
   const [observacoes, setObservacoes] = useState(VAZIO);
   const [erro, setErro] = useState<string | null>(null);
   const [excluir, setExcluir] = useState<InternalProspect | null>(null);
+  // ficha aberta para visualizar / acrescentar informações
+  const [detalhe, setDetalhe] = useState<InternalProspect | null>(null);
+
+  /** quantas informações de histórico cada prospecção tem */
+  const notasPorProspect = useMemo(() => {
+    const mapa = new Map<string, number>();
+    for (const n of internalProspectNotes) {
+      mapa.set(n.prospectId, (mapa.get(n.prospectId) ?? 0) + 1);
+    }
+    return mapa;
+  }, [internalProspectNotes]);
   // filtros da lista
   const [filtroCidade, setFiltroCidade] = useState("all");
   const [filtroSegmento, setFiltroSegmento] = useState("all");
@@ -300,7 +329,12 @@ export default function ProspeccaoInterna() {
               {filtradas.map((p) => {
                 const podeExcluir = role === "coordenador" || p.createdBy === user?.id;
                 return (
-                  <div key={p.id} className="space-y-2 rounded-lg border p-3 text-sm">
+                  <div
+                    key={p.id}
+                    className="cursor-pointer space-y-2 rounded-lg border p-3 text-sm transition-colors hover:bg-secondary/40"
+                    onClick={() => setDetalhe(p)}
+                    title="Clique para ver todos os dados e o histórico"
+                  >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <div className="truncate font-semibold leading-tight">{p.nome}</div>
@@ -314,7 +348,10 @@ export default function ProspeccaoInterna() {
                           size="sm"
                           className="h-7 w-7 shrink-0 p-0 text-muted-foreground hover:text-destructive"
                           title="Remover esta prospecção interna"
-                          onClick={() => setExcluir(p)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setExcluir(p);
+                          }}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -355,6 +392,9 @@ export default function ProspeccaoInterna() {
                     <p className="text-[11px] text-muted-foreground">
                       {formatDateBR(p.createdAt.slice(0, 10))}
                       {p.createdByName ? ` · ${p.createdByName}` : ""}
+                      {notasPorProspect.get(p.id)
+                        ? ` · ${notasPorProspect.get(p.id)} informação(ões) no histórico`
+                        : ""}
                     </p>
                   </div>
                 );
@@ -363,6 +403,8 @@ export default function ProspeccaoInterna() {
           )}
         </CardContent>
       </Card>
+
+      <ProspectDetailDialog prospect={detalhe} onClose={() => setDetalhe(null)} />
 
       <AlertDialog open={!!excluir} onOpenChange={(o) => !o && setExcluir(null)}>
         <AlertDialogContent>
@@ -387,5 +429,175 @@ export default function ProspeccaoInterna() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+/** janela com todos os dados da prospecção interna + histórico de conversa */
+function ProspectDetailDialog({
+  prospect,
+  onClose,
+}: {
+  prospect: InternalProspect | null;
+  onClose: () => void;
+}) {
+  const { state, role, user, addInternalProspectNote, deleteInternalProspectNote } = useData();
+  const [texto, setTexto] = useState("");
+  if (!prospect) return null;
+
+  const podeEscrever = role === "coordenador" || role === "vendedor";
+  const notas = state.internalProspectNotes
+    .filter((n) => n.prospectId === prospect.id)
+    .sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1));
+
+  // histórico: o que foi conversado no cadastro + o que foi acrescentado depois
+  const historico: Array<{
+    id: string;
+    texto: string;
+    createdAt: string;
+    createdByName?: string | null;
+    inicial: boolean;
+  }> = [
+    ...(prospect.observacoes
+      ? [
+          {
+            id: "cadastro",
+            texto: prospect.observacoes,
+            createdAt: prospect.createdAt,
+            createdByName: prospect.createdByName,
+            inicial: true,
+          },
+        ]
+      : []),
+    ...notas.map((n) => ({
+      id: n.id,
+      texto: n.texto,
+      createdAt: n.createdAt,
+      createdByName: n.createdByName,
+      inicial: false,
+    })),
+  ];
+
+  const acrescentar = () => {
+    if (!texto.trim()) return;
+    addInternalProspectNote(prospect.id, texto);
+    setTexto("");
+  };
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-h-[calc(100dvh-2.5rem)] max-w-lg overflow-y-auto overscroll-contain">
+        <DialogHeader>
+          <DialogTitle>{prospect.nome}</DialogTitle>
+          <DialogDescription>
+            {[prospect.cidade, prospect.segmentoLogistico].filter(Boolean).join(" · ") ||
+              "Prospecção interna"}{" "}
+            · cadastrada em {formatDateBR(prospect.createdAt.slice(0, 10))}
+            {prospect.createdByName ? ` por ${prospect.createdByName}` : ""}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-1.5 text-sm">
+          {prospect.endereco && (
+            <div>
+              <span className="block text-xs font-medium text-muted-foreground">Endereço completo</span>
+              {prospect.endereco}
+            </div>
+          )}
+          {prospect.contato && (
+            <div>
+              <span className="block text-xs font-medium text-muted-foreground">Contato</span>
+              {prospect.contato}
+            </div>
+          )}
+          {prospect.telefone && (
+            <div>
+              <span className="block text-xs font-medium text-muted-foreground">Telefone</span>
+              {prospect.telefone}
+            </div>
+          )}
+          {prospect.segmentoComercial && (
+            <div>
+              <span className="block text-xs font-medium text-muted-foreground">Segmento comercial</span>
+              {prospect.segmentoComercial}
+            </div>
+          )}
+          {prospect.segmentoLogistico && (
+            <div>
+              <span className="block text-xs font-medium text-muted-foreground">Segmento logístico</span>
+              {prospect.segmentoLogistico}
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <span className="text-xs font-medium text-muted-foreground">Histórico de conversa</span>
+            <span className="text-xs text-muted-foreground">{historico.length} registro(s)</span>
+          </div>
+          {historico.length === 0 ? (
+            <p className="text-xs text-muted-foreground">
+              Nenhuma conversa registrada ainda. Use o campo abaixo para acrescentar.
+            </p>
+          ) : (
+            <ol className="space-y-2">
+              {historico.map((h) => {
+                const nota = notas.find((n) => n.id === h.id);
+                const podeExcluir = !!nota && (role === "coordenador" || nota.createdBy === user?.id);
+                return (
+                  <li
+                    key={h.id}
+                    className={`rounded-lg border p-2 text-sm ${h.inicial ? "bg-secondary/40" : ""}`}
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+                      <span>
+                        {dataHora(h.createdAt)}
+                        {h.createdByName ? ` · ${h.createdByName}` : ""}
+                        {h.inicial ? " · cadastro" : ""}
+                      </span>
+                      {podeExcluir && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                          title="Excluir esta anotação"
+                          onClick={() => deleteInternalProspectNote(h.id)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                    </div>
+                    <p className="mt-1 whitespace-pre-wrap">{h.texto}</p>
+                  </li>
+                );
+              })}
+            </ol>
+          )}
+        </div>
+
+        {podeEscrever && (
+          <div className="space-y-1.5">
+            <Label htmlFor="ip-nova-info">Acrescentar informação</Label>
+            <Textarea
+              id="ip-nova-info"
+              rows={3}
+              value={texto}
+              onChange={(e) => setTexto(e.target.value)}
+              placeholder="Ex.: cliente retornou hoje pedindo proposta revisada para 3 caçambas…"
+            />
+            <div className="flex justify-end">
+              <Button size="sm" onClick={acrescentar} disabled={!texto.trim()}>
+                <Plus className="mr-1.5 h-4 w-4" /> Acrescentar
+              </Button>
+            </div>
+          </div>
+        )}
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Fechar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

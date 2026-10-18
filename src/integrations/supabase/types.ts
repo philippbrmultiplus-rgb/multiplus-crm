@@ -3668,6 +3668,40 @@ export type Database = {
           },
         ]
       }
+      internal_prospect_notes: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          created_by_name: string | null
+          id: string
+          prospect_id: string
+          texto: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          id?: string
+          prospect_id: string
+          texto: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          id?: string
+          prospect_id?: string
+          texto?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "internal_prospect_notes_prospect_id_fkey"
+            columns: ["prospect_id"]
+            referencedRelation: "internal_prospects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       internal_prospects: {
         Row: {
           cidade: string | null
