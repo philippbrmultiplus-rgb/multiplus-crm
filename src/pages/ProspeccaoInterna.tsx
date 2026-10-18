@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ClipboardList, Plus, Trash2 } from "lucide-react";
+import { ClipboardList, Plus, RotateCcw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -48,6 +48,38 @@ export default function ProspeccaoInterna() {
   const [observacoes, setObservacoes] = useState(VAZIO);
   const [erro, setErro] = useState<string | null>(null);
   const [excluir, setExcluir] = useState<InternalProspect | null>(null);
+  // filtros da lista
+  const [filtroCidade, setFiltroCidade] = useState("all");
+  const [filtroSegmento, setFiltroSegmento] = useState("all");
+
+  /** opções dos filtros, a partir das fichas já registradas */
+  const cidades = useMemo(() => {
+    const set = new Set<string>();
+    for (const p of internalProspects) set.add(p.cidade || "(sem cidade)");
+    return [...set].sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [internalProspects]);
+
+  const segmentosLog = useMemo(() => {
+    const set = new Set<string>();
+    for (const p of internalProspects) set.add(p.segmentoLogistico || "(sem segmento)");
+    return [...set].sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [internalProspects]);
+
+  const filtradas = useMemo(
+    () =>
+      internalProspects
+        .filter((p) =>
+          filtroCidade === "all" ? true : (p.cidade || "(sem cidade)") === filtroCidade,
+        )
+        .filter((p) =>
+          filtroSegmento === "all"
+            ? true
+            : (p.segmentoLogistico || "(sem segmento)") === filtroSegmento,
+        ),
+    [internalProspects, filtroCidade, filtroSegmento],
+  );
+
+  const temFiltro = filtroCidade !== "all" || filtroSegmento !== "all";
 
   /** segmentos logísticos já usados na carteira */
   const segmentos = useMemo(
@@ -205,21 +237,67 @@ export default function ProspeccaoInterna() {
         </Card>
       )}
 
+      <div className="card-soft flex flex-wrap items-end gap-2 p-3">
+        <Select value={filtroCidade} onValueChange={setFiltroCidade}>
+          <SelectTrigger className="w-52">
+            <SelectValue placeholder="Cidade" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas as cidades</SelectItem>
+            {cidades.map((c) => (
+              <SelectItem key={c} value={c}>
+                {c}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={filtroSegmento} onValueChange={setFiltroSegmento}>
+          <SelectTrigger className="w-56">
+            <SelectValue placeholder="Segmento logístico" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os segmentos logísticos</SelectItem>
+            {segmentosLog.map((s) => (
+              <SelectItem key={s} value={s}>
+                {s}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {temFiltro && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setFiltroCidade("all");
+              setFiltroSegmento("all");
+            }}
+          >
+            <RotateCcw className="mr-1 h-3.5 w-3.5" /> Limpar filtros
+          </Button>
+        )}
+      </div>
+
       <Card className="card-soft">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
             <ClipboardList className="h-4 w-4 text-primary" /> Prospecções internas registradas
           </CardTitle>
           <CardDescription>
-            Fichas preenchidas pela equipe, da mais recente para a mais antiga.
+            Fichas preenchidas pela equipe, da mais recente para a mais antiga · {filtradas.length} de{" "}
+            {internalProspects.length} registro(s)
           </CardDescription>
         </CardHeader>
         <CardContent>
           {internalProspects.length === 0 ? (
             <p className="text-sm text-muted-foreground">Nenhuma prospecção interna registrada ainda.</p>
+          ) : filtradas.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Nenhuma prospecção interna corresponde aos filtros atuais.
+            </p>
           ) : (
             <div className={isMobile ? "space-y-3" : "grid gap-3 md:grid-cols-2 xl:grid-cols-3"}>
-              {internalProspects.map((p) => {
+              {filtradas.map((p) => {
                 const podeExcluir = role === "coordenador" || p.createdBy === user?.id;
                 return (
                   <div key={p.id} className="space-y-2 rounded-lg border p-3 text-sm">
