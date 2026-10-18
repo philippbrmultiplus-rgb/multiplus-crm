@@ -75,6 +75,7 @@ import {
   todayKey,
 } from "@/lib/geo";
 import { computeSchedule, newestRoute } from "@/lib/route";
+import type { ScheduledVisit } from "@/lib/types";
 import { cadenceLabel, tierOfFreq } from "@/lib/cadence";
 import { SEGMENTOS_LOGISTICOS } from "@/lib/segmentos";
 import {

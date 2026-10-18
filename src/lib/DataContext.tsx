@@ -569,7 +569,7 @@ interface DataContextValue {
   setProspeccaoStatus: (clientId: string, status: "fechado" | "proposta_recusada", justificativa?: string) => void;
   updateVisit: (id: string, patch: Partial<Visit>) => void;
   deleteVisit: (id: string) => void;
-  markRouteVisitStatus: (routeVisitId: string, status: RouteVisit["status"]) => void;
+  markRouteVisitStatus: (routeVisitId: string, status: RouteVisit["status"], reason?: string) => void;
   addAlert: (clientId: string, motivo: string, photoData?: string) => void;
   deleteAlert: (id: string) => void;
   addActivity: (

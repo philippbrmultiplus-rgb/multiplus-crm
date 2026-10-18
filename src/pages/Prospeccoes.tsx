@@ -6,6 +6,7 @@ import {
   ChevronDown,
   Lock,
   Phone,
+  Plus,
   Search,
   Target,
   Trash2,
