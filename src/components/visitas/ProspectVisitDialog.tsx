@@ -22,7 +22,7 @@ import {
 import { toast } from "sonner";
 import { useData } from "@/lib/DataContext";
 import { SEGMENTOS_LOGISTICOS } from "@/lib/segmentos";
-import { DAY_NAMES } from "@/lib/geo";
+import { DAY_NAMES, agruparCidades, canonicalCidade } from "@/lib/geo";
 import { compressImage, estimateKb } from "@/lib/image";
 import type { VisitStatus } from "@/lib/types";
 
@@ -50,6 +50,16 @@ export function ProspectVisitDialog({
     [state.settings.workingDays],
   );
   const segmentOptions = SEGMENTOS_LOGISTICOS;
+
+  /** cidades já salvas (carteira + prospecções internas), sem duplicar maiúscula/minúscula */
+  const cidadesSalvas = useMemo(
+    () =>
+      agruparCidades([
+        ...state.clients.map((c) => c.city),
+        ...state.internalProspects.map((p) => p.cidade),
+      ]).map((o) => o.label),
+    [state.clients, state.internalProspects],
+  );
 
   const [dia, setDia] = useState(day);  const [nome, setNome] = useState("");
   const [responsavel, setResponsavel] = useState("");
@@ -155,8 +165,13 @@ export function ProspectVisitDialog({
   };
 
   const save = () => {
-    if (!nome.trim()) {
-      setError("Informe o nome do cliente novo.");
+    const faltando: string[] = [];
+    if (!nome.trim()) faltando.push("nome do cliente");
+    if (!cidade.trim()) faltando.push("cidade");
+    if (!segmento) faltando.push("segmento logístico");
+    if (!segmentoComercial.trim()) faltando.push("segmento comercial");
+    if (faltando.length > 0) {
+      setError(`Preencha: ${faltando.join(", ")}.`);
       return;
     }
     if (photos.length === 0) {
@@ -172,7 +187,8 @@ export function ProspectVisitDialog({
       responsavel,
       contato,
       endereco,
-      cidade,
+      // grava com a grafia já existente (evita duplicar a cidade no filtro)
+      cidade: canonicalCidade(cidade, cidadesSalvas),
       segmento,
       segmentoComercial,
       visitaAgendada,
@@ -239,8 +255,17 @@ export function ProspectVisitDialog({
               </Select>
             </div>
             <div className="space-y-1.5 sm:col-span-2">
-              <Label>Nome do cliente</Label>
-              <Input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: Construtora Horizonte" />
+              <Label>
+                Nome do cliente <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                value={nome}
+                onChange={(e) => {
+                  setNome(e.target.value);
+                  if (e.target.value.trim()) setError(null);
+                }}
+                placeholder="Ex.: Construtora Horizonte"
+              />
             </div>
             <div className="space-y-1.5">
               <Label>Nome do responsável</Label>
@@ -251,8 +276,16 @@ export function ProspectVisitDialog({
               <Input value={contato} onChange={(e) => setContato(e.target.value)} placeholder="(51) 9 9999-9999" />
             </div>
             <div className="space-y-1.5">
-              <Label>Segmento logístico</Label>
-              <Select value={segmento} onValueChange={setSegmento}>
+              <Label>
+                Segmento logístico <span className="text-destructive">*</span>
+              </Label>
+              <Select
+                value={segmento}
+                onValueChange={(v) => {
+                  setSegmento(v);
+                  setError(null);
+                }}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Selecionar segmento" />
                 </SelectTrigger>
@@ -267,12 +300,14 @@ export function ProspectVisitDialog({
             </div>
             <div className="space-y-1.5">
               <Label>
-                Segmento comercial{" "}
-                <span className="font-normal text-muted-foreground">(opcional)</span>
+                Segmento comercial <span className="text-destructive">*</span>
               </Label>
               <Input
                 value={segmentoComercial}
-                onChange={(e) => setSegmentoComercial(e.target.value)}
+                onChange={(e) => {
+                  setSegmentoComercial(e.target.value);
+                  if (e.target.value.trim()) setError(null);
+                }}
                 placeholder="Ex.: construtora, gesseiro, entulho…"
               />
             </div>
@@ -298,8 +333,30 @@ export function ProspectVisitDialog({
               </p>
             </div>
             <div className="space-y-1.5">
-              <Label>Cidade</Label>
-              <Input value={cidade} onChange={(e) => setCidade(e.target.value)} placeholder="Porto Alegre" />
+              <Label>
+                Cidade <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                list="prospect-cidades"
+                value={cidade}
+                onChange={(e) => {
+                  setCidade(e.target.value);
+                  if (e.target.value.trim()) setError(null);
+                }}
+                onBlur={() => {
+                  const padrao = canonicalCidade(cidade, cidadesSalvas);
+                  if (padrao && padrao !== cidade) setCidade(padrao);
+                }}
+                placeholder="Comece a digitar a cidade"
+              />
+              <datalist id="prospect-cidades">
+                {cidadesSalvas.map((c) => (
+                  <option key={c} value={c} />
+                ))}
+              </datalist>
+              <p className="text-xs text-muted-foreground">
+                As cidades já cadastradas aparecem conforme você digita.
+              </p>
             </div>
             <div className="space-y-1.5 sm:col-span-2">
               <Label>
