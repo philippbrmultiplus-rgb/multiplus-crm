@@ -8,3 +8,6 @@ export const SEGMENTOS_LOGISTICOS = [
   "Porta a Porta/Gesseiro",
   "Terceiro",
 ];
+
+/** segmento logístico usado na prospecção interna (lead ainda em análise) */
+export const SEGMENTO_EM_ANALISE = "Em análise";
