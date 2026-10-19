@@ -34,7 +34,7 @@ import {
 import { useData } from "@/lib/DataContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { agruparCidades, canonicalCidade, cidadeKey, formatDateBR } from "@/lib/geo";
-import { SEGMENTO_EM_ANALISE } from "@/lib/segmentos";
+import { SEGMENTOS_LOGISTICOS, SEGMENTO_EM_ANALISE } from "@/lib/segmentos";
 import type { InternalProspect } from "@/lib/types";
 
 const VAZIO = "";
@@ -63,7 +63,7 @@ export default function ProspeccaoInterna() {
   const [contato, setContato] = useState(VAZIO);
   const [telefone, setTelefone] = useState(VAZIO);
   const [segmentoComercial, setSegmentoComercial] = useState(VAZIO);
-  const [segmentoLogistico, setSegmentoLogistico] = useState(SEGMENTO_EM_ANALISE);
+  const [segmentoLogistico, setSegmentoLogistico] = useState(VAZIO);
   const [observacoes, setObservacoes] = useState(VAZIO);
   const [visitaAgendada, setVisitaAgendada] = useState(VAZIO);
   const [erro, setErro] = useState<string | null>(null);
@@ -114,8 +114,8 @@ export default function ProspeccaoInterna() {
 
   const temFiltro = filtroCidade !== "all" || filtroSegmento !== "all";
 
-  /** segmentos logísticos liberados no cadastro */
-  const segmentos = [SEGMENTO_EM_ANALISE];
+  /** segmentos logísticos da prospecção interna: os oficiais + "Em análise" */
+  const segmentos = [...SEGMENTOS_LOGISTICOS, SEGMENTO_EM_ANALISE];
 
   /**
    * Cidades já salvas (clientes + prospecções internas), sem duplicar por
@@ -269,7 +269,7 @@ export default function ProspeccaoInterna() {
                   Segmento logístico <span className="text-destructive">*</span>
                 </Label>
                 <Select
-                  value={segmentoLogistico || SEGMENTO_EM_ANALISE}
+                  value={segmentoLogistico}
                   onValueChange={(v) => {
                     setSegmentoLogistico(v);
                     setErro(null);
@@ -287,8 +287,8 @@ export default function ProspeccaoInterna() {
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">
-                  Na prospecção interna o segmento logístico entra como <b>{SEGMENTO_EM_ANALISE}</b> — a
-                  definição acontece depois.
+                  Use <b>{SEGMENTO_EM_ANALISE}</b> quando o segmento logístico ainda não estiver
+                  definido — a definição acontece depois.
                 </p>
               </div>
               <div className="space-y-1.5 sm:col-span-2">
