@@ -43,12 +43,13 @@ const SEGMENTOS_COBERTURA = new Set([
   "TERCEIRO",
 ]);
 
-/** compara segmento ignorando acentos, maiúsculas e espaços repetidos */
+/** compara segmento ignorando acentos, maiúsculas, hífens e espaços repetidos */
 function normSegmento(s: string | null | undefined): string {
   return (s ?? "")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toUpperCase()
+    .replace(/-/g, "")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -187,6 +188,8 @@ export default function Dashboard() {
       total,
       comVisita,
       comColeta,
+      /** todos os clientes visitados no mês, mesmo fora da base (prospecções e outros segmentos) */
+      visitadosTodos: visitados.size,
       pctVisita: pct(comVisita),
       pctColeta: pct(comColeta),
       mesLabel: new Date(`${inicioMes}T12:00:00`).toLocaleDateString("pt-BR", {
@@ -343,6 +346,10 @@ export default function Dashboard() {
             pct={cobertura.pctColeta}
             semLabel="sem coleta"
           />
+          <p className="text-xs text-muted-foreground">
+            No mês o vendedor registrou visita a <b>{cobertura.visitadosTodos}</b> cliente(s) no total
+            (inclui prospecções e segmentos fora da base acima, como Porta a Porta e Poli/Esporádico).
+          </p>
         </CardContent>
       </Card>
 
