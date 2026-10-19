@@ -45,7 +45,7 @@ import {
 import { useData } from "@/lib/DataContext";
 import { PhotoZoom } from "@/components/visitas/PhotoZoom";
 import { cidadeComDistancia } from "@/components/clients/clientBits";
-import { addDays, DAY_NAMES, daysSinceToday, formatDateBR, mondayOf } from "@/lib/geo";
+import { addDays, agruparCidades, cidadeKey, DAY_NAMES, daysSinceToday, formatDateBR, mondayOf } from "@/lib/geo";
 import {
   DIAS_SEM_DEFINICAO,
   SITUACAO_LABEL,
@@ -126,11 +126,11 @@ export default function Prospeccoes() {
     return [...set].sort((a, b) => a.localeCompare(b, "pt-BR"));
   }, [universo]);
 
-  const cidades = useMemo(() => {
-    const set = new Set<string>();
-    for (const c of universo) set.add(c.city || "(sem cidade)");
-    return [...set].sort((a, b) => a.localeCompare(b, "pt-BR"));
-  }, [universo]);
+  /** cidades das prospecções, sem duplicar grafias (maiúscula/minúscula) */
+  const cidades = useMemo(
+    () => agruparCidades(universo.map((c) => c.city || "(sem cidade)")).map((g) => g.label),
+    [universo],
+  );
 
   const prospects = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -141,7 +141,9 @@ export default function Prospeccoes() {
           : situacaoOf(c.prospeccaoStatus, diasRegistro.get(c.id) ?? null) === situ,
       )
       .filter((c) => (segmento === "all" ? true : (c.segment || "(sem segmento)") === segmento))
-      .filter((c) => (cidade === "all" ? true : (c.city || "(sem cidade)") === cidade))
+      .filter((c) =>
+        cidade === "all" ? true : cidadeKey(c.city || "(sem cidade)") === cidadeKey(cidade),
+      )
       .filter((c) =>
         q ? `${c.name} ${c.responsavel ?? ""} ${c.city} ${c.segment}`.toLowerCase().includes(q) : true,
       )

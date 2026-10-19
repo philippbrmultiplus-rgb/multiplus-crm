@@ -136,6 +136,28 @@ export function formatM3(n: number): string {
   return formatNumero(n);
 }
 
+/** "porto alegre" -> "Porto Alegre" (conectivos ficam minúsculos) */
+export function tituloCidade(valor: string): string {
+  const conectivos = new Set(["de", "da", "do", "das", "dos", "e"]);
+  return valor
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase()
+    .split(" ")
+    .map((p, i) => (i > 0 && conectivos.has(p) ? p : p.charAt(0).toUpperCase() + p.slice(1)))
+    .join(" ");
+}
+
+/**
+ * Devolve a grafia já conhecida da cidade (evita "porto alegre" e "Porto Alegre"
+ * virarem duas cidades); se for nova, devolve em formato de título.
+ */
+export function canonicalCidade(valor: string, conhecidas: string[]): string {
+  const chave = cidadeKey(valor);
+  const achada = conhecidas.find((c) => cidadeKey(c) === chave);
+  return achada ?? tituloCidade(valor);
+}
+
 /** chave de comparação de cidade: sem acento, sem espaços repetidos e em minúsculas */
 export function cidadeKey(cidade: string | null | undefined): string {
   return (cidade ?? "")

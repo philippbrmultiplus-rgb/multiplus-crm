@@ -33,7 +33,7 @@ import {
 } from "@/components/ui/dialog";
 import { useData } from "@/lib/DataContext";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { formatDateBR } from "@/lib/geo";
+import { agruparCidades, canonicalCidade, cidadeKey, formatDateBR } from "@/lib/geo";
 import { SEGMENTOS_LOGISTICOS } from "@/lib/segmentos";
 import type { InternalProspect } from "@/lib/types";
 
@@ -52,7 +52,7 @@ function dataHora(iso: string): string {
 /** cadastro interno de prospecção: ficha do cliente conversado, sem visita em campo */
 export default function ProspeccaoInterna() {
   const { state, role, user, addInternalProspect, deleteInternalProspect } = useData();
-  const { internalProspects, internalProspectNotes } = state;
+  const { internalProspects, internalProspectNotes, clients } = state;
   const isMobile = useIsMobile();
   // o gerente é somente leitura; coordenador e vendedor cadastram
   const podeCadastrar = role === "coordenador" || role === "vendedor";
@@ -84,11 +84,11 @@ export default function ProspeccaoInterna() {
   const [filtroSegmento, setFiltroSegmento] = useState("all");
 
   /** opções dos filtros, a partir das fichas já registradas */
-  const cidades = useMemo(() => {
-    const set = new Set<string>();
-    for (const p of internalProspects) set.add(p.cidade || "(sem cidade)");
-    return [...set].sort((a, b) => a.localeCompare(b, "pt-BR"));
-  }, [internalProspects]);
+  /** cidades das prospecções internas, sem duplicar grafias */
+  const cidades = useMemo(
+    () => agruparCidades(internalProspects.map((p) => p.cidade || "(sem cidade)")).map((g) => g.label),
+    [internalProspects],
+  );
 
   const segmentosLog = useMemo(() => {
     const set = new Set<string>();
@@ -100,7 +100,9 @@ export default function ProspeccaoInterna() {
     () =>
       internalProspects
         .filter((p) =>
-          filtroCidade === "all" ? true : (p.cidade || "(sem cidade)") === filtroCidade,
+          filtroCidade === "all"
+            ? true
+            : cidadeKey(p.cidade || "(sem cidade)") === cidadeKey(filtroCidade),
         )
         .filter((p) =>
           filtroSegmento === "all"
@@ -115,15 +117,30 @@ export default function ProspeccaoInterna() {
   /** segmentos logísticos liberados no cadastro */
   const segmentos = SEGMENTOS_LOGISTICOS;
 
+  /**
+   * Cidades já salvas (clientes + prospecções internas), sem duplicar por
+   * maiúscula/minúscula ou acento — usadas nas sugestões e para padronizar a gravação.
+   */
+  const cidadesSalvas = useMemo(
+    () => agruparCidades([...clients.map((c) => c.city), ...internalProspects.map((p) => p.cidade)]).map((o) => o.label),
+    [clients, internalProspects],
+  );
+
   const salvar = () => {
-    if (!nome.trim()) {
-      setErro("Informe o nome do cliente.");
+    const faltando: string[] = [];
+    if (!nome.trim()) faltando.push("nome do cliente");
+    if (!cidade.trim()) faltando.push("cidade");
+    if (!segmentoLogistico) faltando.push("segmento logístico");
+    if (!segmentoComercial.trim()) faltando.push("segmento comercial");
+    if (faltando.length > 0) {
+      setErro(`Preencha: ${faltando.join(", ")}.`);
       return;
     }
     setErro(null);
     addInternalProspect({
       nome: nome.trim(),
-      cidade: cidade.trim(),
+      // grava com a grafia já existente (evita "porto alegre" e "Porto Alegre" duplicados)
+      cidade: canonicalCidade(cidade, cidadesSalvas),
       endereco: endereco.trim(),
       contato: contato.trim(),
       telefone: telefone.trim(),
@@ -166,7 +183,9 @@ export default function ProspeccaoInterna() {
           <CardContent className="space-y-3">
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5 sm:col-span-2">
-                <Label htmlFor="ip-nome">Nome do cliente</Label>
+                <Label htmlFor="ip-nome">
+                  Nome do cliente <span className="text-destructive">*</span>
+                </Label>
                 <Input
                   id="ip-nome"
                   value={nome}
@@ -178,13 +197,31 @@ export default function ProspeccaoInterna() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="ip-cidade">Cidade</Label>
+                <Label htmlFor="ip-cidade">
+                  Cidade <span className="text-destructive">*</span>
+                </Label>
                 <Input
                   id="ip-cidade"
+                  list="ip-cidades"
                   value={cidade}
-                  onChange={(e) => setCidade(e.target.value)}
-                  placeholder="Porto Alegre"
+                  onChange={(e) => {
+                    setCidade(e.target.value);
+                    if (e.target.value.trim()) setErro(null);
+                  }}
+                  onBlur={() => {
+                    const padrao = canonicalCidade(cidade, cidadesSalvas);
+                    if (padrao && padrao !== cidade) setCidade(padrao);
+                  }}
+                  placeholder="Comece a digitar a cidade"
                 />
+                <datalist id="ip-cidades">
+                  {cidadesSalvas.map((c) => (
+                    <option key={c} value={c} />
+                  ))}
+                </datalist>
+                <p className="text-xs text-muted-foreground">
+                  As cidades já cadastradas aparecem conforme você digita.
+                </p>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="ip-contato">Contato</Label>
@@ -214,19 +251,29 @@ export default function ProspeccaoInterna() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="ip-comercial">Segmento comercial</Label>
+                <Label htmlFor="ip-comercial">
+                  Segmento comercial <span className="text-destructive">*</span>
+                </Label>
                 <Input
                   id="ip-comercial"
                   value={segmentoComercial}
-                  onChange={(e) => setSegmentoComercial(e.target.value)}
+                  onChange={(e) => {
+                    setSegmentoComercial(e.target.value);
+                    if (e.target.value.trim()) setErro(null);
+                  }}
                   placeholder="Ex.: construtora, gesseiro, entulho…"
                 />
               </div>
               <div className="space-y-1.5 sm:col-span-2">
-                <Label>Segmento logístico</Label>
+                <Label>
+                  Segmento logístico <span className="text-destructive">*</span>
+                </Label>
                 <Select
                   value={segmentoLogistico || "__none__"}
-                  onValueChange={(v) => setSegmentoLogistico(v === "__none__" ? "" : v)}
+                  onValueChange={(v) => {
+                    setSegmentoLogistico(v === "__none__" ? "" : v);
+                    setErro(null);
+                  }}
                 >
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Selecionar segmento logístico" />
