@@ -82,6 +82,7 @@ export default function ProspeccaoInterna() {
   // filtros da lista
   const [filtroCidade, setFiltroCidade] = useState("all");
   const [filtroSegmento, setFiltroSegmento] = useState("all");
+  const [filtroComercial, setFiltroComercial] = useState("all");
 
   /** opções dos filtros, a partir das fichas já registradas */
   /** cidades das prospecções internas, sem duplicar grafias */
@@ -96,6 +97,15 @@ export default function ProspeccaoInterna() {
     return [...set].sort((a, b) => a.localeCompare(b, "pt-BR"));
   }, [internalProspects]);
 
+  /** segmentos comerciais das fichas, sem duplicar grafias */
+  const segmentosComerciais = useMemo(
+    () =>
+      agruparCidades(
+        internalProspects.map((p) => p.segmentoComercial || "(sem segmento comercial)"),
+      ).map((g) => g.label),
+    [internalProspects],
+  );
+
   const filtradas = useMemo(
     () =>
       internalProspects
@@ -108,11 +118,18 @@ export default function ProspeccaoInterna() {
           filtroSegmento === "all"
             ? true
             : (p.segmentoLogistico || "(sem segmento)") === filtroSegmento,
+        )
+        .filter((p) =>
+          filtroComercial === "all"
+            ? true
+            : cidadeKey(p.segmentoComercial || "(sem segmento comercial)") ===
+              cidadeKey(filtroComercial),
         ),
-    [internalProspects, filtroCidade, filtroSegmento],
+    [internalProspects, filtroCidade, filtroSegmento, filtroComercial],
   );
 
-  const temFiltro = filtroCidade !== "all" || filtroSegmento !== "all";
+  const temFiltro =
+    filtroCidade !== "all" || filtroSegmento !== "all" || filtroComercial !== "all";
 
   /** segmentos logísticos da prospecção interna: os oficiais + "Em análise" */
   const segmentos = [...SEGMENTOS_LOGISTICOS, SEGMENTO_EM_ANALISE];
@@ -362,6 +379,19 @@ export default function ProspeccaoInterna() {
             ))}
           </SelectContent>
         </Select>
+        <Select value={filtroComercial} onValueChange={setFiltroComercial}>
+          <SelectTrigger className="w-56">
+            <SelectValue placeholder="Segmento comercial" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os segmentos comerciais</SelectItem>
+            {segmentosComerciais.map((s) => (
+              <SelectItem key={s} value={s}>
+                {s}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         {temFiltro && (
           <Button
             variant="ghost"
@@ -369,6 +399,7 @@ export default function ProspeccaoInterna() {
             onClick={() => {
               setFiltroCidade("all");
               setFiltroSegmento("all");
+              setFiltroComercial("all");
             }}
           >
             <RotateCcw className="mr-1 h-3.5 w-3.5" /> Limpar filtros
