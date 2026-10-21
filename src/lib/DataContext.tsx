@@ -67,6 +67,40 @@ function savePendingPhotos(list: PendingPhoto[]) {
   }
 }
 
+/** anotações de prospecção que não conseguiram salvar (conexão/sessão) */
+const PENDING_NOTES_KEY = "rs-pending-notes.v1";
+
+interface PendingNote {
+  tabela: "client_prospect_notes" | "internal_prospect_notes";
+  row: Record<string, unknown>;
+}
+
+function loadPendingNotes(): PendingNote[] {
+  try {
+    const raw = localStorage.getItem(PENDING_NOTES_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as PendingNote[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function savePendingNotes(list: PendingNote[]) {
+  try {
+    if (list.length === 0) localStorage.removeItem(PENDING_NOTES_KEY);
+    else localStorage.setItem(PENDING_NOTES_KEY, JSON.stringify(list));
+  } catch {
+    // storage indisponível — ignora
+  }
+}
+
+function enqueuePendingNote(item: PendingNote) {
+  const pendentes = loadPendingNotes().filter((p) => !(p.row?.id === item.row?.id));
+  pendentes.push(item);
+  savePendingNotes(pendentes);
+}
+
 // eslint-disable-next-line react-refresh/only-export-components
 export const defaultSettings: Settings = {
   homeLat: -30.0346,
@@ -2020,14 +2054,33 @@ export function DataProvider({ children }: { children: ReactNode }) {
     toast.success(`${anexadas.length} visita(s) ficaram com as fotos anexadas agora.`);
   }, [attachVisitPhotos, setAppState]);
 
-  /* ---------- fotos pendentes: tenta anexar ao entrar no app e quando a conexão volta ---------- */
+  /** tenta salvar de novo as anotações de prospecção que ficaram pendentes */
+  const flushPendingNotes = useCallback(async () => {
+    const pendentes = loadPendingNotes();
+    if (pendentes.length === 0) return;
+    const restantes: PendingNote[] = [];
+    let salvas = 0;
+    for (const item of pendentes) {
+      const { error } = await supabase.from(item.tabela).insert(item.row);
+      if (error) restantes.push(item);
+      else salvas += 1;
+    }
+    savePendingNotes(restantes);
+    if (salvas > 0) toast.success(`${salvas} informação(ões) de prospecção foram salvas agora.`);
+  }, []);
+
+  /* ---------- fotos e anotações pendentes: tenta ao entrar no app e quando a conexão volta ---------- */
   useEffect(() => {
     if (!user) return;
     void flushPendingPhotos();
-    const aoVoltarConexao = () => void flushPendingPhotos();
+    void flushPendingNotes();
+    const aoVoltarConexao = () => {
+      void flushPendingPhotos();
+      void flushPendingNotes();
+    };
     window.addEventListener("online", aoVoltarConexao);
     return () => window.removeEventListener("online", aoVoltarConexao);
-  }, [user, flushPendingPhotos]);
+  }, [user, flushPendingPhotos, flushPendingNotes]);
 
   const addVisit = useCallback(
     (visit: Visit, opts?: { uploadPhoto?: boolean }) => {
@@ -2722,19 +2775,24 @@ export function DataProvider({ children }: { children: ReactNode }) {
         internalProspectNotes: [...prev.internalProspectNotes, nota],
       }));
       if (!uidRef.current) return;
+      const row = {
+        id: nota.id,
+        prospect_id: prospectId,
+        texto: conteudo,
+        created_by: uidRef.current,
+        created_by_name: nota.createdByName,
+      };
       void supabase
         .from("internal_prospect_notes")
-        .insert({
-          id: nota.id,
-          prospect_id: prospectId,
-          texto: conteudo,
-          created_by: uidRef.current,
-          created_by_name: nota.createdByName,
-        })
+        .insert(row)
         .then(({ error }) => {
           if (error) {
             console.error("acrescentar informação:", error.message);
-            toast.error("Não foi possível salvar a informação", { description: error.message });
+            enqueuePendingNote({ tabela: "internal_prospect_notes", row });
+            toast.warning("Informação guardada no aparelho", {
+              description:
+                "Não conseguimos salvar agora — vamos tentar de novo automaticamente quando a conexão voltar.",
+            });
             return;
           }
           toast.success("Informação acrescentada ao histórico.");
@@ -2812,19 +2870,24 @@ export function DataProvider({ children }: { children: ReactNode }) {
         clientProspectNotes: [...prev.clientProspectNotes, nota],
       }));
       if (!uidRef.current) return;
+      const row = {
+        id: nota.id,
+        client_id: clientId,
+        texto: conteudo,
+        created_by: uidRef.current,
+        created_by_name: nota.createdByName,
+      };
       void supabase
         .from("client_prospect_notes")
-        .insert({
-          id: nota.id,
-          client_id: clientId,
-          texto: conteudo,
-          created_by: uidRef.current,
-          created_by_name: nota.createdByName,
-        })
+        .insert(row)
         .then(({ error }) => {
           if (error) {
             console.error("acrescentar informação:", error.message);
-            toast.error("Não foi possível salvar a informação", { description: error.message });
+            enqueuePendingNote({ tabela: "client_prospect_notes", row });
+            toast.warning("Informação guardada no aparelho", {
+              description:
+                "Não conseguimos salvar agora — vamos tentar de novo automaticamente quando a conexão voltar.",
+            });
             return;
           }
           toast.success("Informação acrescentada ao histórico.");
