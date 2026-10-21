@@ -263,9 +263,11 @@ export default function Clientes() {
       .filter((c) => (tier === "all" ? true : c.tier === tier))
       .filter((c) => (city === "all" ? true : cidadeKey(c.city || "(sem cidade)") === cidadeKey(city)))
       .filter((c) => {
-        if (segment === PROSPECTA) return c.isProspecao;
-        if (c.isProspecao) return false;
-        return segment === "all" ? true : (c.segment || "(sem segmento)") === segment;
+        const bateSegmento = segment === "all" || (c.segment || "(sem segmento)") === segment;
+        if (segment === PROSPECTA) return c.isProspecao && bateSegmento;
+        // prospecções ficam fora da carteira, mas aparecem na busca pelo nome
+        if (c.isProspecao) return q !== "" && bateSegmento;
+        return bateSegmento;
       })
       .filter((c) => {
         if (situ === "todas") return true;
