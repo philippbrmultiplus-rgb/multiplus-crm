@@ -1,0 +1,41 @@
+insert into public.clients (id, name, segment, address, city, state, active, tier, freq_month, total_2025, total_2026, avg_monthly, last_collect_at, last_visit_at, is_prospecao, geocode_status, geo_aproximado) values
+  ('cli-entrada-46', 'TREND INCORPORADORA', '', '', '', 'RS', true, 'D', 1, 0, 0, 0, date '2026-10-15', null, false, 'pendente', false);
+
+-- volume de outubro no comparativo mensal
+insert into public.client_monthly_volumes (client_id, month, volume_m3)
+values ('cli-entrada-46', date '2026-10-01', 5)
+on conflict (client_id, month) do update set volume_m3 = excluded.volume_m3;
+
+-- histórico de coletas: 15/10 com 5 m3
+insert into public.coletas (client_id, collect_date, volume_m3, trocas)
+values ('cli-entrada-46', date '2026-10-15', 5, 1)
+on conflict (client_id, collect_date) do update set volume_m3 = excluded.volume_m3, trocas = excluded.trocas;
+
+-- cadência: liga a linha da planilha ao cliente novo e incorpora a data de 15/10
+with alvo as (
+  select array(
+           select distinct unnest(coalesce(datas, '{}'::date[]) || array['2026-10-15']::date[]) order by 1
+         ) as datas
+  from public.client_cadence
+  where nome_planilha = 'TREND INCORPORADORA -'
+),
+calc as (
+  select a.datas,
+         array_length(a.datas, 1) as coletas,
+         a.datas[array_length(a.datas, 1)] as ultima,
+         (select round(avg(diff), 1) from (
+            select (a.datas[idx + 1] - a.datas[idx]) as diff
+            from generate_subscripts(a.datas, 1) as gs(idx)
+            where idx < array_length(a.datas, 1)
+         ) x) as media
+  from alvo a
+)
+update public.client_cadence c
+set client_id = 'cli-entrada-46',
+    datas = calc.datas,
+    coletas = coalesce(calc.coletas, 0),
+    ultima_coleta = calc.ultima,
+    media_dias = calc.media,
+    atualizado_em = now()
+from calc
+where c.nome_planilha = 'TREND INCORPORADORA -';

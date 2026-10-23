@@ -1,0 +1,8 @@
+WITH mapping(client_key, dt) AS (VALUES
+('DB GRAUS GESSO ACARTONADO', '2026-09-18'),
+('DECORART PAULO GILBERTO', '2026-09-18'),
+('JF GESSO POZZEBON GESSO', '2026-09-17'))
+UPDATE public.clients c
+SET last_collect_at = GREATEST(COALESCE(c.last_collect_at, '0001-01-01'::date), m.dt::date)
+FROM mapping m
+WHERE btrim(regexp_replace(regexp_replace(upper(translate(c.name, 'ÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇ', 'AAAAAEEEEIIIIOOOOOUUUUC')), '[^A-Z0-9 ]', ' ', 'g'), ' +', ' ', 'g')) = m.client_key;

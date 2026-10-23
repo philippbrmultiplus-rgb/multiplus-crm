@@ -1,0 +1,33 @@
+create table if not exists public.route_activities (
+  id text primary key default gen_random_uuid()::text,
+  week_start date not null,
+  day int not null,
+  titulo text not null,
+  obs text,
+  duration_min int not null default 0,
+  created_by uuid,
+  created_by_name text,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists route_activities_week_idx on public.route_activities (week_start, day);
+
+grant select, insert, delete on public.route_activities to authenticated;
+
+alter table public.route_activities enable row level security;
+
+create policy ra_select on public.route_activities for select to authenticated using (true);
+
+create policy ra_insert on public.route_activities for insert to authenticated
+with check (
+  created_by = auth.uid()
+  and exists (
+    select 1 from public.profiles p
+    where p.id = auth.uid() and p.role in ('coordenador', 'vendedor')
+  )
+);
+
+create policy ra_delete on public.route_activities for delete to authenticated
+using (created_by = auth.uid() or public.is_coordenador());
+
+alter publication supabase_realtime add table public.route_activities;

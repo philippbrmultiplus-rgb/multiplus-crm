@@ -1,0 +1,20 @@
+CREATE TABLE IF NOT EXISTS public.clientes_excluidos (
+  id text NOT NULL,
+  name text NOT NULL,
+  deleted_at timestamptz NOT NULL DEFAULT now(),
+  deleted_by uuid,
+  last_collect_at date,
+  last_visit_at date,
+  CONSTRAINT clientes_excluidos_pkey PRIMARY KEY (id)
+);
+
+ALTER TABLE public.clientes_excluidos ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "ce_insert_coord" ON public.clientes_excluidos
+  FOR INSERT WITH CHECK (is_coordenador());
+
+CREATE POLICY "ce_select" ON public.clientes_excluidos
+  FOR SELECT USING (true);
+
+CREATE POLICY "ce_delete_coord" ON public.clientes_excluidos
+  FOR DELETE USING (is_coordenador());

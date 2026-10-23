@@ -1,0 +1,8 @@
+UPDATE public.clients SET segment = 'Roll-on', updated_at = now() WHERE segment = 'rollon';
+UPDATE public.clients SET segment = 'Esporádico', updated_at = now() WHERE segment = 'EXPORÁDICO';
+UPDATE public.clients SET segment = 'Gesseiro', updated_at = now() WHERE segment = 'GESSEIRO';
+UPDATE public.clients SET segment = 'Caçambeiro', updated_at = now() WHERE segment = 'CAÇAMBEIRO';
+UPDATE public.clients SET segment = 'Construtora', updated_at = now() WHERE segment = 'CONSTRUTORA';
+UPDATE public.clients SET segment = 'Ecoponto', updated_at = now() WHERE segment = 'ECOPONTO';
+UPDATE public.clients SET segment = 'Indústria', updated_at = now() WHERE segment = 'INDÚSTRIA';
+UPDATE public.clients SET segment = btrim(segment), updated_at = now() WHERE segment IS NOT NULL AND segment <> btrim(segment);

@@ -1,0 +1,28 @@
+-- 1) qualquer variação de grafia (maiúscula/minúscula, espaços, acento) volta para a grafia oficial
+update public.clients c
+set segment = ofi.oficial,
+    updated_at = now()
+from (values
+  ('ROLLON', 'Rollon'),
+  ('ROLLON/ CARREGAMENTO NA HORA', 'Rollon/ Carregamento na hora'),
+  ('POLI', 'Poli'),
+  ('POLI/ ESPORADICO', 'Poli/ Esporádico'),
+  ('PORTA A PORTA/CACAMBEIRO', 'Porta a Porta/Caçambeiro'),
+  ('PORTA A PORTA/GESSEIRO', 'Porta a Porta/Gesseiro'),
+  ('TERCEIRO', 'Terceiro')
+) as ofi(chave, oficial)
+where upper(regexp_replace(translate(coalesce(c.segment, ''), 'áàãâäéèêëíìîïóòõôöúùûüçÁÀÃÂÄÉÈÊËÍÌÎÏÓÒÕÔÖÚÙÛÜÇ', 'aaaaaeeeeiiiiooooouuuucAAAAAEEEEIIIIOOOOOUUUUC'), '\s+', ' ', 'g')) = ofi.chave
+  and c.segment <> ofi.oficial;
+
+-- 2) nomes antigos que equivalem a um segmento oficial
+update public.clients set segment = 'Rollon', updated_at = now()
+where upper(regexp_replace(coalesce(segment, ''), '[-\s]', '', 'g')) = 'ROLLON' and segment <> 'Rollon';
+
+update public.clients set segment = 'Porta a Porta/Gesseiro', updated_at = now()
+where trim(segment) = 'Gesseiro';
+
+update public.clients set segment = 'Porta a Porta/Caçambeiro', updated_at = now()
+where trim(segment) = 'Caçambeiro';
+
+update public.clients set segment = 'Poli/ Esporádico', updated_at = now()
+where trim(segment) = 'Esporádico';

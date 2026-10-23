@@ -1,0 +1,7 @@
+UPDATE public.clients
+SET prospeccao_status = 'em_negociacao',
+    prospeccao_justificativa = NULL,
+    updated_at = now()
+WHERE is_prospecao = true
+  AND prospeccao_status = 'perdido'
+  AND (prospeccao_justificativa IS NULL OR btrim(prospeccao_justificativa) = '');

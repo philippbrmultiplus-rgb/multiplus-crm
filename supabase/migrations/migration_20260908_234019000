@@ -1,0 +1,1 @@
+UPDATE public.route_visits SET status = 'concluida' WHERE status <> 'concluida' AND id IN (select route_visit_id from public.visits where route_visit_id is not null);

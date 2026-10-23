@@ -1,0 +1,24 @@
+CREATE TABLE IF NOT EXISTS public.coletas (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  client_id text NOT NULL REFERENCES public.clients(id) ON DELETE CASCADE,
+  collect_date date NOT NULL,
+  note text,
+  created_by uuid DEFAULT auth.uid(),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT coletas_unique UNIQUE (client_id, collect_date)
+);
+
+CREATE INDEX IF NOT EXISTS coletas_client_idx ON public.coletas (client_id, collect_date DESC);
+
+ALTER TABLE public.coletas ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "coletas_select" ON public.coletas FOR SELECT USING (true);
+CREATE POLICY "coletas_insert" ON public.coletas FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+CREATE POLICY "coletas_delete" ON public.coletas FOR DELETE USING (is_coordenador());
+
+INSERT INTO public.coletas (client_id, collect_date, note)
+SELECT c.id, c.last_collect_at, 'Importado da planilha'
+FROM public.clients c
+WHERE c.last_collect_at IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM public.coletas k WHERE k.client_id = c.id)
+ON CONFLICT (client_id, collect_date) DO NOTHING;

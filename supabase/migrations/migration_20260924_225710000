@@ -1,0 +1,8 @@
+UPDATE public.clients SET segment = 'Terceiro', updated_at = now() WHERE name = 'BUDNY CAÇAMBAS';
+UPDATE public.clients SET segment = 'Rollon/ Carregamento na hora', updated_at = now() WHERE name = 'GT LOCAÇÕES';
+UPDATE public.clients SET segment = 'Porta a Porta/Caçambeiro', updated_at = now() WHERE name = 'PESSOA FÍSICA';
+UPDATE public.clients SET segment = 'Porta a Porta/Caçambeiro', updated_at = now() WHERE name = 'RESIDUAL CAÇAMBAS';
+UPDATE public.clients SET segment = 'Rollon', updated_at = now() WHERE name = 'ECORESÍDUOS';
+UPDATE public.clients SET segment = 'Porta a Porta/Caçambeiro', updated_at = now() WHERE name = 'TULI RESÍDUOS';
+UPDATE public.clients SET segment = 'Rollon', updated_at = now() WHERE name = 'TRANSBORDO OSÓRIO';
+UPDATE public.clients SET segment = 'Poli/ Esporádico', updated_at = now() WHERE name = 'RÚBIO DECORAÇÕES EM';

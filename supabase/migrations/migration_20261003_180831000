@@ -1,0 +1,1 @@
+alter table public.client_alerts add column if not exists photo_url text;

@@ -1,0 +1,35 @@
+CREATE UNIQUE INDEX IF NOT EXISTS visits_one_notdone ON public.visits (route_visit_id) WHERE status = 'nao_realizada' AND route_visit_id IS NOT NULL;
+
+CREATE OR REPLACE FUNCTION public.sync_route_visit_not_done()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF NEW.status = 'nao_realizada' AND (OLD.status IS DISTINCT FROM 'nao_realizada') THEN
+    BEGIN
+      INSERT INTO public.visits (id, client_id, route_visit_id, visited_at, status, result_comments, next_actions, within_radius)
+      VALUES (
+        concat('v-', floor(extract(epoch from clock_timestamp()) * 1000)::bigint::text, '-', substr(md5(random()::text), 1, 6)),
+        NEW.client_id,
+        NEW.id,
+        now(),
+        'nao_realizada',
+        '',
+        '',
+        true
+      );
+    EXCEPTION WHEN unique_violation THEN
+      NULL; -- já existe registro para esta visita
+    END;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_sync_route_visit_not_done ON public.route_visits;
+CREATE TRIGGER trg_sync_route_visit_not_done
+  AFTER UPDATE OF status ON public.route_visits
+  FOR EACH ROW
+  EXECUTE FUNCTION public.sync_route_visit_not_done();

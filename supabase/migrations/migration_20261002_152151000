@@ -1,0 +1,1 @@
+UPDATE public.clients SET prospeccao_status = 'proposta_recusada' WHERE prospeccao_status = 'perdido'; COMMENT ON COLUMN public.clients.prospeccao_status IS 'Status da prospecção: em_negociacao | fechado | proposta_recusada.';

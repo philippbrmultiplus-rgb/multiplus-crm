@@ -1,0 +1,4 @@
+UPDATE public.clients
+SET last_collect_at = GREATEST(COALESCE(last_collect_at, '0001-01-01'::date), '2026-09-10'::date),
+    updated_at = now()
+WHERE name = 'RECICLE';

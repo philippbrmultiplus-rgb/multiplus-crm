@@ -1,0 +1,20 @@
+update public.visits
+set photo_url = 'https://spb-t4n5m82n0jz039i1.supabase.opentrust.net/storage/v1/object/public/visitas/cli-0/v-1791892611822-4y22g-0.jpg',
+    photos = jsonb_build_array(
+      'https://spb-t4n5m82n0jz039i1.supabase.opentrust.net/storage/v1/object/public/visitas/cli-0/v-1791892611822-4y22g-0.jpg',
+      'https://spb-t4n5m82n0jz039i1.supabase.opentrust.net/storage/v1/object/public/visitas/cli-0/v-1791892611822-4y22g-1.jpg'
+    )
+where id = 'v-1791892611822-4y22g'
+  and (photos is null or jsonb_array_length(photos) = 0);
+
+update public.visits
+set photo_url = 'https://spb-t4n5m82n0jz039i1.supabase.opentrust.net/storage/v1/object/public/visitas/cli-41/v-1791889864145-n5q1k-0.jpg',
+    photos = jsonb_build_array('https://spb-t4n5m82n0jz039i1.supabase.opentrust.net/storage/v1/object/public/visitas/cli-41/v-1791889864145-n5q1k-0.jpg')
+where id = 'v-1791889864145-n5q1k'
+  and (photos is null or jsonb_array_length(photos) = 0);
+
+update public.visits
+set photo_url = 'https://spb-t4n5m82n0jz039i1.supabase.opentrust.net/storage/v1/object/public/visitas/cli-1791213873485-p50i/v-1791471281578-i9rlo-0.jpg',
+    photos = jsonb_build_array('https://spb-t4n5m82n0jz039i1.supabase.opentrust.net/storage/v1/object/public/visitas/cli-1791213873485-p50i/v-1791471281578-i9rlo-0.jpg')
+where id = 'v-1791471281578-i9rlo'
+  and (photos is null or jsonb_array_length(photos) = 0);

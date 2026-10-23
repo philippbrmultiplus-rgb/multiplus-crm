@@ -1,0 +1,151 @@
+import { daysSinceToday, distanciaDaBaseKm, formatKm } from "@/lib/geo";
+import type { Client, Tier } from "@/lib/types";
+
+export const TIER_LABEL: Record<Tier, string> = {
+  A: "Grupo A · alta prioridade (4x/mês)",
+  B: "Grupo B · 3x/mês",
+  C: "Grupo C · 2x/mês",
+  D: "Grupo D · <2x/mês",
+};
+
+/** A vem primeiro (maior prioridade). */
+export const TIER_RANK: Record<Tier, number> = { A: 0, B: 1, C: 2, D: 3 };
+
+export function tierBadgeClass(t: Tier): string {
+  return t === "A"
+    ? "tier-badge-a"
+    : t === "B"
+      ? "tier-badge-b"
+      : t === "C"
+        ? "tier-badge-c"
+        : "tier-badge-d";
+}
+
+export function coletaDays(c: Client): number | null {
+  return daysSinceToday(c.lastCollectAt);
+}
+
+export type ColetaStatus = "sem" | "ok" | "warn" | "late";
+
+/** distância (km) da base até o cliente (null quando não tem coordenadas) */
+export function distanciaClienteKm(c: Client): number | null {
+  return distanciaDaBaseKm(c.lat, c.lng);
+}
+
+export type DistanciaFaixa = "sem" | "ate100" | "100a200" | "200mais";
+
+/** faixa de distância da base (para filtro) */
+export function distanciaFaixa(c: Client): DistanciaFaixa {
+  const km = distanciaClienteKm(c);
+  if (km == null) return "sem";
+  if (km <= 100) return "ate100";
+  if (km <= 200) return "100a200";
+  return "200mais";
+}
+
+/** "Cidade · 12,3 km" — usado ao lado do nome da cidade em todo o app */
+export function cidadeComDistancia(c: Client): string {
+  const cidade = c.city?.trim() || "sem cidade";
+  const km = distanciaClienteKm(c);
+  return km == null ? cidade : `${cidade} · ${distanciaTexto(c)}`;
+}
+
+/** texto da distância ("12,3 km" ou "~12,3 km" quando aproximada pela cidade) */
+export function distanciaTexto(c: Client): string {
+  const km = distanciaClienteKm(c);
+  if (km == null) return "—";
+  return `${c.geoAproximado ? "~" : ""}${formatKm(km)}`;
+}
+
+/** faixa por dias decorridos (regra do coordenador): até 20 = verde, 21 a 30 = laranja, acima de 30 = vermelho */
+function bandOfDays(d: number | null): ColetaStatus {
+  if (d == null) return "sem";
+  if (d > 30) return "late";
+  if (d > 20) return "warn";
+  return "ok";
+}
+
+/**
+ * Situação da coleta por dias sem troca/coleta de material.
+ */
+export function coletaStatus(c: Client): ColetaStatus {
+  return bandOfDays(coletaDays(c));
+}
+
+/** chip colorido (badge) para a situação da coleta */
+export const COLETA_BADGE_TONE: Record<ColetaStatus, string> = {
+  ok: "bg-blue-500/15 text-blue-700 ring-1 ring-blue-500/30 dark:bg-blue-500/15 dark:text-blue-300 dark:ring-blue-500/30",
+  warn: "bg-amber-500/15 text-amber-700 ring-1 ring-amber-500/30 dark:bg-amber-500/15 dark:text-amber-300 dark:ring-amber-500/30",
+  late: "bg-destructive/15 text-destructive ring-1 ring-destructive/30",
+  sem: "",
+};
+
+/** badge outline (borda + texto coloridos) */
+export const COLETA_OUTLINE_TONE: Record<ColetaStatus, string> = {
+  ok: "border-blue-500/40 text-blue-700 dark:text-blue-300",
+  warn: "border-amber-500/40 text-amber-700 dark:text-amber-300",
+  late: "border-destructive/40 text-destructive",
+  sem: "",
+};
+
+/** texto simples colorido (ex.: linha de detalhe do cartão) */
+export const COLETA_TEXT_TONE: Record<ColetaStatus, string> = {
+  ok: "text-blue-700 dark:text-blue-300",
+  warn: "text-amber-600 dark:text-amber-400",
+  late: "text-destructive",
+  sem: "text-muted-foreground",
+};
+
+/** dias desde a última visita REALIZADA registrada pelo vendedor (null = nunca houve visita pelo app) */
+export function lastVisitDays(c: Client): number | null {
+  return daysSinceToday(c.lastVisitAt);
+}
+
+/** situação da última visita do vendedor — usa as mesmas faixas de cor da coleta */
+export function visitaStatus(c: Client): ColetaStatus {
+  return bandOfDays(lastVisitDays(c));
+}
+
+/** paleta de badges da "última visita" (mesmas cores das faixas de coleta) */
+export const VISITA_BADGE_TONE = COLETA_BADGE_TONE;
+/** paleta de texto da "última visita" (mesmas cores das faixas de coleta) */
+export const VISITA_TEXT_TONE = COLETA_TEXT_TONE;
+
+/** atrasada = acima de 30 dias sem coleta */
+export function isColetaOverdue(c: Client): boolean {
+  return coletaStatus(c) === "late";
+}
+
+/** cor de "bolinha" para status de visita em calendários/listas */
+export function rotaStatusDot(status: string): string {
+  if (status === "concluida") return "bg-blue-500";
+  if (status === "nao_realizada") return "bg-slate-400";
+  return "bg-amber-400";
+}
+
+export type ClientSort = "grupo" | "atraso" | "volume" | "nome";
+
+function daysRank(c: Client): number {
+  const d = coletaDays(c);
+  return d == null ? -1 : d;
+}
+
+/** compara para colocar A no topo e, dentro de cada grupo, quem está há mais tempo sem coleta primeiro */
+export function compareClients(a: Client, b: Client, sort: ClientSort): number {
+  switch (sort) {
+    case "atraso":
+      return daysRank(b) - daysRank(a) || TIER_RANK[a.tier] - TIER_RANK[b.tier] || b.avgMonthly - a.avgMonthly;
+    case "volume":
+      return b.avgMonthly - a.avgMonthly || TIER_RANK[a.tier] - TIER_RANK[b.tier] || a.name.localeCompare(b.name, "pt-BR");
+    case "nome":
+      return a.name.localeCompare(b.name, "pt-BR") || TIER_RANK[a.tier] - TIER_RANK[b.tier];
+    case "grupo":
+    default:
+      return (
+        TIER_RANK[a.tier] - TIER_RANK[b.tier] ||
+        daysRank(b) - daysRank(a) ||
+        b.avgMonthly - a.avgMonthly ||
+        a.name.localeCompare(b.name, "pt-BR")
+      );
+  }
+}

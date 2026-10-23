@@ -1,0 +1,4 @@
+ALTER TABLE public.visits DROP CONSTRAINT IF EXISTS visits_route_visit_id_fkey;
+ALTER TABLE public.visits
+  ADD CONSTRAINT visits_route_visit_id_fkey
+  FOREIGN KEY (route_visit_id) REFERENCES public.route_visits(id) ON DELETE SET NULL;

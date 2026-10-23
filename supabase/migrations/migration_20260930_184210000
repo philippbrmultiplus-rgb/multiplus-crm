@@ -1,0 +1,9 @@
+INSERT INTO public.clients (id, name, segment, address, city, state, active, tier, freq_month, geocode_status, total_2025, total_2026, avg_monthly, last_collect_at, is_prospecao)
+VALUES
+('cli-entrada-34', 'ATR', '', '', '', 'RS', true, 'D', 1, 'pendente', 0, 0, 0, '2026-09-23', false),
+('cli-entrada-35', 'CIPRESTES', '', '', '', 'RS', true, 'D', 1, 'pendente', 0, 0, 0, '2026-09-22', false),
+('cli-entrada-36', 'ECOPONTO PRINCESA', '', '', '', 'RS', true, 'D', 1, 'pendente', 0, 0, 0, '2026-09-24', false),
+('cli-entrada-37', 'UDC ATERRO NORTE', '', '', '', 'RS', true, 'D', 1, 'pendente', 0, 0, 0, '2026-09-25', false),
+('cli-entrada-38', 'UDC CÂNCIO GOMES', '', '', '', 'RS', true, 'D', 1, 'pendente', 0, 0, 0, '2026-09-25', false),
+('cli-entrada-39', 'UDC CARVALHO DE FREITAS', '', '', '', 'RS', true, 'D', 1, 'pendente', 0, 0, 0, '2026-09-23', false),
+('cli-entrada-40', 'UDC HUMAITÁ', '', '', '', 'RS', true, 'D', 1, 'pendente', 0, 0, 0, '2026-09-25', false);

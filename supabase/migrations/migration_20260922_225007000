@@ -1,0 +1,4 @@
+INSERT INTO public.clients (id, name, segment, address, city, state, active, tier, freq_month, geocode_status, total_2025, total_2026, avg_monthly, last_collect_at, is_prospecao)
+VALUES
+('cli-entrada-32', 'ABAPAN', '', '', '', 'RS', true, 'D', 1, 'pendente', 0, 0, 0, '2026-09-17', false),
+('cli-entrada-33', 'CAPITAL ENTULHO', '', '', '', 'RS', true, 'D', 1, 'pendente', 0, 0, 0, '2026-09-14', false);

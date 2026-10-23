@@ -1,0 +1,2 @@
+ALTER PUBLICATION supabase_realtime ADD TABLE "weekly_routes";
+ALTER PUBLICATION supabase_realtime ADD TABLE "route_visits";

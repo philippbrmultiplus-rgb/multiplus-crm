@@ -1,0 +1,30 @@
+create table if not exists public.internal_prospect_notes (
+  id text primary key default gen_random_uuid()::text,
+  prospect_id text not null references public.internal_prospects(id) on delete cascade,
+  texto text not null,
+  created_by uuid,
+  created_by_name text,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists internal_prospect_notes_prospect_idx on public.internal_prospect_notes (prospect_id, created_at);
+
+grant select, insert, delete on public.internal_prospect_notes to authenticated;
+
+alter table public.internal_prospect_notes enable row level security;
+
+create policy ipn_select on public.internal_prospect_notes for select to authenticated using (true);
+
+create policy ipn_insert on public.internal_prospect_notes for insert to authenticated
+with check (
+  created_by = auth.uid()
+  and exists (
+    select 1 from public.profiles p
+    where p.id = auth.uid() and p.role in ('coordenador', 'vendedor')
+  )
+);
+
+create policy ipn_delete on public.internal_prospect_notes for delete to authenticated
+using (created_by = auth.uid() or public.is_coordenador());
+
+alter publication supabase_realtime add table public.internal_prospect_notes;

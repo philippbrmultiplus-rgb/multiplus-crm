@@ -1,0 +1,2 @@
+ALTER TABLE public.visits ADD COLUMN IF NOT EXISTS photos jsonb;
+COMMENT ON COLUMN public.visits.photos IS 'Lista de URLs públicas das fotos de comprovação (a primeira também fica em photo_url).';
