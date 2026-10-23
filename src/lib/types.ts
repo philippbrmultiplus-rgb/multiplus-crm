@@ -210,6 +210,8 @@ export interface ClientPayment {
 /** cadência de troca de um cliente: média de dias entre coletas (planilha de cadência) */
 export interface ClientCadence {
   clientId: string | null;
+  /** nome usado na planilha de coletas */
+  nomePlanilha?: string | null;
   /** média de dias entre uma coleta e a próxima */
   mediaDias: number | null;
   /** quantas coletas do cliente entraram no cálculo */

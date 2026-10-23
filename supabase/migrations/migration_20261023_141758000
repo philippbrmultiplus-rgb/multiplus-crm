@@ -1,0 +1,7 @@
+-- escrita dos volumes mensais e da cadência (hoje só existia leitura)
+create policy cmv_insert on public.client_monthly_volumes for insert to authenticated with check (is_coordenador());
+create policy cmv_update on public.client_monthly_volumes for update to authenticated using (is_coordenador()) with check (is_coordenador());
+create policy cmv_delete on public.client_monthly_volumes for delete to authenticated using (is_coordenador());
+create policy cc_insert on public.client_cadence for insert to authenticated with check (is_coordenador());
+create policy cc_update on public.client_cadence for update to authenticated using (is_coordenador()) with check (is_coordenador());
+create policy cc_delete on public.client_cadence for delete to authenticated using (is_coordenador());

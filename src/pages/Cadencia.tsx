@@ -35,6 +35,8 @@ interface LinhaCadencia {
   id: string;
   nome: string;
   segmento: string;
+  /** linha da planilha sem cliente vinculado na carteira */
+  semCadastro: boolean;
   mediaDias: number;
   coletas: number;
   ultimaColeta: string | null;
@@ -126,13 +128,14 @@ export default function Cadencia() {
   const linhas = useMemo<LinhaCadencia[]>(
     () =>
       cadence
-        .filter((c) => c.clientId && c.mediaDias != null)
+        .filter((c) => c.mediaDias != null && (c.clientId || c.nomePlanilha))
         .map((c) => {
-          const cliente = clients.find((x) => x.id === c.clientId);
+          const cliente = c.clientId ? clients.find((x) => x.id === c.clientId) : undefined;
           return {
-            id: c.clientId as string,
-            nome: cliente?.name ?? "",
+            id: c.clientId ?? `sem:${c.nomePlanilha}`,
+            nome: cliente?.name ?? c.nomePlanilha ?? "",
             segmento: cliente?.segment ?? "",
+            semCadastro: !c.clientId,
             mediaDias: c.mediaDias as number,
             coletas: c.coletas,
             ultimaColeta: c.ultimaColeta,
@@ -167,6 +170,7 @@ export default function Cadencia() {
     ? linhas.reduce((acc, l) => acc + l.mediaDias, 0) / linhas.length
     : 0;
   const totalColetas = linhas.reduce((acc, l) => acc + l.coletas, 0);
+  const semCadastro = linhas.filter((l) => l.semCadastro).length;
   const maisFrequente = [...linhas].sort((a, b) => a.mediaDias - b.mediaDias)[0];
   const maisEspacada = [...linhas].sort((a, b) => b.mediaDias - a.mediaDias)[0];
 
@@ -176,7 +180,8 @@ export default function Cadencia() {
         <h1 className="text-2xl font-bold tracking-tight">Cadência de troca</h1>
         <p className="text-sm text-muted-foreground">
           Média de dias entre uma coleta e a seguinte, por cliente · {linhas.length} cliente(s)
-          analisado(s) · base: coletas de junho a outubro/2026.
+          analisado(s) · base: coletas de julho a outubro/2026.
+          {semCadastro > 0 && ` ${semCadastro} nome(s) da planilha ainda sem cliente vinculado.`}
         </p>
       </div>
 
@@ -274,6 +279,11 @@ export default function Cadencia() {
                   a cada {formatNumero(l.mediaDias)} dias
                 </Badge>
               </div>
+              {l.semCadastro && (
+                <Badge className="mt-1 bg-amber-500/15 text-amber-700 dark:text-amber-300">
+                  sem cadastro
+                </Badge>
+              )}
               <div className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-muted-foreground">
                 <span className="truncate">Segmento: {l.segmento || "—"}</span>
                 <span className="text-right">
@@ -316,7 +326,16 @@ export default function Cadencia() {
             <TableBody>
               {filtradas.map((l) => (
                 <TableRow key={l.id}>
-                  <TableCell className="font-medium">{l.nome}</TableCell>
+                  <TableCell className="font-medium">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="truncate">{l.nome}</span>
+                      {l.semCadastro && (
+                        <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-300">
+                          sem cadastro
+                        </Badge>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {l.segmento || "—"}
                   </TableCell>
@@ -357,10 +376,11 @@ export default function Cadencia() {
         <CardHeader className="pb-2">
           <CardTitle className="text-base">Como é calculado</CardTitle>
           <CardDescription>
-            Para cada cliente ordenamos as datas de coleta da planilha de cadência (junho a outubro de
-            2026) e calculamos a média dos intervalos entre uma coleta e a seguinte. Clientes com uma
-            única coleta no período não têm média e ficam fora da lista; o segmento vem do cadastro do
-            cliente.
+            Para cada cliente da planilha <b>PAULINIA</b> (coletas de julho a outubro de 2026)
+            ordenamos as datas de coleta e calculamos a média dos intervalos entre uma coleta e a
+            seguinte. Clientes com uma única coleta no período não têm média e ficam fora da lista; o
+            segmento vem do cadastro do cliente. As linhas marcadas como <b>sem cadastro</b> são nomes
+            da planilha que ainda não têm cliente correspondente na base.
           </CardDescription>
         </CardHeader>
       </Card>

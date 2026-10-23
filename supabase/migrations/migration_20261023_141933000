@@ -1,0 +1,15 @@
+-- teste de compatibilidade do payload de importação da planilha (transação revertida ao final)
+begin;
+insert into public.client_monthly_volumes (id, client_id, label, month, volume_m3)
+values ('vol-cli-0-2026-07-01', 'cli-0', null, '2026-07-01', 104)
+on conflict (id) do update set volume_m3 = excluded.volume_m3;
+insert into public.client_monthly_volumes (label, month, volume_m3)
+values ('NOME SEM CADASTRO', '2026-07-01', 5);
+insert into public.client_cadence (client_id, nome_planilha, media_dias, coletas, ultima_coleta, datas)
+values ('cli-0', 'RECICLE USINA AMBIENTAL', 12.5, 3, '2026-10-01', array['2026-07-01','2026-09-01','2026-10-01']::date[])
+on conflict (nome_planilha) do update set media_dias = excluded.media_dias, datas = excluded.datas;
+insert into public.coletas (client_id, collect_date, volume_m3, trocas)
+values ('cli-0', '2026-07-01', 104, 1)
+on conflict (client_id, collect_date) do update set volume_m3 = excluded.volume_m3;
+select count(*) as coletas_teste from public.coletas where client_id = 'cli-0';
+rollback;

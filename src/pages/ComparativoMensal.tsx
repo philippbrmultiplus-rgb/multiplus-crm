@@ -413,10 +413,10 @@ export default function ComparativoMensal() {
         <CardHeader className="pb-2">
           <CardTitle className="text-base">De onde vêm os números</CardTitle>
           <CardDescription>
-            Volumes importados da planilha <b>Entrada POA</b> (julho, agosto e setembro de 2026), já
-            ligados a cada cliente cadastrado — o nome exibido é o mesmo da lista de clientes e o segmento
-            vem do cadastro. As linhas marcadas como <b>sem cadastro</b> ainda não têm cliente
-            correspondente na base.
+            Volumes importados da planilha <b>PAULINIA</b>, com as coletas de julho a outubro de 2026
+            já ligadas a cada cliente cadastrado — o nome exibido é o mesmo da lista de clientes e o
+            segmento vem do cadastro. As linhas marcadas como <b>sem cadastro</b> ainda não têm
+            cliente correspondente na base.
           </CardDescription>
         </CardHeader>
         <CardContent className="text-xs text-muted-foreground">

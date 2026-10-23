@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Download, HardDriveDownload, RotateCcw, Settings2, Upload, Users } from "lucide-react";
+import { Download, HardDriveDownload, RefreshCw, RotateCcw, Settings2, Upload, Users } from "lucide-react";
 import { toast } from "sonner";
 import {
   Select,
@@ -44,9 +44,11 @@ export default function Backup() {
     role,
     listProfiles,
     setUserRole,
+    recarregarPlanilha,
   } = useData();
   const podeEditar = role === "coordenador";
   const [usuarios, setUsuarios] = useState<Array<{ id: string; fullName: string; role: Role }>>([]);
+  const [carregandoPlanilha, setCarregandoPlanilha] = useState(false);
 
   useEffect(() => {
     if (!podeEditar) return;
@@ -62,7 +64,7 @@ export default function Backup() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `rotasul-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `multiplus-paulinia-backup-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -131,6 +133,24 @@ export default function Backup() {
             Exporte o backup e abra neste mesmo app no aparelho do vendedor (opção "Importar backup")
             para sincronizar clientes, rotas e visitas.
           </p>
+          {podeEditar && (
+            <div className="flex flex-wrap items-center gap-2 border-t pt-3">
+              <Button
+                variant="secondary"
+                disabled={carregandoPlanilha}
+                onClick={() => {
+                  setCarregandoPlanilha(true);
+                  void recarregarPlanilha().finally(() => setCarregandoPlanilha(false));
+                }}
+              >
+                <RefreshCw className="mr-2 h-4 w-4" /> Recarregar planilha de coletas
+              </Button>
+              <span className="text-xs text-muted-foreground">
+                Relê a planilha <b>PAULINIA</b> (coletas de julho a outubro/2026) e atualiza o
+                comparativo mensal, a cadência de trocas, a última troca de cada cliente e o histórico.
+              </span>
+            </div>
+          )}
         </CardContent>
       </Card>
 

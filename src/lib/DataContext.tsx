@@ -33,7 +33,8 @@ import type {
   ProspectVisitInput,
 } from "./types";
 import { generateWeekRoute, mergeWeekRoute } from "./route";
-import { toLocalDateKey } from "./geo";
+import { carregarPlanilha } from "./planilha";
+import { formatDateBR, toLocalDateKey } from "./geo";
 
 const STORAGE_KEY = "mp-paulinia-app-state.v1";
 
@@ -228,6 +229,7 @@ function paymentFromRow(r: Record<string, any>): ClientPayment {
 function cadenceFromRow(r: Record<string, any>): ClientCadence {
   return {
     clientId: r.client_id ?? null,
+    nomePlanilha: r.nome_planilha ?? null,
     mediaDias: r.media_dias != null ? Number(r.media_dias) : null,
     coletas: Number(r.coletas ?? 0),
     ultimaColeta: r.ultima_coleta ? String(r.ultima_coleta).slice(0, 10) : null,
@@ -325,6 +327,18 @@ function persistLocal(state: AppState) {
   } catch {
     console.warn("localStorage cheio — cache local não atualizado");
   }
+}
+
+/** envia as linhas em lotes (o banco limita o tamanho de cada requisição) */
+async function enviarEmLotes<T>(
+  linhas: T[],
+  enviar: (parte: T[]) => PromiseLike<{ error: { message: string } | null }>,
+): Promise<string | null> {
+  for (let i = 0; i < linhas.length; i += 300) {
+    const { error } = await enviar(linhas.slice(i, i + 300));
+    if (error) return error.message;
+  }
+  return null;
 }
 
 /* ---------- mapeamento de linhas do banco ---------- */
@@ -589,6 +603,8 @@ interface DataContextValue {
   loadClientColetas: (
     clientId: string,
   ) => Promise<Array<{ date: string; note: string; volume: number | null; trocas: number }>>;
+  /** relê a planilha de coletas publicada no app (volumes, cadência e histórico) */
+  recarregarPlanilha: () => Promise<void>;
   listProfiles: () => Promise<Array<{ id: string; fullName: string; role: Role }>>;
   setUserRole: (id: string, role: Role) => Promise<string | null>;
   recomputeTiers: () => void;
@@ -653,11 +669,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const roleRef = useRef<Role | null>(null);
   const uidRef = useRef<string | null>(null);
   const handledUidRef = useRef<string | null>(null);
+  const clientsRef = useRef<Client[]>([]);
   const signOutRequestedRef = useRef(false);
   const notifiedRef = useRef<string | null>(null);
 
   roleRef.current = role;
   uidRef.current = user?.id ?? null;
+  clientsRef.current = state.clients;
 
   const setAppState = useCallback((next: AppState | ((s: AppState) => AppState)) => {
     setState((prev) => {
@@ -684,6 +702,99 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
     return "vendedor";
   }, []);
+
+  /**
+   * Importa a planilha de coletas (PAULINIA.xlsx) para a nuvem: volume mensal por
+   * cliente, cadência de trocas, histórico de coletas e a data da última troca.
+   */
+  const importarPlanilha = useCallback(
+    async (clients: Client[]) => {
+      if (roleRef.current !== "coordenador" || !uidRef.current) return;
+      const dados = await carregarPlanilha();
+      if (!dados) {
+        toast.error("Não foi possível ler a planilha de coletas do app.");
+        return;
+      }
+
+      const erroVolumes = await enviarEmLotes(
+        dados.volumes.map((v) => ({
+          id: v.id,
+          client_id: v.clientId,
+          label: v.label,
+          month: v.month,
+          volume_m3: v.volumeM3,
+        })),
+        (parte) => supabase.from("client_monthly_volumes").upsert(parte, { onConflict: "id" }),
+      );
+
+      const erroCadencia = erroVolumes
+        ? null
+        : await enviarEmLotes(
+            dados.cadence.map((c) => ({
+              client_id: c.clientId,
+              nome_planilha: c.nomePlanilha ?? "",
+              media_dias: c.mediaDias,
+              coletas: c.coletas,
+              ultima_coleta: c.ultimaColeta,
+              datas: c.datas,
+            })),
+            (parte) => supabase.from("client_cadence").upsert(parte, { onConflict: "nome_planilha" }),
+          );
+
+      const erroColetas =
+        erroVolumes || erroCadencia
+          ? null
+          : await enviarEmLotes(
+              dados.coletas.map((c) => ({
+                client_id: c.clientId,
+                collect_date: c.collectDate,
+                volume_m3: c.volume,
+                trocas: c.trocas,
+              })),
+              (parte) =>
+                supabase.from("coletas").upsert(parte, { onConflict: "client_id,collect_date" }),
+            );
+
+      const erro = erroVolumes ?? erroCadencia ?? erroColetas;
+      if (erro) {
+        console.error("importar planilha de coletas:", erro);
+        toast.error("Não foi possível carregar a planilha de coletas", { description: erro });
+        return;
+      }
+
+      // a data da última coleta aparece na lista de clientes ("Últ. troca")
+      const comData = clients.map((c) => {
+        const data = dados.ultimaColeta[c.id];
+        if (!data) return c;
+        return c.lastCollectAt && c.lastCollectAt >= data ? c : { ...c, lastCollectAt: data };
+      });
+      const alterados = comData.filter((c, i) => c.lastCollectAt !== clients[i].lastCollectAt);
+      if (alterados.length > 0) {
+        await enviarEmLotes(alterados, (parte) =>
+          supabase.from("clients").upsert(parte.map((c) => clientToRow(c))),
+        );
+      }
+
+      setAppState((prev) => ({
+        ...prev,
+        clients: comData,
+        volumes: dados.volumes,
+        cadence: dados.cadence,
+      }));
+      toast.success("Planilha de coletas carregada", {
+        description: `${dados.totalColetas} coletas de ${dados.cadence.length} clientes${
+          dados.periodo ? ` (${formatDateBR(dados.periodo[0])} a ${formatDateBR(dados.periodo[1])})` : ""
+        }`,
+      });
+    },
+    [setAppState],
+  );
+
+  /** reaproveita a importação da planilha a partir da tela de dados (coordenador) */
+  const recarregarPlanilha = useCallback(
+    () => importarPlanilha(clientsRef.current),
+    [importarPlanilha],
+  );
 
   const refreshAll = useCallback(async (uid: string, roleName: Role) => {
     const [
@@ -773,6 +884,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setCloudReady(true);
     setLastSyncAt(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }));
 
+    // primeira carga do coordenador: sobe a planilha de coletas (comparativo, cadência e histórico)
+    if (roleName === "coordenador" && volumes.length === 0 && cadence.length === 0) {
+      void importarPlanilha(clients);
+    }
+
     // primeira execução do coordenador: sobe a carteira + configurações se o banco estiver vazio
     if (clients.length === 0 && roleName === "coordenador") {
       const seed = seedClients();
@@ -803,7 +919,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }));
       }
     }
-  }, [setAppState]);
+  }, [setAppState, importarPlanilha]);
 
   // restaura o cache local (última base sincronizada neste navegador)
   useEffect(() => {
@@ -3057,6 +3173,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     createClient,
     deleteClient,
     loadClientColetas,
+    recarregarPlanilha,
     listProfiles,
     setUserRole,
     recomputeTiers,
