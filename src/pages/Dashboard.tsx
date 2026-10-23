@@ -297,7 +297,7 @@ export default function Dashboard() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Visão geral</h1>
         <p className="text-sm text-muted-foreground">
-          Acompanhe a cobertura de visitas da região Sul.
+          Acompanhe a cobertura de visitas da sua carteira.
         </p>
       </div>
 

@@ -1,7 +1,7 @@
 {
-  "name": "RotaSul — controle de visitas",
-  "short_name": "RotaSul",
-  "description": "Controle de visitas e rotas comerciais da Região Sul.",
+  "name": "Multiplus Porto Alegre — controle de visitas",
+  "short_name": "Multiplus POA",
+  "description": "Controle de visitas e rotas comerciais de Porto Alegre.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

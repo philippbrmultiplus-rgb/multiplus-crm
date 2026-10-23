@@ -983,7 +983,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 });
                 if ("Notification" in window && Notification.permission === "granted") {
                   try {
-                    new Notification("RotaSul — nova visita", {
+                    new Notification("Multiplus Porto Alegre — nova visita", {
                       body: `${label}: ${client?.name ?? ""} — ${client?.city ?? ""} (${new Date(visit.visitedAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })})`,
                       tag: `nova-visita-${visit.id}`,
                       renotify: true,
