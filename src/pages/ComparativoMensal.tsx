@@ -20,7 +20,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useData } from "@/lib/DataContext";
-import { formatM3, mesLabel } from "@/lib/geo";
+import { diasUteisNoMes } from "@/lib/calendario";
+import { formatDateBR, formatM3, mesLabel, toLocalDateKey } from "@/lib/geo";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 /** volume em m³ (sem casas decimais quando é inteiro) */
@@ -56,6 +57,10 @@ export default function ComparativoMensal() {
 
   // meses que existem na base, do mais antigo para o mais novo
   const meses = useMemo(() => [...new Set(volumes.map((v) => v.month))].sort(), [volumes]);
+
+  // mês em andamento: os dias úteis contam só até hoje
+  const hoje = toLocalDateKey(new Date().toISOString());
+  const mesCorrente = hoje.slice(0, 7);
 
   // pares de meses seguidos para comparar a queda
   const pares = useMemo(() => meses.slice(1).map((m, i) => ({ de: meses[i], para: m })), [meses]);
@@ -145,6 +150,22 @@ export default function ComparativoMensal() {
   const totalFiltrado = useMemo(() => filtradas.reduce((acc, l) => acc + l.total, 0), [filtradas]);
   const mesFiltrado = (m: string) => filtradas.reduce((acc, l) => acc + (l.valores[m] ?? 0), 0);
 
+  // dias úteis somados de todos os meses lançados (no mês em andamento, só até hoje)
+  const diasUteisPeriodo = useMemo(
+    () =>
+      meses.reduce(
+        (acc, m) =>
+          acc +
+          diasUteisNoMes(
+            m,
+            m.slice(0, 7) === mesCorrente ? hoje : null,
+            state.settings.workingDays,
+          ),
+        0,
+      ),
+    [meses, mesCorrente, hoje, state.settings.workingDays],
+  );
+
   const valorClasse = (valor: number | undefined) =>
     valor ? "text-center tabular-nums" : "text-center tabular-nums text-muted-foreground";
 
@@ -173,19 +194,30 @@ export default function ComparativoMensal() {
               {m3(totalGeral)}{" "}
               <span className="text-base font-normal text-muted-foreground">m³</span>
             </CardTitle>
+            <p className="pt-1 text-xs text-muted-foreground">
+              {diasUteisPeriodo} {diasUteisPeriodo === 1 ? "dia útil" : "dias úteis"} no período
+            </p>
           </CardHeader>
         </Card>
-        {meses.map((m) => (
-          <Card key={m} className="card-soft">
-            <CardHeader className="pb-2">
-              <CardDescription className="font-medium">{mesLabel(m)}</CardDescription>
-              <CardTitle className="text-3xl">
-                {m3(totalPorMes.get(m) ?? 0)}{" "}
-                <span className="text-base font-normal text-muted-foreground">m³</span>
-              </CardTitle>
-            </CardHeader>
-          </Card>
-        ))}
+        {meses.map((m) => {
+          const emAndamento = m.slice(0, 7) === mesCorrente;
+          const diasUteis = diasUteisNoMes(m, emAndamento ? hoje : null, state.settings.workingDays);
+          return (
+            <Card key={m} className="card-soft">
+              <CardHeader className="pb-2">
+                <CardDescription className="font-medium">{mesLabel(m)}</CardDescription>
+                <CardTitle className="text-3xl">
+                  {m3(totalPorMes.get(m) ?? 0)}{" "}
+                  <span className="text-base font-normal text-muted-foreground">m³</span>
+                </CardTitle>
+                <p className="pt-1 text-xs text-muted-foreground">
+                  {diasUteis} {diasUteis === 1 ? "dia útil" : "dias úteis"}
+                  {emAndamento ? ` até ${formatDateBR(hoje)}` : " no mês"}
+                </p>
+              </CardHeader>
+            </Card>
+          );
+        })}
       </div>
 
       <div className="card-soft flex flex-wrap items-end gap-2 p-3">
@@ -420,7 +452,8 @@ export default function ComparativoMensal() {
           </CardDescription>
         </CardHeader>
         <CardContent className="text-xs text-muted-foreground">
-          {volumes.length} lançamento(s) mensais carregados.
+          {volumes.length} lançamento(s) mensais carregados. Os dias úteis seguem os dias de rota
+          (segunda a sexta) e não descontam feriados; no mês em andamento a contagem vai até hoje.
         </CardContent>
       </Card>
     </div>
