@@ -1,0 +1,49 @@
+insert into storage.buckets (id, name, public) values ('visitas', 'visitas', true)
+on conflict (id) do nothing;
+
+create table if not exists public.client_payments (
+  id text primary key,
+  client_id text references public.clients(id) on delete cascade,
+  label text,
+  valor_a_pagar text,
+  a_pagar_maquina text,
+  tipo_servico text,
+  modalidade text,
+  created_at timestamptz not null default now()
+);
+
+alter table public.client_payments enable row level security;
+grant select, insert, update, delete on public.client_payments to authenticated;
+grant select, insert, update, delete on public.profiles to authenticated;
+grant select, insert, update, delete on public.clients to authenticated;
+grant select, insert, update, delete on public.settings to authenticated;
+grant select, insert, update, delete on public.weekly_routes to authenticated;
+grant select, insert, update, delete on public.route_visits to authenticated;
+grant select, insert, update, delete on public.visits to authenticated;
+grant select, insert, update, delete on public.clientes_excluidos to authenticated;
+grant select, insert, update, delete on public.coletas to authenticated;
+
+create policy cp_select on public.client_payments for select to authenticated using (true);
+create policy cp_insert on public.client_payments for insert to authenticated
+with check (public.is_coordenador());
+create policy cp_update on public.client_payments for update to authenticated
+using (public.is_coordenador()) with check (public.is_coordenador());
+create policy cp_delete on public.client_payments for delete to authenticated
+using (public.is_coordenador());
+
+insert into public.settings (id, home_lat, home_lng, working_days)
+values (1, -22.7617, -47.1542, array[1,2,3,4,5])
+on conflict (id) do nothing;
+
+alter publication supabase_realtime add table public.client_alerts;
+alter publication supabase_realtime add table public.client_cadence;
+alter publication supabase_realtime add table public.client_monthly_volumes;
+alter publication supabase_realtime add table public.client_prospect_notes;
+alter publication supabase_realtime add table public.clients;
+alter publication supabase_realtime add table public.client_payments;
+alter publication supabase_realtime add table public.internal_prospect_notes;
+alter publication supabase_realtime add table public.internal_prospects;
+alter publication supabase_realtime add table public.route_activities;
+alter publication supabase_realtime add table public.route_visits;
+alter publication supabase_realtime add table public.visits;
+alter publication supabase_realtime add table public.weekly_routes;

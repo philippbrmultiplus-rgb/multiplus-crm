@@ -36,9 +36,9 @@ export function distanceMeters(
 }
 
 /** ponto de partida das rotas (base) */
-export const BASE_ADDRESS = "Avenida Severo Dullius, 125 - Anchieta, Porto Alegre - RS, 90200-310";
-export const BASE_LAT = -29.99212;
-export const BASE_LNG = -51.17726;
+export const BASE_ADDRESS = "Centro, Paulínia - SP";
+export const BASE_LAT = -22.7617;
+export const BASE_LNG = -47.1542;
 
 /** distância rodoviária aproximada (km) da base até um ponto */
 export function distanciaDaBaseKm(lat: number | null, lng: number | null): number | null {

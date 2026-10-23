@@ -1,7 +1,7 @@
 {
-  "name": "RotaSul — controle de visitas",
-  "short_name": "RotaSul",
-  "description": "Controle de visitas e rotas comerciais da Região Sul.",
+  "name": "Multiplus Paulínia — controle de visitas",
+  "short_name": "Multiplus Paulínia",
+  "description": "Controle de visitas e rotas comerciais da carteira de Paulínia.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

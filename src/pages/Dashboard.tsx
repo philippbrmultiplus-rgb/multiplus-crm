@@ -38,9 +38,14 @@ import type { Client } from "@/lib/types";
 /** segmentos que entram na cobertura da carteira */
 const SEGMENTOS_COBERTURA = new Set([
   "ROLLON",
-  "ROLLON/ CARREGAMENTO NA HORA",
+  "ROLLON/CARREGAMENTO NA HORA",
   "POLI",
+  "POLI/CARREGAMENTO NA HORA",
+  "POLI/ESPORADICO",
+  "PORTA A PORTA",
+  "PORTA A PORTA/CARREGAMENTO NA HORA",
   "TERCEIRO",
+  "TERCEIRO/CARREGAMENTO NA HORA",
 ]);
 
 /** compara segmento ignorando acentos, maiúsculas, hífens e espaços repetidos */

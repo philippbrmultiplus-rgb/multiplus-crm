@@ -417,7 +417,7 @@ export default function RotaSemanal() {
                   {DAY_NAMES[d]}
                 </span>
               ))}
-              <span className="ml-auto">Base: Porto Alegre</span>
+              <span className="ml-auto">Base: Paulínia</span>
             </div>
           </div>
         </>
@@ -986,7 +986,7 @@ function ProspecaoDialog({
       segmentoComercial: segmentoComercial.trim() || null,
       address: endereco.trim(),
       city: cidade.trim(),
-      state: "RS",
+      state: "SP",
       active: ativo,
       total2025: 0,
       total2026: 0,
@@ -1058,7 +1058,7 @@ function ProspecaoDialog({
           </div>
           <div className="space-y-1.5">
             <Label>Cidade</Label>
-            <Input value={cidade} onChange={(e) => setCidade(e.target.value)} placeholder="Porto Alegre" />
+            <Input value={cidade} onChange={(e) => setCidade(e.target.value)} placeholder="Paulínia" />
           </div>
           <div className="space-y-1.5">
             <Label>Contato</Label>
@@ -1124,7 +1124,7 @@ function ProspecaoDialog({
             <LeafletMap
               height="220px"
               fit={false}
-              center={pos ? [pos.lat, pos.lng] : [-30.03, -51.22]}
+              center={pos ? [pos.lat, pos.lng] : [-22.7617, -47.1542]}
               zoom={12}
               points={points}
               onMapClick={(lat, lng) => setPos({ lat, lng })}

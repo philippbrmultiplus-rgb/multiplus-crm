@@ -288,7 +288,11 @@ export default function Clientes() {
         pago === "todos" ? true : pago === "sim" ? comPagamento.has(c.id) : !comPagamento.has(c.id),
       )
       .filter((c) =>
-        q ? `${c.name} ${c.address} ${c.city} ${c.segment}`.toLowerCase().includes(q) : true,
+        q
+          ? `${c.name} ${c.address} ${c.city} ${c.segment} ${c.segmentoComercial ?? ""}`
+              .toLowerCase()
+              .includes(q)
+          : true,
       )
       .sort((a, b) => {
         // a ordem escolhida manda: nome A–Z sempre alfabético
@@ -355,9 +359,20 @@ export default function Clientes() {
       if (d > 20) return "Atenção";
       return "Em dia";
     };
+    const pagamentoDe = (id: string) =>
+      state.payments.filter((p) => p.clientId === id);
     const rows = filtered.map((c) => ({
       Nome: c.name,
       Segmento: c.segment || "",
+      "Segmento comercial": c.segmentoComercial ?? "",
+      "Valor pago": pagamentoDe(c.id)
+        .map((p) => p.valor)
+        .filter(Boolean)
+        .join(" / "),
+      "Forma de pagamento": pagamentoDe(c.id)
+        .map((p) => p.modalidade)
+        .filter(Boolean)
+        .join(" / "),
       Cidade: c.city || "",
       "Distância da base (km)": distanciaClienteKm(c) != null ? Number(distanciaClienteKm(c)!.toFixed(1)) : "",
       Endereço: c.address || "",
@@ -649,6 +664,10 @@ export default function Clientes() {
                   <span className="block text-[11px] text-muted-foreground">Segmento</span>
                   <span className="block truncate">{c.segment || "—"}</span>
                 </div>
+                <div className="min-w-0">
+                  <span className="block text-[11px] text-muted-foreground">Segmento comercial</span>
+                  <span className="block truncate">{c.segmentoComercial || "—"}</span>
+                </div>
                 <div>
                   <span className="block text-[11px] text-muted-foreground">Grupo</span>
                   <TierBadge tier={c.tier} />
@@ -766,6 +785,11 @@ export default function Clientes() {
                       </Badge>
                     ) : (
                       "—"
+                    )}
+                    {c.segmentoComercial && (
+                      <div className="truncate text-[11px] text-muted-foreground">
+                        {c.segmentoComercial}
+                      </div>
                     )}
                   </TableCell>
                   <TableCell>
@@ -1051,7 +1075,7 @@ function EditClientDialog({
           </div>
           <div className="space-y-2">
             <Label>Cidade</Label>
-            <Input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Porto Alegre" />
+            <Input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Paulínia" />
           </div>
           <div className="space-y-2">
             <Label>Segmento logístico</Label>
@@ -1117,7 +1141,7 @@ function EditClientDialog({
           <LeafletMap
             height="280px"
             fit={false}
-            center={lat != null && lng != null ? [lat, lng] : [-30.03, -51.22]}
+            center={lat != null && lng != null ? [lat, lng] : [-22.7617, -47.1542]}
             zoom={12}
             points={points}
             onMapClick={(l, n) => {

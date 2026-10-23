@@ -34,26 +34,26 @@ export function ClientPaymentsDialog({
           </DialogTitle>
           <DialogDescription>
             {client.name}
-            {client.city ? ` · ${client.city}` : ""} — condições acertadas com o cliente.
+            {client.city ? ` · ${client.city}` : ""} — valor que pagamos e forma de pagamento acertados com o cliente.
           </DialogDescription>
         </DialogHeader>
 
         {pagamentos.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            Nenhuma condição de pagamento registrada para este cliente.
+            Nenhum valor de pagamento registrado para este cliente.
           </p>
         ) : (
           <div className="space-y-3">
             {pagamentos.map((p) => (
               <div key={p.id} className="space-y-2 rounded-lg border p-3 text-sm">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-xs font-medium text-muted-foreground">A pagar</span>
+                  <span className="text-xs font-medium text-muted-foreground">Valor pago</span>
                   <Badge className="bg-primary/10 text-primary">{p.valor || "—"}</Badge>
                   {p.servico && <Badge variant="outline">{p.servico}</Badge>}
                 </div>
                 <div className="grid gap-2 sm:grid-cols-2">
                   <div>
-                    <span className="block text-[11px] text-muted-foreground">Modalidade</span>
+                    <span className="block text-[11px] text-muted-foreground">Forma de pagamento</span>
                     <span>{p.modalidade || "—"}</span>
                   </div>
                   <div>

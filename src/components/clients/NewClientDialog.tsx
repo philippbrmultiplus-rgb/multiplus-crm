@@ -71,7 +71,7 @@ export function NewClientDialog({
       segmentoComercial: segmentoComercial.trim() || null,
       city: cidade.trim(),
       address: endereco.trim(),
-      state: "RS",
+      state: "SP",
       contato: contato.trim() || null,
       responsavel: responsavel.trim() || null,
       obs: obs.trim() || undefined,
@@ -141,7 +141,7 @@ export function NewClientDialog({
 
           <div className="space-y-2">
             <Label>Cidade</Label>
-            <Input value={cidade} onChange={(e) => setCidade(e.target.value)} placeholder="Porto Alegre" />
+            <Input value={cidade} onChange={(e) => setCidade(e.target.value)} placeholder="Paulínia" />
           </div>
 
           <div className="space-y-2 sm:col-span-2">
@@ -231,7 +231,7 @@ export function NewClientDialog({
             <LeafletMap
               height="220px"
               fit={false}
-              center={pos ? [pos.lat, pos.lng] : [-30.03, -51.22]}
+              center={pos ? [pos.lat, pos.lng] : [-22.7617, -47.1542]}
               zoom={12}
               points={pos ? [{ lat: pos.lat, lng: pos.lng, label: nome || "Novo cliente", color: "#1e40af" }] : []}
               onMapClick={(lat, lng) => setPos({ lat, lng })}

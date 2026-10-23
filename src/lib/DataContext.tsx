@@ -10,7 +10,7 @@ import {
 /* eslint-disable @typescript-eslint/no-explicit-any -- linhas (rows) do Supabase */
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { clientsRS } from "@/data/clientsRS";
+import { clientsPLN, seedPaymentsPLN } from "@/data/clientsPLN";
 import type {
   AppState,
   Client,
@@ -33,11 +33,9 @@ import type {
   ProspectVisitInput,
 } from "./types";
 import { generateWeekRoute, mergeWeekRoute } from "./route";
-import { applySegmentData } from "./segmentMerge";
-import { applyCadenceData, tierOfFreq } from "./cadence";
 import { toLocalDateKey } from "./geo";
 
-const STORAGE_KEY = "rs-app-state.v1";
+const STORAGE_KEY = "mp-paulinia-app-state.v1";
 
 /** fotos já enviadas que não conseguiram anexar à visita (queda de conexão no meio do caminho) */
 const PENDING_PHOTOS_KEY = "rs-pending-photos.v1";
@@ -103,8 +101,8 @@ function enqueuePendingNote(item: PendingNote) {
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const defaultSettings: Settings = {
-  homeLat: -30.0346,
-  homeLng: -51.2177,
+  homeLat: -22.7617,
+  homeLng: -47.1542,
   workStart: "07:00",
   workEnd: "17:00",
   visitTimeMin: 30,
@@ -129,21 +127,30 @@ function freqOfTier(tier: Tier, active: boolean): number {
   return 0.5;
 }
 
+/** grupo derivado da frequência da planilha (a base não traz volume em toneladas) */
+function tierFromSegment(segment: string): Tier {
+  if (segment.includes("/Carregamento na hora")) return "B";
+  if (segment.includes("/Esporádico")) return "C";
+  if (segment === "Porta a Porta") return "C";
+  return "A";
+}
+
 // eslint-disable-next-line react-refresh/only-export-components
 export function seedClients(): Client[] {
-  const mapped: Client[] = clientsRS.map((c, i) => {
-    const tier = computeTier(c.avgMonthly, defaultSettings);
+  return clientsPLN.map((c, i) => {
+    const tier = tierFromSegment(c.segment);
     return {
       id: `cli-${i}`,
       name: c.name,
       segment: c.segment,
+      segmentoComercial: c.segmentoComercial || null,
       address: c.address,
       city: c.city,
       state: c.state,
       active: c.active,
-      total2025: c.total2025,
-      total2026: c.total2026,
-      avgMonthly: c.avgMonthly,
+      total2025: 0,
+      total2026: 0,
+      avgMonthly: 0,
       tier,
       freqMonth: freqOfTier(tier, c.active),
       isProspecao: false,
@@ -152,8 +159,6 @@ export function seedClients(): Client[] {
       geocodeStatus: "pendente",
     };
   });
-  const withSegments = applySegmentData(mapped);
-  return applyCadenceData(withSegments);
 }
 
 function alertFromRow(r: Record<string, any>): ClientAlert {
@@ -332,7 +337,7 @@ function clientFromRow(r: Record<string, any>): Client {
     segmentoComercial: r.segmento_comercial ?? null,
     address: r.address ?? "",
     city: r.city ?? "",
-    state: r.state ?? "RS",
+    state: r.state ?? "SP",
     active: r.active ?? true,
     total2025: Number(r.total_2025 ?? 0),
     total2026: Number(r.total_2026 ?? 0),
@@ -748,23 +753,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       clientProspectNoteFromRow(r as unknown as Record<string, any>),
     );
 
-    // coordenaador: aplica cadência/frequência e última troca da planilha uma única vez
-    let finalClients = clients;
-    if (roleName === "coordenador" && clients.length > 0) {
-      const ver = Number((settingsRes.data as Record<string, any> | null)?.cadence_version ?? 0);
-      if (ver < 3) {
-        finalClients = applyCadenceData(clients);
-        await supabase.from("clients").upsert(finalClients.map((c) => clientToRow(c)));
-        await supabase
-          .from("settings")
-          .upsert({ ...(settingsToRow(settings) as Record<string, any>), cadence_version: 3 });
-      }
-    }
-
     setAppState((prev) => ({
       ...prev,
       sessionRole: roleName,
-      clients: finalClients.length > 0 ? finalClients : prev.clients,
+      clients: clients.length > 0 ? clients : prev.clients,
       settings,
       routes,
       routeVisits,
@@ -783,27 +775,40 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
     // primeira execução do coordenador: sobe a carteira + configurações se o banco estiver vazio
     if (clients.length === 0 && roleName === "coordenador") {
-      const seed = prevClientsRef.current.length > 0 ? applyCadenceData(prevClientsRef.current) : seedClients();
+      const seed = seedClients();
+      const seedPayments = seedPaymentsPLN();
       const { error } = await supabase
         .from("clients")
         .upsert(seed.map((c) => clientToRow(c)));
       if (!error) {
-        await supabase
-          .from("settings")
-          .upsert({ ...(settingsToRow(settings) as Record<string, any>), cadence_version: 3 });
-        setAppState((p) => ({ ...p, clients: seed, sessionRole: "coordenador" }));
+        if (seedPayments.length > 0) {
+          await supabase.from("client_payments").upsert(
+            seedPayments.map((p) => ({
+              id: p.id,
+              client_id: p.clientId,
+              label: p.label,
+              valor_a_pagar: p.valor || null,
+              a_pagar_maquina: p.maquina,
+              tipo_servico: p.servico,
+              modalidade: p.modalidade,
+            })),
+          );
+        }
+        await supabase.from("settings").upsert(settingsToRow(settings));
+        setAppState((p) => ({
+          ...p,
+          clients: seed,
+          payments: seedPayments,
+          sessionRole: "coordenador",
+        }));
       }
     }
   }, [setAppState]);
 
-  // guarda cache local pré-login para a primeira sincronização do coordenador
-  const prevClientsRef = useRef<Client[]>([]);
+  // restaura o cache local (última base sincronizada neste navegador)
   useEffect(() => {
     const cached = loadLocalCache();
-    if (cached && cached.clients.length > 0) {
-      prevClientsRef.current = cached.clients;
-      setAppState(cached);
-    }
+    if (cached && cached.clients.length > 0) setAppState(cached);
   }, [setAppState]);
 
   const onSignedIn = useCallback(
@@ -983,7 +988,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 });
                 if ("Notification" in window && Notification.permission === "granted") {
                   try {
-                    new Notification("RotaSul — nova visita", {
+                    new Notification("Multiplus Paulínia — nova visita", {
                       body: `${label}: ${client?.name ?? ""} — ${client?.city ?? ""} (${new Date(visit.visitedAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })})`,
                       tag: `nova-visita-${visit.id}`,
                       renotify: true,
@@ -1447,7 +1452,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const endereco = [
           patch.address ?? antes?.address ?? "",
           patch.city ?? antes?.city ?? "",
-          antes?.state ?? "RS",
+          antes?.state ?? "SP",
           "Brasil",
         ]
           .map((p) => p.trim())
@@ -2176,7 +2181,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         segmentoComercial: args.segmentoComercial?.trim() || null,
         address: args.endereco?.trim() ?? "",
         city: args.cidade?.trim() ?? "",
-        state: "RS",
+        state: "SP",
         active: true,
         total2025: 0,
         total2026: 0,
@@ -2923,11 +2928,28 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const resetData = useCallback(() => {
     const base = emptyState();
     const clients = seedClients();
-    const next: AppState = { ...base, clients, sessionRole: roleRef.current ?? "vendedor" };
+    const payments = seedPaymentsPLN();
+    const next: AppState = {
+      ...base,
+      clients,
+      payments,
+      sessionRole: roleRef.current ?? "vendedor",
+    };
     persistLocal(next);
     setState(next);
     if (canWriteClientData()) {
       void supabase.from("clients").upsert(clients.map((c) => clientToRow(c)));
+      void supabase.from("client_payments").upsert(
+        payments.map((p) => ({
+          id: p.id,
+          client_id: p.clientId,
+          label: p.label,
+          valor_a_pagar: p.valor || null,
+          a_pagar_maquina: p.maquina,
+          tipo_servico: p.servico,
+          modalidade: p.modalidade,
+        })),
+      );
       void supabase.from("settings").upsert(settingsToRow(next.settings));
     }
   }, []);

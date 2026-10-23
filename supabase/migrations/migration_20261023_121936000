@@ -1,0 +1,274 @@
+alter table public.clients add column if not exists responsavel text;
+alter table public.clients add column if not exists prospeccao_status text;
+
+CREATE POLICY "clients_update_prospect" ON public.clients
+  FOR UPDATE USING (is_prospecao = true) WITH CHECK (is_prospecao = true);
+
+alter table public.clients add column if not exists prospeccao_justificativa text;
+
+CREATE POLICY "rv_write_vendor" ON public.route_visits
+  FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+
+alter table public.visits drop constraint if exists visits_route_visit_id_fkey;
+alter table public.visits
+  add constraint visits_route_visit_id_fkey
+  foreign key (route_visit_id) references public.route_visits(id) on delete set null;
+
+alter table public.visits add column if not exists photos jsonb;
+
+CREATE TABLE IF NOT EXISTS public.coletas (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  client_id text NOT NULL REFERENCES public.clients(id) ON DELETE CASCADE,
+  collect_date date NOT NULL,
+  note text,
+  created_by uuid DEFAULT auth.uid(),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT coletas_unique UNIQUE (client_id, collect_date)
+);
+
+CREATE INDEX IF NOT EXISTS coletas_client_idx ON public.coletas (client_id, collect_date DESC);
+
+ALTER TABLE public.coletas ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "coletas_select" ON public.coletas FOR SELECT USING (true);
+CREATE POLICY "coletas_insert" ON public.coletas FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+CREATE POLICY "coletas_delete" ON public.coletas FOR DELETE USING (is_coordenador());
+
+alter table public.profiles drop constraint if exists profiles_role_check;
+alter table public.profiles
+  add constraint profiles_role_check
+  check (role = ANY (ARRAY['coordenador'::text, 'vendedor'::text, 'gerente'::text]));
+
+CREATE POLICY "profiles_update_coord" ON public.profiles
+  FOR UPDATE USING (is_coordenador()) WITH CHECK (is_coordenador());
+
+alter table public.visits add column if not exists alerta boolean not null default false;
+alter table public.visits add column if not exists alerta_motivo text;
+
+alter table public.clients add column if not exists geo_aproximado boolean not null default false;
+
+create table if not exists public.client_alerts (
+  id text primary key default gen_random_uuid()::text,
+  client_id text not null references public.clients(id) on delete cascade,
+  motivo text not null,
+  created_by uuid,
+  created_by_name text,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists client_alerts_created_at_idx on public.client_alerts (created_at desc);
+create index if not exists client_alerts_client_id_idx on public.client_alerts (client_id);
+
+grant select, insert, delete on public.client_alerts to authenticated;
+
+alter table public.client_alerts enable row level security;
+
+create policy ca_select on public.client_alerts for select to authenticated using (true);
+
+create policy ca_insert on public.client_alerts for insert to authenticated
+with check (
+  created_by = auth.uid()
+  and exists (
+    select 1 from public.profiles p
+    where p.id = auth.uid() and p.role in ('coordenador', 'vendedor')
+  )
+);
+
+create policy ca_delete on public.client_alerts for delete to authenticated
+using (created_by = auth.uid() or public.is_coordenador());
+
+alter table public.client_alerts add column if not exists photo_url text;
+
+create table if not exists public.route_activities (
+  id text primary key default gen_random_uuid()::text,
+  week_start date not null,
+  day int not null,
+  titulo text not null,
+  obs text,
+  duration_min int not null default 0,
+  created_by uuid,
+  created_by_name text,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists route_activities_week_idx on public.route_activities (week_start, day);
+
+grant select, insert, delete on public.route_activities to authenticated;
+
+alter table public.route_activities enable row level security;
+
+create policy ra_select on public.route_activities for select to authenticated using (true);
+
+create policy ra_insert on public.route_activities for insert to authenticated
+with check (
+  created_by = auth.uid()
+  and exists (
+    select 1 from public.profiles p
+    where p.id = auth.uid() and p.role in ('coordenador', 'vendedor')
+  )
+);
+
+create policy ra_delete on public.route_activities for delete to authenticated
+using (created_by = auth.uid() or public.is_coordenador());
+
+create table if not exists public.client_monthly_volumes (
+  id text primary key default gen_random_uuid()::text,
+  client_id text not null references public.clients(id) on delete cascade,
+  month date not null,
+  volume_m3 numeric not null default 0,
+  created_at timestamptz not null default now(),
+  unique (client_id, month)
+);
+
+create index if not exists client_monthly_volumes_month_idx on public.client_monthly_volumes (month);
+
+grant select on public.client_monthly_volumes to authenticated;
+
+alter table public.client_monthly_volumes enable row level security;
+
+create policy cmv_select on public.client_monthly_volumes for select to authenticated using (true);
+
+alter table public.client_monthly_volumes add column if not exists label text;
+alter table public.client_monthly_volumes alter column client_id drop not null;
+
+create unique index if not exists client_monthly_volumes_label_month_key on public.client_monthly_volumes (label, month) where client_id is null;
+
+alter table public.coletas add column if not exists volume_m3 numeric;
+alter table public.coletas add column if not exists trocas integer not null default 1;
+
+create policy coletas_update on public.coletas for update to authenticated
+using (public.is_coordenador()) with check (public.is_coordenador());
+
+create table if not exists public.client_cadence (
+  id text primary key default gen_random_uuid()::text,
+  client_id text references public.clients(id) on delete cascade,
+  nome_planilha text not null,
+  media_dias numeric,
+  coletas integer not null default 0,
+  ultima_coleta date,
+  atualizado_em timestamptz not null default now(),
+  unique (nome_planilha)
+);
+
+grant select on public.client_cadence to authenticated;
+
+alter table public.client_cadence enable row level security;
+
+create policy cc_select on public.client_cadence for select to authenticated using (true);
+
+alter table public.client_cadence add column if not exists datas date[];
+
+alter table public.clients add column if not exists segmento_comercial text;
+
+alter table public.visits add column if not exists tipo_contato text;
+
+create table if not exists public.internal_prospects (
+  id text primary key default gen_random_uuid()::text,
+  nome text not null,
+  cidade text,
+  endereco text,
+  contato text,
+  telefone text,
+  segmento_comercial text,
+  segmento_logistico text,
+  observacoes text,
+  created_by uuid,
+  created_by_name text,
+  created_at timestamptz not null default now()
+);
+
+grant select, insert, delete on public.internal_prospects to authenticated;
+
+alter table public.internal_prospects enable row level security;
+
+create policy ip_select on public.internal_prospects for select to authenticated using (true);
+
+create policy ip_insert on public.internal_prospects for insert to authenticated
+with check (
+  created_by = auth.uid()
+  and exists (
+    select 1 from public.profiles p
+    where p.id = auth.uid() and p.role in ('coordenador', 'vendedor')
+  )
+);
+
+create policy ip_delete on public.internal_prospects for delete to authenticated
+using (created_by = auth.uid() or public.is_coordenador());
+
+create table if not exists public.internal_prospect_notes (
+  id text primary key default gen_random_uuid()::text,
+  prospect_id text not null references public.internal_prospects(id) on delete cascade,
+  texto text not null,
+  created_by uuid,
+  created_by_name text,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists internal_prospect_notes_prospect_idx on public.internal_prospect_notes (prospect_id, created_at);
+
+grant select, insert, delete on public.internal_prospect_notes to authenticated;
+
+alter table public.internal_prospect_notes enable row level security;
+
+create policy ipn_select on public.internal_prospect_notes for select to authenticated using (true);
+
+create policy ipn_insert on public.internal_prospect_notes for insert to authenticated
+with check (
+  created_by = auth.uid()
+  and exists (
+    select 1 from public.profiles p
+    where p.id = auth.uid() and p.role in ('coordenador', 'vendedor')
+  )
+);
+
+create policy ipn_delete on public.internal_prospect_notes for delete to authenticated
+using (created_by = auth.uid() or public.is_coordenador());
+
+alter table public.internal_prospects add column if not exists visita_agendada date;
+
+grant update on public.internal_prospects to authenticated;
+
+create policy ip_update on public.internal_prospects for update to authenticated
+using (
+  exists (
+    select 1 from public.profiles p
+    where p.id = auth.uid() and p.role in ('coordenador', 'vendedor')
+  )
+)
+with check (
+  exists (
+    select 1 from public.profiles p
+    where p.id = auth.uid() and p.role in ('coordenador', 'vendedor')
+  )
+);
+
+alter table public.clients add column if not exists visita_agendada date;
+
+create table if not exists public.client_prospect_notes (
+  id text primary key default gen_random_uuid()::text,
+  client_id text not null references public.clients(id) on delete cascade,
+  texto text not null,
+  created_by uuid,
+  created_by_name text,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists client_prospect_notes_client_idx on public.client_prospect_notes (client_id, created_at);
+
+grant select, insert, delete on public.client_prospect_notes to authenticated;
+
+alter table public.client_prospect_notes enable row level security;
+
+create policy cpn_select on public.client_prospect_notes for select to authenticated using (true);
+
+create policy cpn_insert on public.client_prospect_notes for insert to authenticated
+with check (
+  created_by = auth.uid()
+  and exists (
+    select 1 from public.profiles p
+    where p.id = auth.uid() and p.role in ('coordenador', 'vendedor')
+  )
+);
+
+create policy cpn_delete on public.client_prospect_notes for delete to authenticated
+using (created_by = auth.uid() or public.is_coordenador());

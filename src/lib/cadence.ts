@@ -1,19 +1,4 @@
-import type { Client, Tier } from "./types";
-import { cadenceFreqRS, cadenceLastAtRS } from "@/data/cadenciaRS";
-
-const FREQ_MAP = new Map(cadenceFreqRS.map((r) => [r.key, r.freq]));
-const LAST_MAP = new Map(cadenceLastAtRS.map((r) => [r.key, r.lastAt]));
-
-/** normaliza o nome-base (mesma regra usada na carteira/segmentos) */
-function keyOf(name: string): string {
-  return name
-    .split(" - ")[0]
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toUpperCase()
-    .replace(/\s+/g, " ")
-    .trim();
-}
+import type { Tier } from "./types";
 
 /** Grupo por cadência: 4x/mês = A (alta), 3 = B, 2 = C, menos que 2 = D */
 export function tierOfFreq(freq: number): Tier {
@@ -42,25 +27,4 @@ export function intervalDays(freq: number): number {
 
 export function tierPriority(t: Tier): number {
   return t === "A" ? 4 : t === "B" ? 3 : t === "C" ? 2 : 1;
-}
-
-/**
- * Aplica a cadência da planilha nos clientes (frequência mensal, grupo e data
- * da última troca — só preenche/avança quando não houver data mais recente).
- */
-export function applyCadenceData(clients: Client[]): Client[] {
-  return clients.map((c) => {
-    const k = keyOf(c.name);
-    const freq = FREQ_MAP.get(k);
-    const next = { ...c };
-    if (freq !== undefined) {
-      next.freqMonth = freq;
-      next.tier = tierOfFreq(freq);
-    }
-    const last = LAST_MAP.get(k);
-    if (last && (!next.lastCollectAt || last > next.lastCollectAt)) {
-      next.lastCollectAt = last;
-    }
-    return next;
-  });
 }

@@ -50,11 +50,11 @@ export function AuthScreen({ embedded = false }: { embedded?: boolean }) {
       <div className="w-full max-w-sm">
         <div className="mb-6 text-center">
           <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl border bg-white p-1 shadow-lg">
-            <img src="/rota-logo.png" alt="RotaSul" className="h-full w-full object-contain" />
+            <img src="/rota-logo.png" alt="Multiplus Paulínia" className="h-full w-full object-contain" />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight">RotaSul</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Multiplus Paulínia</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Controle de visitas — Região Sul
+            Controle de visitas — Paulínia/SP
           </p>
         </div>
 
