@@ -1,0 +1,1 @@
+update public.settings set home_lat = -22.7819623, home_lng = -47.1286510, updated_at = now() where id = 1;

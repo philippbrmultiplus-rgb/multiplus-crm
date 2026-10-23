@@ -1141,7 +1141,7 @@ function EditClientDialog({
           <LeafletMap
             height="280px"
             fit={false}
-            center={lat != null && lng != null ? [lat, lng] : [-22.7617, -47.1542]}
+            center={lat != null && lng != null ? [lat, lng] : [-22.7819623, -47.128651]}
             zoom={12}
             points={points}
             onMapClick={(l, n) => {

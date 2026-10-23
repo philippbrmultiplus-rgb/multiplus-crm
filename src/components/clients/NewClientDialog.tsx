@@ -231,7 +231,7 @@ export function NewClientDialog({
             <LeafletMap
               height="220px"
               fit={false}
-              center={pos ? [pos.lat, pos.lng] : [-22.7617, -47.1542]}
+              center={pos ? [pos.lat, pos.lng] : [-22.7819623, -47.128651]}
               zoom={12}
               points={pos ? [{ lat: pos.lat, lng: pos.lng, label: nome || "Novo cliente", color: "#1e40af" }] : []}
               onMapClick={(lat, lng) => setPos({ lat, lng })}

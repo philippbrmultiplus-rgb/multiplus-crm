@@ -101,8 +101,8 @@ function enqueuePendingNote(item: PendingNote) {
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const defaultSettings: Settings = {
-  homeLat: -22.7617,
-  homeLng: -47.1542,
+  homeLat: -22.7819623,
+  homeLng: -47.1286510,
   workStart: "07:00",
   workEnd: "17:00",
   visitTimeMin: 30,

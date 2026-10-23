@@ -36,9 +36,9 @@ export function distanceMeters(
 }
 
 /** ponto de partida das rotas (base) */
-export const BASE_ADDRESS = "Centro, Paulínia - SP";
-export const BASE_LAT = -22.7617;
-export const BASE_LNG = -47.1542;
+export const BASE_ADDRESS = "R. Sofia Atauri Fadim, 376 - Santa Terezinha, Paulínia - SP, 13148-142";
+export const BASE_LAT = -22.7819623;
+export const BASE_LNG = -47.1286510;
 
 /** distância rodoviária aproximada (km) da base até um ponto */
 export function distanciaDaBaseKm(lat: number | null, lng: number | null): number | null {

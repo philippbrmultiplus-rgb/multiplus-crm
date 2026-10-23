@@ -97,7 +97,7 @@ export function LeafletMap({
   polylinePoints = [],
   polylines = [],
   onMapClick,
-  center = [-22.7617, -47.1542],
+  center = [-22.7819623, -47.128651],
   zoom = 10,
   height = "420px",
   fit = true,
