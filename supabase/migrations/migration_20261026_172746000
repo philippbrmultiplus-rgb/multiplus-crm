@@ -1,0 +1,6 @@
+update public.client_cadence set client_id = 'cli-53' where client_id = 'cli-130' and nome_planilha = 'CASA DO GESSO - POA';
+update public.client_cadence set client_id = 'cli-229' where client_id = 'cli-1789735738440-yue5' and nome_planilha = 'SF GESSO - POA';
+update public.client_cadence set client_id = 'cli-37' where client_id = 'cli-193' and nome_planilha = 'SELAU ENTULHOS';
+update public.client_cadence set client_id = 'cli-63' where client_id = 'cli-209' and nome_planilha = 'MULTI RESIDUOS - POA';
+update public.client_cadence set client_id = 'cli-7' where client_id = 'cli-223' and nome_planilha = 'MASTERWALL';
+update public.client_cadence set client_id = 'cli-79' where client_id = 'cli-233' and nome_planilha = 'PARIS GESSO - POA';

@@ -1,0 +1,213 @@
+-- 1) comparativo mensal: outubro com os totais acumulados (novas entradas somadas ao que já havia)
+insert into public.client_monthly_volumes (client_id, month, volume_m3) values
+  ('cli-entrada-3', date '2026-10-01', 10),
+  ('cli-entrada-34', date '2026-10-01', 10),
+  ('cli-entrada-5', date '2026-10-01', 26),
+  ('cli-entrada-30', date '2026-10-01', 26),
+  ('cli-45', date '2026-10-01', 54),
+  ('cli-2', date '2026-10-01', 26),
+  ('cli-53', date '2026-10-01', 20),
+  ('cli-1791213873485-p50i', date '2026-10-01', 50),
+  ('cli-entrada-8', date '2026-10-01', 16.5),
+  ('cli-25', date '2026-10-01', 10),
+  ('cli-29', date '2026-10-01', 10),
+  ('cli-123', date '2026-10-01', 10),
+  ('cli-entrada-14', date '2026-10-01', 65),
+  ('cli-58', date '2026-10-01', 26),
+  ('cli-149', date '2026-10-01', 26),
+  ('cli-entrada-15', date '2026-10-01', 26),
+  ('cli-142', date '2026-10-01', 0),
+  ('cli-140', date '2026-10-01', 5),
+  ('cli-3', date '2026-10-01', 52),
+  ('cli-43', date '2026-10-01', 15),
+  ('cli-1790181372630-6c8x', date '2026-10-01', 0),
+  ('cli-208', date '2026-10-01', 5),
+  ('cli-171', date '2026-10-01', 10),
+  ('cli-71', date '2026-10-01', 15),
+  ('cli-7', date '2026-10-01', 9),
+  ('cli-39', date '2026-10-01', 10),
+  ('cli-18', date '2026-10-01', 26),
+  ('cli-88', date '2026-10-01', 5),
+  ('cli-79', date '2026-10-01', 10),
+  ('cli-33', date '2026-10-01', 23),
+  ('cli-entrada-23', date '2026-10-01', 15),
+  ('cli-59', date '2026-10-01', 10),
+  ('cli-55', date '2026-10-01', 15),
+  ('cli-16', date '2026-10-01', 20),
+  ('cli-entrada-25', date '2026-10-01', 5),
+  ('cli-229', date '2026-10-01', 5),
+  ('cli-68', date '2026-10-01', 6),
+  ('cli-1792517147978-6dve', date '2026-10-01', 5),
+  ('cli-34', date '2026-10-01', 26),
+  ('cli-236', date '2026-10-01', 0)
+on conflict (client_id, month) do update set volume_m3 = excluded.volume_m3;
+
+-- 2) data da última coleta (só avança)
+with entradas(client_id, ultima) as (
+  values
+    ('cli-entrada-3', date '2026-10-22'),
+    ('cli-entrada-34', date '2026-10-19'),
+    ('cli-entrada-5', date '2026-10-19'),
+    ('cli-entrada-30', date '2026-10-22'),
+    ('cli-45', date '2026-10-22'),
+    ('cli-2', date '2026-10-22'),
+    ('cli-53', date '2026-10-23'),
+    ('cli-1791213873485-p50i', date '2026-10-19'),
+    ('cli-entrada-8', date '2026-10-21'),
+    ('cli-25', date '2026-10-23'),
+    ('cli-29', date '2026-10-19'),
+    ('cli-123', date '2026-10-20'),
+    ('cli-entrada-14', date '2026-10-20'),
+    ('cli-58', date '2026-10-21'),
+    ('cli-149', date '2026-10-23'),
+    ('cli-entrada-15', date '2026-10-19'),
+    ('cli-142', date '2026-10-20'),
+    ('cli-140', date '2026-10-19'),
+    ('cli-3', date '2026-10-23'),
+    ('cli-43', date '2026-10-21'),
+    ('cli-1790181372630-6c8x', date '2026-10-25'),
+    ('cli-208', date '2026-10-19'),
+    ('cli-171', date '2026-10-19'),
+    ('cli-71', date '2026-10-21'),
+    ('cli-7', date '2026-10-21'),
+    ('cli-39', date '2026-10-23'),
+    ('cli-18', date '2026-10-21'),
+    ('cli-88', date '2026-10-19'),
+    ('cli-79', date '2026-10-21'),
+    ('cli-33', date '2026-10-23'),
+    ('cli-entrada-23', date '2026-10-22'),
+    ('cli-59', date '2026-10-20'),
+    ('cli-55', date '2026-10-22'),
+    ('cli-16', date '2026-10-21'),
+    ('cli-entrada-25', date '2026-10-21'),
+    ('cli-229', date '2026-10-22'),
+    ('cli-68', date '2026-10-23'),
+    ('cli-1792517147978-6dve', date '2026-10-19'),
+    ('cli-34', date '2026-10-20'),
+    ('cli-236', date '2026-10-21')
+)
+update public.clients c
+set last_collect_at = e.ultima,
+    updated_at = now()
+from entradas e
+where c.id = e.client_id
+  and (c.last_collect_at is null or c.last_collect_at < e.ultima);
+
+-- 3) histórico de coletas: cada dia com volume e nº de trocas
+insert into public.coletas (client_id, collect_date, volume_m3, trocas) values
+  ('cli-entrada-3', date '2026-10-22', 10, 2),
+  ('cli-entrada-34', date '2026-10-19', 5, 1),
+  ('cli-entrada-5', date '2026-10-19', 26, 1),
+  ('cli-entrada-30', date '2026-10-22', 26, 1),
+  ('cli-45', date '2026-10-22', 54, 1),
+  ('cli-2', date '2026-10-22', 26, 1),
+  ('cli-53', date '2026-10-23', 5, 1),
+  ('cli-1791213873485-p50i', date '2026-10-19', 50, 1),
+  ('cli-entrada-8', date '2026-10-21', 16.5, 1),
+  ('cli-25', date '2026-10-23', 5, 1),
+  ('cli-29', date '2026-10-19', 10, 1),
+  ('cli-123', date '2026-10-20', 10, 1),
+  ('cli-entrada-14', date '2026-10-20', 10, 2),
+  ('cli-58', date '2026-10-21', 26, 1),
+  ('cli-149', date '2026-10-23', 26, 1),
+  ('cli-entrada-15', date '2026-10-19', 26, 1),
+  ('cli-142', date '2026-10-20', 0, 1),
+  ('cli-140', date '2026-10-19', 5, 1),
+  ('cli-3', date '2026-10-23', 26, 1),
+  ('cli-43', date '2026-10-21', 5, 1),
+  ('cli-1790181372630-6c8x', date '2026-10-25', 0, 1),
+  ('cli-208', date '2026-10-19', 5, 1),
+  ('cli-171', date '2026-10-19', 5, 1),
+  ('cli-71', date '2026-10-21', 5, 1),
+  ('cli-7', date '2026-10-21', 2, 1),
+  ('cli-39', date '2026-10-21', 5, 1),
+  ('cli-39', date '2026-10-23', 5, 1),
+  ('cli-18', date '2026-10-21', 26, 1),
+  ('cli-88', date '2026-10-19', 5, 1),
+  ('cli-79', date '2026-10-21', 5, 1),
+  ('cli-33', date '2026-10-20', 2, 1),
+  ('cli-33', date '2026-10-21', 4, 2),
+  ('cli-33', date '2026-10-23', 3, 2),
+  ('cli-entrada-23', date '2026-10-22', 10, 2),
+  ('cli-59', date '2026-10-20', 10, 2),
+  ('cli-55', date '2026-10-21', 5, 1),
+  ('cli-55', date '2026-10-22', 5, 1),
+  ('cli-16', date '2026-10-21', 5, 1),
+  ('cli-entrada-25', date '2026-10-21', 5, 1),
+  ('cli-229', date '2026-10-22', 5, 1),
+  ('cli-68', date '2026-10-23', 1, 1),
+  ('cli-1792517147978-6dve', date '2026-10-19', 5, 1),
+  ('cli-34', date '2026-10-20', 26, 1),
+  ('cli-236', date '2026-10-21', 0, 1)
+on conflict (client_id, collect_date) do update
+  set volume_m3 = excluded.volume_m3, trocas = excluded.trocas;
+
+-- 4) cadência de troca: incorpora as novas datas e recalcula média/coletas/última
+with novas(client_id, novas_datas) as (
+  values
+    ('cli-entrada-3', array['2026-10-22']::date[]),
+    ('cli-entrada-34', array['2026-10-19']::date[]),
+    ('cli-entrada-5', array['2026-10-19']::date[]),
+    ('cli-entrada-30', array['2026-10-22']::date[]),
+    ('cli-45', array['2026-10-22']::date[]),
+    ('cli-2', array['2026-10-22']::date[]),
+    ('cli-53', array['2026-10-23']::date[]),
+    ('cli-1791213873485-p50i', array['2026-10-19']::date[]),
+    ('cli-entrada-8', array['2026-10-21']::date[]),
+    ('cli-25', array['2026-10-23']::date[]),
+    ('cli-29', array['2026-10-19']::date[]),
+    ('cli-123', array['2026-10-20']::date[]),
+    ('cli-entrada-14', array['2026-10-20']::date[]),
+    ('cli-58', array['2026-10-21']::date[]),
+    ('cli-149', array['2026-10-23']::date[]),
+    ('cli-entrada-15', array['2026-10-19']::date[]),
+    ('cli-142', array['2026-10-20']::date[]),
+    ('cli-140', array['2026-10-19']::date[]),
+    ('cli-3', array['2026-10-23']::date[]),
+    ('cli-43', array['2026-10-21']::date[]),
+    ('cli-1790181372630-6c8x', array['2026-10-25']::date[]),
+    ('cli-208', array['2026-10-19']::date[]),
+    ('cli-171', array['2026-10-19']::date[]),
+    ('cli-71', array['2026-10-21']::date[]),
+    ('cli-7', array['2026-10-21']::date[]),
+    ('cli-39', array['2026-10-21','2026-10-23']::date[]),
+    ('cli-18', array['2026-10-21']::date[]),
+    ('cli-88', array['2026-10-19']::date[]),
+    ('cli-79', array['2026-10-21']::date[]),
+    ('cli-33', array['2026-10-20','2026-10-21','2026-10-23']::date[]),
+    ('cli-entrada-23', array['2026-10-22']::date[]),
+    ('cli-59', array['2026-10-20']::date[]),
+    ('cli-55', array['2026-10-21','2026-10-22']::date[]),
+    ('cli-16', array['2026-10-21']::date[]),
+    ('cli-entrada-25', array['2026-10-21']::date[]),
+    ('cli-229', array['2026-10-22']::date[]),
+    ('cli-68', array['2026-10-23']::date[]),
+    ('cli-1792517147978-6dve', array['2026-10-19']::date[]),
+    ('cli-34', array['2026-10-20']::date[]),
+    ('cli-236', array['2026-10-21']::date[])
+),
+unido as (
+  select cc.client_id,
+         array(select distinct unnest(coalesce(cc.datas, '{}'::date[]) || n.novas_datas) order by 1) as datas
+  from public.client_cadence cc
+  join novas n on n.client_id = cc.client_id
+),
+calc as (
+  select u.client_id, u.datas,
+         array_length(u.datas, 1) as coletas,
+         u.datas[array_length(u.datas, 1)] as ultima,
+         (select round(avg(diff), 1) from (
+            select (u.datas[idx + 1] - u.datas[idx]) as diff
+            from generate_subscripts(u.datas, 1) as gs(idx)
+            where idx < array_length(u.datas, 1)
+         ) x) as media
+  from unido u
+)
+update public.client_cadence c
+set datas = calc.datas,
+    coletas = coalesce(calc.coletas, 0),
+    ultima_coleta = calc.ultima,
+    media_dias = calc.media,
+    atualizado_em = now()
+from calc
+where c.client_id = calc.client_id;
