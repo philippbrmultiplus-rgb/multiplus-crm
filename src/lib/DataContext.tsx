@@ -21,6 +21,7 @@ import type {
   InternalProspect,
   InternalProspectNote,
   MonthlyVolume,
+  PermissaoUsuario,
   Role,
   RouteActivity,
   RoutePlanResult,
@@ -237,9 +238,18 @@ function cadenceFromRow(r: Record<string, any>): ClientCadence {
   };
 }
 
+/** liberação temporária de um usuário (tabela user_permissoes) */
+function permissaoFromRow(r: Record<string, any>): PermissaoUsuario {
+  return {
+    userId: String(r.user_id),
+    editarClientes: r.editar_clientes ?? false,
+    gerirRota: r.gerir_rota ?? false,
+    atualizadoEm: r.atualizado_em ?? null,
+  };
+}
+
 function internalProspectFromRow(r: Record<string, any>): InternalProspect {
   return {
-    id: r.id,
     nome: r.nome ?? "",
     cidade: r.cidade ?? "",
     endereco: r.endereco ?? "",
@@ -605,6 +615,16 @@ interface DataContextValue {
   ) => Promise<Array<{ date: string; note: string; volume: number | null; trocas: number }>>;
   /** relê a planilha de coletas publicada no app (volumes, cadência e histórico) */
   recarregarPlanilha: () => Promise<void>;
+  /** liberações temporárias concedidas pelo coordenador (o vendedor vê só a dele) */
+  permissoes: PermissaoUsuario[];
+  /** o usuário logado pode editar/cadastrar clientes (papel ou liberação temporária) */
+  podeEditarClientes: boolean;
+  /** o usuário logado pode gerar/editar/publicar a rota da semana */
+  podeGerirRota: boolean;
+  setPermissao: (
+    userId: string,
+    patch: { editarClientes?: boolean; gerirRota?: boolean },
+  ) => Promise<string | null>;
   listProfiles: () => Promise<Array<{ id: string; fullName: string; role: Role }>>;
   setUserRole: (id: string, role: Role) => Promise<string | null>;
   recomputeTiers: () => void;
@@ -666,16 +686,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [cloudReady, setCloudReady] = useState(false);
   const [state, setState] = useState<AppState>(emptyState);
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
+  // liberações temporárias (tabela user_permissoes): o coordenador vê todas, o vendedor só a dele
+  const [permissoes, setPermissoes] = useState<PermissaoUsuario[]>([]);
   const roleRef = useRef<Role | null>(null);
   const uidRef = useRef<string | null>(null);
   const handledUidRef = useRef<string | null>(null);
   const clientsRef = useRef<Client[]>([]);
+  const permissoesRef = useRef<PermissaoUsuario[]>([]);
   const signOutRequestedRef = useRef(false);
   const notifiedRef = useRef<string | null>(null);
 
   roleRef.current = role;
   uidRef.current = user?.id ?? null;
   clientsRef.current = state.clients;
+  permissoesRef.current = permissoes;
 
   const setAppState = useCallback((next: AppState | ((s: AppState) => AppState)) => {
     setState((prev) => {
@@ -811,6 +835,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       internalProspectsRes,
       internalProspectNotesRes,
       clientProspectNotesRes,
+      permissoesRes,
     ] = await Promise.all([
       supabase.from("clients").select("*").order("name"),
       supabase.from("settings").select("*").eq("id", 1).maybeSingle(),
@@ -825,6 +850,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       supabase.from("internal_prospects").select("*").order("created_at", { ascending: false }),
       supabase.from("internal_prospect_notes").select("*").order("created_at"),
       supabase.from("client_prospect_notes").select("*").order("created_at"),
+      supabase.from("user_permissoes").select("*"),
     ]);
 
     const clients = (clientsRes.data ?? []).map((r) => clientFromRow(r as unknown as Record<string, any>));
@@ -862,6 +888,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
     );
     const clientProspectNotes = (clientProspectNotesRes.data ?? []).map((r) =>
       clientProspectNoteFromRow(r as unknown as Record<string, any>),
+    );
+    setPermissoes(
+      (permissoesRes.data ?? []).map((r) => permissaoFromRow(r as unknown as Record<string, any>)),
     );
 
     setAppState((prev) => ({
@@ -1305,6 +1334,37 @@ export function DataProvider({ children }: { children: ReactNode }) {
     };
   }, [user, setAppState]);
 
+  /* ---------- liberações temporárias em tempo real (concedidas/revogadas pelo coordenador) ---------- */
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel("permissoes-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "user_permissoes" },
+        (payload) => {
+          const row = (payload.new ?? payload.old) as Record<string, any>;
+          if (!row?.user_id) return;
+          const userId = String(row.user_id);
+          if (payload.eventType === "DELETE") {
+            setPermissoes((lista) => lista.filter((p) => p.userId !== userId));
+            return;
+          }
+          const p = permissaoFromRow(row);
+          setPermissoes((lista) =>
+            lista.some((x) => x.userId === userId)
+              ? lista.map((x) => (x.userId === userId ? p : x))
+              : [...lista, p],
+          );
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [user]);
+
   /* ---------- alertas manuais em tempo real ---------- */
   useEffect(() => {
     if (!user) return;
@@ -1512,10 +1572,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   /* ---------- operações de dados (local + nuvem) ---------- */
 
+  /** quem pode mexer na carteira: coordenador ou vendedor com liberação temporária */
+  const checarEditarClientes = () =>
+    roleRef.current === "coordenador" ||
+    permissoesRef.current.some((p) => p.userId === uidRef.current && p.editarClientes);
+
+  /** quem pode gerar/editar/publicar a rota da semana: coordenador ou liberação temporária */
+  const checarGerirRota = () =>
+    roleRef.current === "coordenador" ||
+    permissoesRef.current.some((p) => p.userId === uidRef.current && p.gerirRota);
+
   const canWriteClientData = () => roleRef.current === "coordenador" && !!uidRef.current;
 
   const persistClientsBatch = useCallback((clients: Client[]) => {
-    if (!canWriteClientData() || clients.length === 0) return;
+    if (!checarEditarClientes() || clients.length === 0) return;
     void supabase.from("clients").upsert(clients.map((c) => clientToRow(c)));
   }, []);
 
@@ -1643,7 +1713,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         toast.error("Faça login para cadastrar clientes.");
         return;
       }
-      if (canWriteClientData()) {
+      if (checarEditarClientes()) {
         void supabase
           .from("clients")
           .upsert(clientToRow(c))
@@ -1761,7 +1831,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           routeVisits: prev.routeVisits.filter((rv) => !oldIds.has(rv.routeId)),
         };
       });
-      if (canWriteClientData()) {
+      if (checarGerirRota()) {
         void (async () => {
           for (const o of oldDrafts) {
             await supabase.from("route_visits").delete().eq("route_id", o.id);
@@ -1791,8 +1861,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       if (!existing) return null;
       const existingVisits = state.routeVisits.filter((rv) => rv.routeId === existing.id);
       const result = mergeWeekRoute(existing, existingVisits, state.clients, state.settings);
-      if (!canWriteClientData()) {
-        toast.error("Sem permissão para atualizar a rota. Entre como coordenador.");
+      if (!checarGerirRota()) {
+        toast.error("Sem permissão para atualizar a rota. Peça a liberação ao coordenador.");
         return result;
       }
       const nowIso = new Date().toISOString();
@@ -1841,8 +1911,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       const routeVisitsAll = [...prev.routeVisits.filter((rv) => rv.routeId !== route.id), ...routeVisits];
       return { ...prev, routes, routeVisits: routeVisitsAll };
     });
-    if (!canWriteClientData()) {
-      toast.error("Sem permissão para salvar a rota. Entre como coordenador.");
+    if (!checarGerirRota()) {
+      toast.error("Sem permissão para salvar a rota. Peça a liberação ao coordenador.");
       return;
     }
     void (async () => {
@@ -1912,7 +1982,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const updated = sameDay.map((r, i) => ({ ...r, day, position: i }));
         const map = new Map(updated.map((r) => [r.id, r]));
         const routeVisits = prev.routeVisits.map((r) => map.get(r.id) ?? r);
-        if (canWriteClientData()) {
+        if (checarGerirRota()) {
           void supabase.from("route_visits").upsert(updated.map((r) => rvToRow(r)));
         }
         return { ...prev, routeVisits };
@@ -1929,7 +1999,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         // mantém o histórico da visita, apenas desvinculando do item removido
         visits: prev.visits.map((v) => (v.routeVisitId === id ? { ...v, routeVisitId: null } : v)),
       }));
-      if (!canWriteClientData()) return;
+      if (!checarGerirRota()) return;
       void supabase
         .from("route_visits")
         .delete()
@@ -1974,9 +2044,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
           return { ...prev, routeVisits: [...prev.routeVisits, nv] };
         }
         void (async () => {
-          // o coordenador garante a rota na nuvem antes da visita (evita chave estrangeira);
+          // a rota é garantida na nuvem antes da visita (evita chave estrangeira);
           // o vendedor já tem a rota publicada, então só insere o item
-          if (canWriteClientData()) {
+          if (checarGerirRota()) {
             const { error: rErr } = await supabase.from("weekly_routes").upsert(routeToRow(route));
             if (rErr) {
               console.error("garantir rota:", rErr.message);
@@ -2002,7 +2072,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       routes: prev.routes.filter((r) => r.id !== routeId),
       routeVisits: prev.routeVisits.filter((r) => r.routeId !== routeId),
     }));
-    if (!canWriteClientData()) return;
+    if (!checarGerirRota()) return;
     void (async () => {
       const { error: dErr } = await supabase.from("route_visits").delete().eq("route_id", routeId);
       const { error: rErr } = await supabase.from("weekly_routes").delete().eq("id", routeId);
@@ -2017,8 +2087,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const publishRoute = useCallback(
     (routeId: string) => {
-      if (!canWriteClientData()) {
-        toast.error("Sem permissão para publicar. Entre como coordenador.");
+      if (!checarGerirRota()) {
+        toast.error("Sem permissão para publicar. Peça a liberação ao coordenador.");
         return;
       }
       const target = state.routes.find((r) => r.id === routeId);
@@ -2603,6 +2673,40 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return error ? error.message : null;
   }, []);
 
+  /**
+   * Concede ou revoga uma liberação temporária de um usuário (só o coordenador).
+   * Serve para dar acesso pontual a um vendedor e bloquear depois.
+   */
+  const setPermissao = useCallback(
+    async (userId: string, patch: { editarClientes?: boolean; gerirRota?: boolean }) => {
+      const atual = permissoesRef.current.find((p) => p.userId === userId);
+      const registro: PermissaoUsuario = {
+        userId,
+        editarClientes: patch.editarClientes ?? atual?.editarClientes ?? false,
+        gerirRota: patch.gerirRota ?? atual?.gerirRota ?? false,
+        atualizadoEm: new Date().toISOString(),
+      };
+      const { error } = await supabase.from("user_permissoes").upsert(
+        {
+          user_id: userId,
+          editar_clientes: registro.editarClientes,
+          gerir_rota: registro.gerirRota,
+          atualizado_em: registro.atualizadoEm,
+          atualizado_por: uidRef.current,
+        },
+        { onConflict: "user_id" },
+      );
+      if (error) return error.message;
+      setPermissoes((lista) =>
+        lista.some((p) => p.userId === userId)
+          ? lista.map((p) => (p.userId === userId ? registro : p))
+          : [...lista, registro],
+      );
+      return null;
+    },
+    [],
+  );
+
   /* ---------- alertas manuais (coordenador e vendedor) ---------- */
 
   /** registra um alerta para qualquer cliente, mesmo sem ter feito a visita */
@@ -3162,6 +3266,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
     role,
     authLoading,
     cloudReady,
+    permissoes,
+    podeEditarClientes:
+      role === "coordenador" || !!permissoes.find((p) => p.userId === user?.id)?.editarClientes,
+    podeGerirRota:
+      role === "coordenador" || !!permissoes.find((p) => p.userId === user?.id)?.gerirRota,
+    setPermissao,
     signIn,
     signUp,
     signOut,

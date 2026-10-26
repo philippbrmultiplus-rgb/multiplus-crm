@@ -1,0 +1,47 @@
+-- liberações temporárias por usuário, concedidas/revogadas pelo coordenador
+create table if not exists public.user_permissoes (
+  user_id uuid primary key references public.profiles(id) on delete cascade,
+  editar_clientes boolean not null default false,
+  gerir_rota boolean not null default false,
+  atualizado_em timestamptz not null default now(),
+  atualizado_por uuid
+);
+
+alter table public.user_permissoes enable row level security;
+
+create policy up_select on public.user_permissoes for select to authenticated
+  using (auth.uid() = user_id or is_coordenador());
+create policy up_insert on public.user_permissoes for insert to authenticated
+  with check (is_coordenador());
+create policy up_update on public.user_permissoes for update to authenticated
+  using (is_coordenador()) with check (is_coordenador());
+create policy up_delete on public.user_permissoes for delete to authenticated
+  using (is_coordenador());
+
+create or replace function public.is_liberado_editar_clientes()
+returns boolean language sql stable security definer set search_path to 'public' as $$
+  select is_coordenador() or exists (
+    select 1 from public.user_permissoes p where p.user_id = auth.uid() and p.editar_clientes
+  );
+$$;
+
+create or replace function public.is_liberado_gerir_rota()
+returns boolean language sql stable security definer set search_path to 'public' as $$
+  select is_coordenador() or exists (
+    select 1 from public.user_permissoes p where p.user_id = auth.uid() and p.gerir_rota
+  );
+$$;
+
+-- mesmas políticas de escrita da carteira e da rota, agora com a liberação temporária
+alter policy clients_insert_coord on public.clients
+  with check (is_liberado_editar_clientes());
+alter policy clients_update_coord on public.clients
+  using (is_liberado_editar_clientes()) with check (is_liberado_editar_clientes());
+alter policy routes_write on public.weekly_routes
+  with check (is_liberado_gerir_rota());
+alter policy routes_update on public.weekly_routes
+  using (is_liberado_gerir_rota()) with check (is_liberado_gerir_rota());
+alter policy routes_delete on public.weekly_routes
+  using (is_liberado_gerir_rota());
+alter policy rv_delete on public.route_visits
+  using (is_liberado_gerir_rota());

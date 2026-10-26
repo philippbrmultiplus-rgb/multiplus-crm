@@ -105,7 +105,7 @@ function Brand() {
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const { user, role, authLoading, signOut, cloudReady, lastSyncAt } = useData();
+  const { user, role, authLoading, signOut, cloudReady, lastSyncAt, podeGerirRota } = useData();
   const location = useLocation();
   const isMobile = useIsMobile();
 
@@ -122,7 +122,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   }
 
   const currentRole = role ?? "vendedor";
-  const items = NAV_ITEMS.filter((i) => i.roles.includes(currentRole));
+  // vendedor com liberação temporária também enxerga a rota semanal
+  const items = NAV_ITEMS.filter(
+    (i) => i.roles.includes(currentRole) || (i.to === "/rota" && podeGerirRota),
+  );
   const roleLabel =
     currentRole === "coordenador" ? "Coordenador" : currentRole === "gerente" ? "Gerente" : "Vendedor";
 

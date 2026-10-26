@@ -1,5 +1,18 @@
 export type Role = "coordenador" | "vendedor" | "gerente";
 
+/**
+ * Liberação temporária de um usuário: o coordenador pode dar e tirar quando quiser,
+ * sem mudar o papel dele no app.
+ */
+export interface PermissaoUsuario {
+  userId: string;
+  /** pode editar e cadastrar clientes da carteira */
+  editarClientes: boolean;
+  /** pode gerar, editar e publicar a rota semanal */
+  gerirRota: boolean;
+  atualizadoEm: string | null;
+}
+
 export type Tier = "A" | "B" | "C" | "D";
 
 export type GeocodeStatus = "pendente" | "ok" | "falha";

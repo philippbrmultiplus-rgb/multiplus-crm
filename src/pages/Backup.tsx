@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Download, HardDriveDownload, RefreshCw, RotateCcw, Settings2, Upload, Users } from "lucide-react";
+import { Download, HardDriveDownload, RefreshCw, RotateCcw, Settings2, Unlock, Upload, Users } from "lucide-react";
 import { toast } from "sonner";
 import {
   Select,
@@ -9,6 +9,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -45,6 +47,8 @@ export default function Backup() {
     listProfiles,
     setUserRole,
     recarregarPlanilha,
+    permissoes,
+    setPermissao,
   } = useData();
   const podeEditar = role === "coordenador";
   const [usuarios, setUsuarios] = useState<Array<{ id: string; fullName: string; role: Role }>>([]);
@@ -83,6 +87,26 @@ export default function Backup() {
       ? [...s.workingDays, d].sort((a, b) => a - b)
       : s.workingDays.filter((x) => x !== d);
     updateSettings({ workingDays: days });
+  };
+
+  /** concede ou revoga uma liberação temporária de um usuário */
+  const alternarLiberacao = (
+    usuario: { id: string; fullName: string },
+    patch: { editarClientes?: boolean; gerirRota?: boolean },
+  ) => {
+    void setPermissao(usuario.id, patch).then((err) => {
+      if (err) {
+        toast.error("Não foi possível salvar a liberação", { description: err });
+        return;
+      }
+      const edicao = patch.editarClientes != null;
+      const ligado = patch.editarClientes ?? patch.gerirRota;
+      toast.success(
+        `${edicao ? "Edição de clientes" : "Rota semanal"} ${ligado ? "liberada" : "bloqueada"} para ${
+          usuario.fullName || "usuário"
+        }.`,
+      );
+    });
   };
 
   return (
@@ -337,6 +361,61 @@ export default function Backup() {
               Para criar um novo acesso: a pessoa entra na tela de login e usa “criar agora”; depois o
               acesso aparece aqui para você definir o papel (ex.: <b>Gerente</b>).
             </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {podeEditar && (
+        <Card className="card-soft">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Unlock className="h-4 w-4" /> Liberações temporárias
+            </CardTitle>
+            <CardDescription>
+              Dê acesso pontual para um vendedor editar a carteira de clientes e/ou gerar a rota
+              semanal. Vale na hora e pode ser bloqueado aqui quando quiser, sem trocar o papel do
+              usuário.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {usuarios.length === 0 && (
+              <p className="text-sm text-muted-foreground">Nenhum usuário encontrado.</p>
+            )}
+            {usuarios.map((u) => {
+              const p = permissoes.find((x) => x.userId === u.id);
+              const ehCoordenador = u.role === "coordenador";
+              return (
+                <div key={u.id} className="space-y-2 rounded-lg border p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="min-w-0 truncate text-sm font-medium">
+                      {u.fullName || "(sem nome)"}
+                    </span>
+                    <Badge variant="outline">{roleLabelOf(u.role)}</Badge>
+                  </div>
+                  <label className="flex items-center justify-between gap-3 text-sm">
+                    <span>Editar e cadastrar clientes</span>
+                    <Switch
+                      checked={ehCoordenador || !!p?.editarClientes}
+                      disabled={ehCoordenador}
+                      onCheckedChange={(v) => alternarLiberacao(u, { editarClientes: v })}
+                    />
+                  </label>
+                  <label className="flex items-center justify-between gap-3 text-sm">
+                    <span>Gerar e publicar a rota semanal</span>
+                    <Switch
+                      checked={ehCoordenador || !!p?.gerirRota}
+                      disabled={ehCoordenador}
+                      onCheckedChange={(v) => alternarLiberacao(u, { gerirRota: v })}
+                    />
+                  </label>
+                  {ehCoordenador && (
+                    <p className="text-xs text-muted-foreground">
+                      Coordenador já tem acesso total — as liberações não se aplicam.
+                    </p>
+                  )}
+                </div>
+              );
+            })}
           </CardContent>
         </Card>
       )}

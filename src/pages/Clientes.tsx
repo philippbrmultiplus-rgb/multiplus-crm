@@ -128,10 +128,14 @@ function GeocodeStatus({ c }: { c: Client }) {
 }
 
 export default function Clientes() {
-  const { state, updateClient, geocodeAll, deleteClient, loadClientColetas, role } = useData();
+  const { state, updateClient, geocodeAll, deleteClient, loadClientColetas, role, podeEditarClientes } =
+    useData();
   const { clients } = state;
   const isMobile = useIsMobile();
-  const podeEditar = role === "coordenador";
+  // edição/cadastro: coordenador ou vendedor com liberação temporária
+  const podeEditar = podeEditarClientes;
+  // exclusão definitiva e geocodificação continuam só com o coordenador
+  const podeExcluir = role === "coordenador";
   const [history, setHistory] = useState<Client | null>(null);
   const [novo, setNovo] = useState(false);
 
@@ -453,7 +457,7 @@ export default function Clientes() {
               <MapIcon className="mr-2 h-4 w-4" /> Mapa
             </Link>
           </Button>
-          {podeEditar && (
+          {podeExcluir && (
             <Button onClick={handleGeocode} disabled={geocoding !== null || pendingGeocode === 0}>
               {geocoding !== null ? (
                 <>
@@ -632,20 +636,20 @@ export default function Clientes() {
                     <History className="h-4 w-4" />
                   </Button>
                   {podeEditar && (
-                    <>
-                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setEditing(c)}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
-                        onClick={() => setToDelete(c)}
-                        title="Excluir este cliente definitivamente"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </>
+                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setEditing(c)}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  )}
+                  {podeExcluir && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                      onClick={() => setToDelete(c)}
+                      title="Excluir este cliente definitivamente"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   )}
                 </div>
               </div>
@@ -845,20 +849,20 @@ export default function Clientes() {
                         <History className="h-4 w-4" />
                       </Button>
                       {podeEditar && (
-                        <>
-                          <Button variant="ghost" size="sm" onClick={() => setEditing(c)}>
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-muted-foreground hover:text-destructive"
-                            onClick={() => setToDelete(c)}
-                            title="Excluir este cliente definitivamente"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </>
+                        <Button variant="ghost" size="sm" onClick={() => setEditing(c)}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {podeExcluir && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-muted-foreground hover:text-destructive"
+                          onClick={() => setToDelete(c)}
+                          title="Excluir este cliente definitivamente"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       )}
                     </div>
                   </TableCell>

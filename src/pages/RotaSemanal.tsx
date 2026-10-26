@@ -108,6 +108,7 @@ export default function RotaSemanal() {
   const {
     state,
     role,
+    podeGerirRota,
     createEmptyWeekRoute,
     publishRoute,
     deleteRoute,
@@ -115,7 +116,7 @@ export default function RotaSemanal() {
     removeRouteVisit,
   } = useData();
   const { routes, routeVisits, clients, settings } = state;
-  const podeEditar = role === "coordenador";
+  const podeEditar = role === "coordenador" || podeGerirRota;
 
   const [weekStart, setWeekStart] = useState<string>(mondayOf(todayKey()));
   const [selectedId, setSelectedId] = useState<string | null>(null);
