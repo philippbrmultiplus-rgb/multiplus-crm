@@ -625,6 +625,8 @@ interface DataContextValue {
   scheduleInternalVisit: (id: string, data: string | null) => void;
   addClientProspectNote: (clientId: string, texto: string) => void;
   deleteClientProspectNote: (id: string) => void;
+  /** procura no armazenamento as fotos de uma visita que não anexaram e grava na visita */
+  recoverVisitPhotos: (visit: Visit) => Promise<number>;
   storageUsageKb: number;
   lastSyncAt: string | null;
 }
@@ -2069,6 +2071,39 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if (salvas > 0) toast.success(`${salvas} informação(ões) de prospecção foram salvas agora.`);
   }, []);
 
+  /**
+   * Procura no armazenamento as fotos de uma visita que não conseguiram ser anexadas
+   * (arquivos com o id da visita) e grava os links na visita.
+   */
+  const recoverVisitPhotos = useCallback(
+    async (visit: Visit): Promise<number> => {
+      const { data, error } = await supabase.storage
+        .from("visitas")
+        .list(visit.clientId, { search: visit.id, limit: 20 });
+      if (error || !data) return 0;
+      const urls = data
+        .filter((o) => o.name.startsWith(visit.id))
+        .map(
+          (o) =>
+            supabase.storage.from("visitas").getPublicUrl(`${visit.clientId}/${o.name}`).data
+              .publicUrl,
+        );
+      if (urls.length === 0) return 0;
+      const ok = await attachVisitPhotos(visit.id, urls);
+      if (!ok) return 0;
+      setAppState((prev) => ({
+        ...prev,
+        visits: prev.visits.map((v) =>
+          v.id === visit.id
+            ? { ...v, photos: urls, photoUrl: urls[0] ?? null, photoData: urls[0] }
+            : v,
+        ),
+      }));
+      return urls.length;
+    },
+    [attachVisitPhotos, setAppState],
+  );
+
   /* ---------- fotos e anotações pendentes: tenta ao entrar no app e quando a conexão volta ---------- */
   useEffect(() => {
     if (!user) return;
@@ -3068,6 +3103,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     scheduleInternalVisit,
     addClientProspectNote,
     deleteClientProspectNote,
+    recoverVisitPhotos,
     storageUsageKb,
     lastSyncAt,
   };

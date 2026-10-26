@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { CalendarX2, ChevronDown, Phone, Search, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+import { CalendarX2, CameraOff, ChevronDown, Phone, RefreshCw, Search, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -152,6 +153,11 @@ function VisitCard({
               Alerta do vendedor
             </Badge>
           )}
+          {fotos.length === 0 && (
+            <Badge className="border border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-300">
+              <CameraOff className="mr-1 h-3 w-3" /> sem foto
+            </Badge>
+          )}
         </div>
         <p className="text-xs text-muted-foreground">
           {formatDateBR(v.visitedAt.slice(0, 10))} às {horaOf(v)} ·{" "}
@@ -210,8 +216,9 @@ function VisitCard({
 }
 
 export default function Visitas() {
-  const { state, deleteVisit, role } = useData();
+  const { state, deleteVisit, role, recoverVisitPhotos } = useData();
   const podeExcluir = role === "coordenador";
+  const [recuperando, setRecuperando] = useState(false);
   const { clients, visits, settings } = state;
   const [params] = useSearchParams();
   const [search, setSearch] = useState("");
@@ -478,6 +485,11 @@ export default function Visitas() {
                         Alerta do vendedor
                       </Badge>
                     )}
+                    {fotos.length === 0 && (
+                      <Badge className="border border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-300">
+                        <CameraOff className="mr-1 h-3 w-3" /> sem foto
+                      </Badge>
+                    )}
                   </div>
 
                   {c && (
@@ -552,6 +564,30 @@ export default function Visitas() {
                     <p className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-sm text-destructive">
                       <b>Alerta do vendedor:</b> {v.alertaMotivo || "sem motivo informado"}
                     </p>
+                  )}
+
+                  {fotos.length === 0 && role !== "gerente" && (
+                    <div className="rounded-md border border-amber-500/40 bg-amber-500/5 p-2 text-sm">
+                      <p className="text-amber-800 dark:text-amber-300">
+                        Esta visita está <b>sem foto anexada</b>. Se a foto foi tirada, dá para recuperá-la
+                        do armazenamento.
+                      </p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="mt-2"
+                        disabled={recuperando}
+                        onClick={async () => {
+                          setRecuperando(true);
+                          const n = await recoverVisitPhotos(v);
+                          setRecuperando(false);
+                          if (n > 0) toast.success(`${n} foto(s) anexada(s) à visita.`);
+                          else toast.warning("Não encontrei foto no armazenamento para esta visita.");
+                        }}
+                      >
+                        <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Buscar foto no armazenamento
+                      </Button>
+                    </div>
                   )}
 
                   {fotos.length > 0 && (

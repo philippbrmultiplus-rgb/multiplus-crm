@@ -1,0 +1,5 @@
+update public.visits
+set photo_url = 'https://spb-t4n5m82n0jz039i1.supabase.opentrust.net/storage/v1/object/public/visitas/cli-41/v-1793015758714-ewupk-0.jpg',
+    photos = jsonb_build_array('https://spb-t4n5m82n0jz039i1.supabase.opentrust.net/storage/v1/object/public/visitas/cli-41/v-1793015758714-ewupk-0.jpg')
+where id = 'v-1793015758714-ewupk'
+  and (photos is null or jsonb_array_length(photos) = 0);
