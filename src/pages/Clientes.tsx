@@ -420,10 +420,15 @@ export default function Clientes() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {anyFilter && (
-            <Badge className="gap-1.5 bg-primary/10 px-3 py-1.5 text-sm text-primary">
-              <Filter className="h-3.5 w-3.5" />
-              {filteredTotal} {filteredTotal === 1 ? "cliente filtrado" : "clientes filtrados"}
-            </Badge>
+            <>
+              <Badge className="gap-1.5 bg-primary/10 px-3 py-1.5 text-sm text-primary">
+                <Filter className="h-3.5 w-3.5" />
+                {filteredTotal} {filteredTotal === 1 ? "cliente filtrado" : "clientes filtrados"}
+              </Badge>
+              <Button variant="outline" onClick={resetFilters}>
+                <RotateCcw className="mr-2 h-4 w-4" /> Limpar filtros
+              </Button>
+            </>
           )}
           {podeEditar && (
             <Button onClick={() => setNovo(true)}>
@@ -583,7 +588,7 @@ export default function Clientes() {
           Só ativos
         </label>
         {anyFilter && (
-          <Button variant="ghost" size="sm" onClick={resetFilters}>
+          <Button variant="outline" size="sm" onClick={resetFilters}>
             <RotateCcw className="mr-1 h-3.5 w-3.5" /> Limpar filtros
           </Button>
         )}
