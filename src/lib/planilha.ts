@@ -150,11 +150,10 @@ export function calcularDados(
 
   const grupos = new Map<string, Grupo>();
   for (const [nome, dias] of coletasPorNome(arquivo, lancamentos)) {
-    const cliente = clienteDoNome.has(nome)
-      ? (clienteDoNome.get(nome) ?? null)
-      : indice.length > 0
-        ? casarCliente(nome, indice)
-        : null;
+    // o vínculo gravado na planilha base vale quando existe; se o cliente foi
+    // cadastrado/renomeado depois (ou é nome novo), casa na hora com a carteira
+    const daBase = clienteDoNome.get(nome) ?? null;
+    const cliente = daBase ?? (indice.length > 0 ? casarCliente(nome, indice) : null);
     const chave = cliente ? `cli:${cliente}` : `sem:${nome}`;
     const grupo = grupos.get(chave) ?? { nome, cliente, dias: new Map() };
     for (const [dia, valor] of dias) {

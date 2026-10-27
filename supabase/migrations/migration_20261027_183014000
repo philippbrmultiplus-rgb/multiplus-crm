@@ -1,0 +1,2 @@
+-- quem envia a planilha também pode limpar as linhas avulsas que passaram a ter cadastro
+alter policy cmv_delete on public.client_monthly_volumes using (is_liberado_planilha());

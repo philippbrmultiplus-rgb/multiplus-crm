@@ -806,6 +806,23 @@ export function DataProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      // nome da planilha que agora tem cliente vinculado: tira a linha avulsa ("sem cadastro")
+      const vinculados = [
+        ...new Set(
+          dados.cadence
+            .filter((c) => c.clientId && c.nomePlanilha)
+            .map((c) => c.nomePlanilha as string),
+        ),
+      ];
+      if (vinculados.length > 0) {
+        const { error: lErr } = await supabase
+          .from("client_monthly_volumes")
+          .delete()
+          .is("client_id", null)
+          .in("label", vinculados);
+        if (lErr) console.warn("limpar linhas sem cadastro:", lErr.message);
+      }
+
       // a data da última coleta aparece na lista de clientes ("Últ. troca")
       const comData = clients.map((c) => {
         const data = dados.ultimaColeta[c.id];

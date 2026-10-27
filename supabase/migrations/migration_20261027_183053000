@@ -1,0 +1,35 @@
+-- nome do cadastro igual ao da planilha (remove a divergência)
+update public.clients set name = 'ECOLIXO - PLN', updated_at = now() where id = 'cli-19';
+
+-- volumes mensais passam para o cliente
+insert into public.client_monthly_volumes (id, client_id, label, month, volume_m3) values
+  ('vol-cli-19-2026-08-01', 'cli-19', null, '2026-08-01', 104),
+  ('vol-cli-19-2026-09-01', 'cli-19', null, '2026-09-01', 52),
+  ('vol-cli-19-2026-10-01', 'cli-19', null, '2026-10-01', 104)
+on conflict (id) do update set client_id = excluded.client_id, label = excluded.label, volume_m3 = excluded.volume_m3;
+
+-- linhas avulsas (sem cadastro) saem do comparativo
+delete from public.client_monthly_volumes where client_id is null and label = 'ECOLIXO - PLN';
+
+-- cadência do cliente (mesma linha, agora vinculada)
+insert into public.client_cadence (client_id, nome_planilha, media_dias, coletas, ultima_coleta, datas, atualizado_em) values
+  ('cli-19', 'ECOLIXO - PLN', 9.4, 8, '2026-10-16', array['2026-08-11','2026-08-13','2026-08-26','2026-09-08','2026-09-14','2026-09-22','2026-10-01','2026-10-16']::date[], now())
+on conflict (nome_planilha) do update set client_id = excluded.client_id, media_dias = excluded.media_dias, coletas = excluded.coletas, ultima_coleta = excluded.ultima_coleta, datas = excluded.datas, atualizado_em = now();
+
+-- histórico de trocas/coletas do cliente
+insert into public.coletas (client_id, collect_date, volume_m3, trocas) values
+  ('cli-19', '2026-08-11', 52, 2),
+  ('cli-19', '2026-08-13', 26, 2),
+  ('cli-19', '2026-08-26', 26, 1),
+  ('cli-19', '2026-09-08', 26, 1),
+  ('cli-19', '2026-09-14', 26, 1),
+  ('cli-19', '2026-09-22', 0, 1),
+  ('cli-19', '2026-10-01', 52, 2),
+  ('cli-19', '2026-10-16', 52, 2)
+on conflict (client_id, collect_date) do update set volume_m3 = excluded.volume_m3, trocas = excluded.trocas;
+
+-- data da última troca no cadastro
+update public.clients set last_collect_at = '2026-10-16', updated_at = now() where id = 'cli-19' and (last_collect_at is null or last_collect_at < '2026-10-16');
+
+-- versão da planilha (o app reaplica os números nesta carga)
+update public.settings set planilha_versao = '2026-10-27.2', updated_at = now() where id = 1;
