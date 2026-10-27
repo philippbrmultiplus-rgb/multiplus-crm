@@ -171,7 +171,8 @@ export default function Backup() {
               </Button>
               <span className="text-xs text-muted-foreground">
                 Relê a planilha <b>PAULINIA</b> (coletas de julho a outubro/2026) e atualiza o
-                comparativo mensal, a cadência de trocas, a última troca de cada cliente e o histórico.
+                comparativo mensal, a cadência de trocas, a última troca de cada cliente e o
+                histórico. Versão aplicada: <b>{s.planilhaVersao ?? "—"}</b>.
               </span>
             </div>
           )}

@@ -1,0 +1,116 @@
+-- o id das linhas sem cadastro passa a vir do nome da planilha (não muda quando entram nomes novos)
+update public.client_monthly_volumes v
+set id = m.prefixo || '-' || to_char(v.month, 'YYYY-MM-DD')
+from (values
+  (' F A OLIVA BEST VIEW - ', 'vol-sem-f-a-oliva-best-view'),
+  ('BETO - PORTO FERREIRA - ', 'vol-sem-beto-porto-ferreira'),
+  ('CENTRAL DO GESSO - PLN', 'vol-sem-central-do-gesso-pln'),
+  ('CERAMICA ARTISTICA ', 'vol-sem-ceramica-artistica'),
+  ('CERAMICA REFRATA - PLN', 'vol-sem-ceramica-refrata-pln'),
+  ('CERAMICA SERCAN - PLN', 'vol-sem-ceramica-sercan-pln'),
+  ('COOPERATIVA HAVILA  - ', 'vol-sem-cooperativa-havila'),
+  ('ECOLIXO - PLN', 'vol-sem-ecolixo-pln'),
+  ('ER GESSO - PLN', 'vol-sem-er-gesso-pln'),
+  ('FA OLIVA - PLN', 'vol-sem-fa-oliva-pln'),
+  ('GESSO CARVALHO  - PLN', 'vol-sem-gesso-carvalho-pln'),
+  ('L ROGERIO SANTANA - PLN', 'vol-sem-l-rogerio-santana-pln'),
+  ('MEJAN AMBIENTAL ', 'vol-sem-mejan-ambiental'),
+  ('MUNICIPIO DE COSMOPOLIS ', 'vol-sem-municipio-de-cosmopolis'),
+  ('MUNICIPIO DE PORTO ', 'vol-sem-municipio-de-porto'),
+  ('NOVA ODESSA GABINETE ', 'vol-sem-nova-odessa-gabinete'),
+  ('SOS MINI ENTULHOS - PLN', 'vol-sem-sos-mini-entulhos-pln'),
+  ('SOS MINI VALINHOS  - PLN', 'vol-sem-sos-mini-valinhos-pln')
+) as m(label, prefixo)
+where v.client_id is null and v.label = m.label;
+
+-- volumes mensais (outubro atualizado)
+insert into public.client_monthly_volumes (id, client_id, label, month, volume_m3) values
+  ('vol-cli-12-2026-10-01', 'cli-12', null, '2026-10-01', 52),
+  ('vol-cli-133-2026-10-01', 'cli-133', null, '2026-10-01', 10),
+  ('vol-cli-145-2026-10-01', 'cli-145', null, '2026-10-01', 15),
+  ('vol-cli-154-2026-10-01', 'cli-154', null, '2026-10-01', 10),
+  ('vol-cli-156-2026-10-01', 'cli-156', null, '2026-10-01', 20),
+  ('vol-cli-159-2026-10-01', 'cli-159', null, '2026-10-01', 55),
+  ('vol-cli-16-2026-10-01', 'cli-16', null, '2026-10-01', 26),
+  ('vol-cli-164-2026-10-01', 'cli-164', null, '2026-10-01', 5),
+  ('vol-cli-17-2026-10-01', 'cli-17', null, '2026-10-01', 20.8),
+  ('vol-cli-20-2026-10-01', 'cli-20', null, '2026-10-01', 39),
+  ('vol-cli-220-2026-10-01', 'cli-220', null, '2026-10-01', 15),
+  ('vol-cli-223-2026-10-01', 'cli-223', null, '2026-10-01', 70),
+  ('vol-cli-237-2026-10-01', 'cli-237', null, '2026-10-01', 20),
+  ('vol-cli-247-2026-10-01', 'cli-247', null, '2026-10-01', 8),
+  ('vol-cli-8-2026-10-01', 'cli-8', null, '2026-10-01', 52),
+  ('vol-cli-83-2026-10-01', 'cli-83', null, '2026-10-01', 26),
+  ('vol-sem-nova-odessa-gabinete-2026-10-01', null, 'NOVA ODESSA GABINETE ', '2026-10-01', 20),
+  ('vol-sem-prohab-pln-2026-10-01', null, 'PROHAB - PLN', '2026-10-01', 26)
+on conflict (id) do update set client_id = excluded.client_id, label = excluded.label, month = excluded.month, volume_m3 = excluded.volume_m3;
+
+-- cadência de trocas recalculada
+insert into public.client_cadence (client_id, nome_planilha, media_dias, coletas, ultima_coleta, datas, atualizado_em) values
+  ('cli-237', 'BARBOSA ENTULHOS - PLN', 8.3, 14, '2026-10-23', array['2026-07-07','2026-07-14','2026-07-23','2026-07-24','2026-07-28','2026-07-29','2026-08-10','2026-08-14','2026-09-02','2026-09-04','2026-09-23','2026-09-25','2026-10-20','2026-10-23']::date[], now()),
+  ('cli-16', 'CAÇAMBA 3 IRMAOS', 21.4, 6, '2026-10-23', array['2026-07-08','2026-07-28','2026-08-06','2026-08-27','2026-09-09','2026-10-23']::date[], now()),
+  ('cli-133', 'CERÂMICA SANTA ', null, 1, '2026-10-23', array['2026-10-23']::date[], now()),
+  ('cli-145', 'DISK ENTULHO GIRINO ', 12.5, 9, '2026-10-23', array['2026-07-15','2026-07-22','2026-07-27','2026-08-11','2026-09-16','2026-09-28','2026-10-06','2026-10-19','2026-10-23']::date[], now()),
+  ('cli-167', 'DP GESSO - PLN', 21, 4, '2026-10-23', array['2026-08-21','2026-10-03','2026-10-19','2026-10-23']::date[], now()),
+  ('cli-17', 'ECO ARES LTDA - PLN', 43.5, 3, '2026-10-23', array['2026-07-28','2026-08-27','2026-10-23']::date[], now()),
+  ('cli-8', 'ECOCIÊNCIA', 18.7, 7, '2026-10-23', array['2026-07-03','2026-07-23','2026-08-06','2026-09-10','2026-09-23','2026-10-06','2026-10-23']::date[], now()),
+  ('cli-159', 'ECOPONTO CAMPO SALES ', 11.2, 11, '2026-10-24', array['2026-07-04','2026-07-27','2026-08-13','2026-09-01','2026-09-25','2026-09-28','2026-10-01','2026-10-03','2026-10-14','2026-10-20','2026-10-24']::date[], now()),
+  ('cli-12', 'ESTRE (RECICLAX)  - PLN', 14.3, 7, '2026-10-24', array['2026-07-30','2026-08-07','2026-08-25','2026-09-12','2026-09-26','2026-10-08','2026-10-24']::date[], now()),
+  ('cli-83', 'FW AMBIENTAL - PLN', 84, 2, '2026-10-23', array['2026-07-31','2026-10-23']::date[], now()),
+  ('cli-164', 'GALLI GESSO- PLN', 60, 2, '2026-10-23', array['2026-08-24','2026-10-23']::date[], now()),
+  ('cli-247', 'H. V. R. CACAMBAS - PLN', 13.3, 9, '2026-10-22', array['2026-07-08','2026-07-16','2026-07-23','2026-08-05','2026-08-10','2026-08-11','2026-08-21','2026-08-26','2026-10-22']::date[], now()),
+  ('cli-223', 'JB ENTULHO LTDA - PLN', 19.2, 7, '2026-10-24', array['2026-07-01','2026-07-15','2026-07-25','2026-08-14','2026-08-28','2026-09-22','2026-10-24']::date[], now()),
+  ('cli-20', 'MORADA DO SOL', 13.4, 9, '2026-10-23', array['2026-07-08','2026-07-20','2026-07-24','2026-07-27','2026-09-01','2026-09-09','2026-10-02','2026-10-13','2026-10-23']::date[], now()),
+  ('cli-154', 'MORAIS LOCACAO  - PLN', 10.1, 10, '2026-10-23', array['2026-07-24','2026-07-29','2026-07-31','2026-08-12','2026-08-21','2026-09-01','2026-09-09','2026-09-14','2026-10-02','2026-10-23']::date[], now()),
+  (null, 'NOVA ODESSA GABINETE ', 6.9, 17, '2026-10-24', array['2026-07-06','2026-07-10','2026-07-14','2026-07-23','2026-07-30','2026-08-10','2026-08-17','2026-08-18','2026-08-25','2026-08-31','2026-09-01','2026-09-10','2026-09-19','2026-09-29','2026-10-07','2026-10-13','2026-10-24']::date[], now()),
+  ('cli-220', 'PORCELANAS LU - PLN', 8, 10, '2026-10-23', array['2026-08-12','2026-08-21','2026-08-26','2026-09-08','2026-09-16','2026-09-22','2026-09-28','2026-10-05','2026-10-16','2026-10-23']::date[], now()),
+  ('cli-156', 'PREFEITURA  DE ', 16.7, 7, '2026-10-24', array['2026-07-16','2026-08-05','2026-08-18','2026-09-21','2026-09-22','2026-10-02','2026-10-24']::date[], now()),
+  (null, 'PROHAB - PLN', null, 1, '2026-10-23', array['2026-10-23']::date[], now())
+on conflict (nome_planilha) do update set client_id = excluded.client_id, media_dias = excluded.media_dias, coletas = excluded.coletas, ultima_coleta = excluded.ultima_coleta, datas = excluded.datas, atualizado_em = now();
+
+-- histórico de coletas (novos dias e ajustes)
+insert into public.coletas (client_id, collect_date, volume_m3, trocas) values
+  ('cli-237', '2026-10-23', 15, 1),
+  ('cli-16', '2026-10-23', 26, 1),
+  ('cli-133', '2026-10-23', 10, 2),
+  ('cli-145', '2026-10-23', 5, 1),
+  ('cli-167', '2026-10-23', 0, 1),
+  ('cli-17', '2026-10-23', 20.8, 1),
+  ('cli-8', '2026-10-23', 26, 2),
+  ('cli-159', '2026-10-24', 15, 3),
+  ('cli-12', '2026-10-24', 26, 1),
+  ('cli-83', '2026-10-23', 26, 1),
+  ('cli-164', '2026-10-23', 5, 1),
+  ('cli-247', '2026-10-22', 8, 1),
+  ('cli-223', '2026-10-24', 70, 1),
+  ('cli-20', '2026-10-23', 5.2, 1),
+  ('cli-154', '2026-10-23', 5, 1),
+  ('cli-220', '2026-10-23', 5, 1),
+  ('cli-156', '2026-10-24', 10, 2)
+on conflict (client_id, collect_date) do update set volume_m3 = excluded.volume_m3, trocas = excluded.trocas;
+
+-- última troca/coleta de cada cliente (apenas quando há data nova)
+update public.clients c set last_collect_at = m.data, updated_at = now()
+from (values
+  ('cli-237', '2026-10-23'::date),
+  ('cli-16', '2026-10-23'::date),
+  ('cli-133', '2026-10-23'::date),
+  ('cli-145', '2026-10-23'::date),
+  ('cli-167', '2026-10-23'::date),
+  ('cli-17', '2026-10-23'::date),
+  ('cli-8', '2026-10-23'::date),
+  ('cli-159', '2026-10-24'::date),
+  ('cli-12', '2026-10-24'::date),
+  ('cli-83', '2026-10-23'::date),
+  ('cli-164', '2026-10-23'::date),
+  ('cli-247', '2026-10-22'::date),
+  ('cli-223', '2026-10-24'::date),
+  ('cli-20', '2026-10-23'::date),
+  ('cli-154', '2026-10-23'::date),
+  ('cli-220', '2026-10-23'::date),
+  ('cli-156', '2026-10-24'::date)
+) as m(id, data)
+where c.id = m.id and (c.last_collect_at is null or c.last_collect_at < m.data);
+
+-- marca a versão da planilha aplicada
+update public.settings set planilha_versao = '2026-10-27', updated_at = now() where id = 1;

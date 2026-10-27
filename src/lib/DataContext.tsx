@@ -113,6 +113,7 @@ export const defaultSettings: Settings = {
   tierAThreshold: 100,
   tierBThreshold: 20,
   visitRadiusM: 300,
+  planilhaVersao: null,
 };
 
 // eslint-disable-next-line react-refresh/only-export-components
@@ -467,6 +468,7 @@ function settingsFromRow(r: Record<string, any>): Settings {
     tierAThreshold: Number(r.tier_a_threshold ?? 100),
     tierBThreshold: Number(r.tier_b_threshold ?? 20),
     visitRadiusM: Number(r.visit_radius_m ?? 300),
+    planilhaVersao: r.planilha_versao ?? null,
   };
 }
 
@@ -483,6 +485,7 @@ function settingsToRow(s: Settings): Record<string, any> {
     tier_a_threshold: s.tierAThreshold,
     tier_b_threshold: s.tierBThreshold,
     visit_radius_m: s.visitRadiusM,
+    planilha_versao: s.planilhaVersao ?? null,
     updated_at: new Date().toISOString(),
   };
 }
@@ -692,6 +695,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const uidRef = useRef<string | null>(null);
   const handledUidRef = useRef<string | null>(null);
   const clientsRef = useRef<Client[]>([]);
+  const settingsRef = useRef<Settings>(defaultSettings);
   const permissoesRef = useRef<PermissaoUsuario[]>([]);
   const signOutRequestedRef = useRef(false);
   const notifiedRef = useRef<string | null>(null);
@@ -699,6 +703,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   roleRef.current = role;
   uidRef.current = user?.id ?? null;
   clientsRef.current = state.clients;
+  settingsRef.current = state.settings;
   permissoesRef.current = permissoes;
 
   const setAppState = useCallback((next: AppState | ((s: AppState) => AppState)) => {
@@ -732,13 +737,22 @@ export function DataProvider({ children }: { children: ReactNode }) {
    * cliente, cadência de trocas, histórico de coletas e a data da última troca.
    */
   const importarPlanilha = useCallback(
-    async (clients: Client[]) => {
+    async (
+      clients: Client[],
+      opts?: { versaoSalva?: string | null; semDados?: boolean; forcar?: boolean },
+    ) => {
       if (roleRef.current !== "coordenador" || !uidRef.current) return;
       const dados = await carregarPlanilha();
       if (!dados) {
         toast.error("Não foi possível ler a planilha de coletas do app.");
         return;
       }
+      // a planilha já está na versão importada? então não há nada a fazer
+      const precisa =
+        !!opts?.forcar ||
+        !!opts?.semDados ||
+        (!!dados.versao && dados.versao !== (opts?.versaoSalva ?? null));
+      if (!precisa) return;
 
       const erroVolumes = await enviarEmLotes(
         dados.volumes.map((v) => ({
@@ -804,7 +818,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
         clients: comData,
         volumes: dados.volumes,
         cadence: dados.cadence,
+        settings: { ...prev.settings, planilhaVersao: dados.versao ?? prev.settings.planilhaVersao },
       }));
+      // registra a versão aplicada, para as próximas cargas não repetirem a importação
+      if (dados.versao) {
+        const novoSettings: Settings = { ...settingsRef.current, planilhaVersao: dados.versao };
+        settingsRef.current = novoSettings;
+        const { error: sErr } = await supabase.from("settings").upsert(settingsToRow(novoSettings));
+        if (sErr) console.warn("registrar versão da planilha:", sErr.message);
+      }
       toast.success("Planilha de coletas carregada", {
         description: `${dados.totalColetas} coletas de ${dados.cadence.length} clientes${
           dados.periodo ? ` (${formatDateBR(dados.periodo[0])} a ${formatDateBR(dados.periodo[1])})` : ""
@@ -816,7 +838,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   /** reaproveita a importação da planilha a partir da tela de dados (coordenador) */
   const recarregarPlanilha = useCallback(
-    () => importarPlanilha(clientsRef.current),
+    () => importarPlanilha(clientsRef.current, { forcar: true }),
     [importarPlanilha],
   );
 
@@ -913,9 +935,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setCloudReady(true);
     setLastSyncAt(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }));
 
-    // primeira carga do coordenador: sobe a planilha de coletas (comparativo, cadência e histórico)
-    if (roleName === "coordenador" && volumes.length === 0 && cadence.length === 0) {
-      void importarPlanilha(clients);
+    // mantém a planilha de coletas atualizada (comparativo, cadência, última troca e histórico)
+    if (roleName === "coordenador") {
+      void importarPlanilha(clients, {
+        versaoSalva: settings.planilhaVersao ?? null,
+        semDados: volumes.length === 0 && cadence.length === 0,
+      });
     }
 
     // primeira execução do coordenador: sobe a carteira + configurações se o banco estiver vazio

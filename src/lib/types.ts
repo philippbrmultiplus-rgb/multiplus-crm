@@ -72,6 +72,8 @@ export interface Settings {
   tierAThreshold: number;
   tierBThreshold: number;
   visitRadiusM: number;
+  /** versão da planilha de coletas já importada (para aplicar atualizações novas sozinho) */
+  planilhaVersao?: string | null;
 }
 
 export type RouteStatus = "rascunho" | "publicada" | "encerrada";

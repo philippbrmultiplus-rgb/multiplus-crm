@@ -3896,6 +3896,7 @@ export type Database = {
           home_lat: number | null
           home_lng: number | null
           id: number
+          planilha_versao: string | null
           tier_a_threshold: number | null
           tier_b_threshold: number | null
           travel_speed_kmh: number | null
@@ -3911,6 +3912,7 @@ export type Database = {
           home_lat?: number | null
           home_lng?: number | null
           id?: number
+          planilha_versao?: string | null
           tier_a_threshold?: number | null
           tier_b_threshold?: number | null
           travel_speed_kmh?: number | null
@@ -3926,6 +3928,7 @@ export type Database = {
           home_lat?: number | null
           home_lng?: number | null
           id?: number
+          planilha_versao?: string | null
           tier_a_threshold?: number | null
           tier_b_threshold?: number | null
           travel_speed_kmh?: number | null
@@ -4351,6 +4354,39 @@ export type Database = {
         Relationships: []
       }
       messages_2026_10_29: {
+        Row: {
+          event: string | null
+          extension: string
+          id: string
+          inserted_at: string
+          payload: Json | null
+          private: boolean | null
+          topic: string
+          updated_at: string
+        }
+        Insert: {
+          event?: string | null
+          extension: string
+          id?: string
+          inserted_at?: string
+          payload?: Json | null
+          private?: boolean | null
+          topic: string
+          updated_at?: string
+        }
+        Update: {
+          event?: string | null
+          extension?: string
+          id?: string
+          inserted_at?: string
+          payload?: Json | null
+          private?: boolean | null
+          topic?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      messages_2026_10_30: {
         Row: {
           event: string | null
           extension: string

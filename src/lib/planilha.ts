@@ -12,6 +12,8 @@ interface ClientePlanilha {
 
 interface ArquivoPlanilha {
   origem?: string;
+  /** identificação da versão da planilha (para saber se há atualização nova) */
+  versao?: string;
   periodo?: [string, string];
   gerado_em?: string;
   clientes: ClientePlanilha[];
@@ -32,6 +34,7 @@ export interface DadosPlanilha {
   ultimaColeta: Record<string, string>;
   /** nomes da planilha que não têm cliente vinculado na carteira */
   semCadastro: string[];
+  versao: string | null;
   periodo: [string, string] | null;
   totalColetas: number;
 }
@@ -54,15 +57,25 @@ function mediaDeDias(datas: string[]): number | null {
 interface Grupo {
   nome: string;
   cliente: string | null;
-  /** índice do nome sem cadastro (identificador estável das linhas mensais) */
-  indice: number;
   dias: Map<string, { volume: number; trocas: number }>;
+}
+
+/**
+ * Identificador estável a partir do nome da planilha: como ele não depende da posição,
+ * incluir nomes novos em uma atualização não desloca as linhas que já existem.
+ */
+function slugDoNome(nome: string): string {
+  return nome
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
 /** agrupa as coletas por cliente cadastrado (ou pelo nome da planilha, sem cadastro) */
 function agrupar(arquivo: ArquivoPlanilha): Map<string, Grupo> {
   const grupos = new Map<string, Grupo>();
-  let semCadastro = 0;
   for (const linha of arquivo.clientes) {
     if (!linha || !Array.isArray(linha.coletas)) continue;
     const chave = linha.cliente ? `cli:${linha.cliente}` : `sem:${linha.nome}`;
@@ -71,7 +84,6 @@ function agrupar(arquivo: ArquivoPlanilha): Map<string, Grupo> {
       ({
         nome: linha.nome,
         cliente: linha.cliente ?? null,
-        indice: linha.cliente ? 0 : semCadastro++,
         dias: new Map(),
       } satisfies Grupo);
     for (const [data, volume, trocas] of linha.coletas) {
@@ -100,8 +112,7 @@ export function calcularDados(arquivo: ArquivoPlanilha): DadosPlanilha {
 
   for (const grupo of agrupar(arquivo).values()) {
     const datas = [...grupo.dias.keys()].sort();
-    const id = grupo.cliente ?? `sem-${grupo.indice}`;
-    const prefixo = grupo.cliente ? `vol-${grupo.cliente}` : `vol-sem-${grupo.indice}`;
+    const prefixo = grupo.cliente ? `vol-${grupo.cliente}` : `vol-sem-${slugDoNome(grupo.nome)}`;
 
     const porMes = new Map<string, number>();
     for (const data of datas) {
@@ -138,7 +149,6 @@ export function calcularDados(arquivo: ArquivoPlanilha): DadosPlanilha {
     totalColetas += datas.length;
     if (grupo.cliente) ultimaColeta[grupo.cliente] = datas[datas.length - 1];
     else semCadastro.push(grupo.nome);
-    void id;
   }
 
   volumes.sort((a, b) => (a.id < b.id ? -1 : 1));
@@ -150,6 +160,7 @@ export function calcularDados(arquivo: ArquivoPlanilha): DadosPlanilha {
     coletas,
     ultimaColeta,
     semCadastro,
+    versao: arquivo.versao ?? null,
     periodo: arquivo.periodo ?? null,
     totalColetas,
   };
