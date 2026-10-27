@@ -823,6 +823,24 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (lErr) console.warn("limpar linhas sem cadastro:", lErr.message);
       }
 
+      // cadências de nomes que saíram da planilha (ex.: nome único trocado pelos endereços)
+      const nomesAtuais = new Set(dados.cadence.map((c) => c.nomePlanilha ?? ""));
+      const { data: cadastrosOrfaos, error: coErr } = await supabase
+        .from("client_cadence")
+        .select("id, nome_planilha")
+        .is("client_id", null);
+      if (coErr) console.warn("verificar cadências sem cadastro:", coErr.message);
+      const idsOrfaos = (cadastrosOrfaos ?? [])
+        .filter((r) => {
+          const row = r as Record<string, unknown>;
+          return !nomesAtuais.has(String(row.nome_planilha ?? ""));
+        })
+        .map((r) => String((r as Record<string, unknown>).id));
+      if (idsOrfaos.length > 0) {
+        const { error: delErr } = await supabase.from("client_cadence").delete().in("id", idsOrfaos);
+        if (delErr) console.warn("limpar cadências antigas:", delErr.message);
+      }
+
       // a data da última coleta aparece na lista de clientes ("Últ. troca")
       const comData = clients.map((c) => {
         const data = dados.ultimaColeta[c.id];

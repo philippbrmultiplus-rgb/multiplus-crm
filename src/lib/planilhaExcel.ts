@@ -1,3 +1,4 @@
+import { casarClientePeloEndereco, indexarClientes, type ClienteCasavel } from "./planilhaMatch";
 import type { LancamentoPlanilha } from "./planilha";
 
 export interface LeituraPlanilha {
@@ -6,6 +7,15 @@ export interface LeituraPlanilha {
   ignoradas: number;
   /** primeira e última data encontradas no arquivo */
   periodo: [string, string] | null;
+}
+
+/** texto sem acento e em maiúsculas, para comparar cabeçalhos */
+function base(texto: string): string {
+  return texto
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .trim();
 }
 
 /** converte a célula em data ISO (yyyy-mm-dd) */
@@ -41,8 +51,15 @@ function volumeNumero(valor: unknown): number {
 /**
  * Lê a planilha de atualização (colunas Data | Cliente | Volume, como a PAULINIA)
  * e agrupa os lançamentos por cliente e dia.
+ *
+ * Quando existe a coluna de endereço (ex.: as cooperativas HAVILA têm 4 endereços no
+ * mesmo nome), o endereço é usado para achar o cadastro certo e o lançamento entra no
+ * nome do cliente, em vez de ficar como "sem cadastro".
  */
-export async function lerPlanilhaDeAtualizacao(arquivo: File): Promise<LeituraPlanilha> {
+export async function lerPlanilhaDeAtualizacao(
+  arquivo: File,
+  clientes: ClienteCasavel[] = [],
+): Promise<LeituraPlanilha> {
   const XLSX = await import("xlsx");
   const conteudo = await arquivo.arrayBuffer();
   const pasta = XLSX.read(conteudo, { cellDates: true });
@@ -55,25 +72,52 @@ export async function lerPlanilhaDeAtualizacao(arquivo: File): Promise<LeituraPl
     blankrows: false,
   }) as unknown[][];
 
+  // cabeçalho pode ou não existir; quando existe, achamos as colunas pelo nome
+  const cabecalho = (linhas[0] ?? []).map((c) => (typeof c === "string" ? base(c) : ""));
+  const colunaDe = (nome: string) => {
+    const i = cabecalho.findIndex((c) => c.includes(nome));
+    return i >= 0 ? i : null;
+  };
+  const idxData = colunaDe("DATA") ?? 0;
+  const idxCliente = colunaDe("CLIENTE") ?? 1;
+  const idxEndereco = colunaDe("ENDERECO");
+  const idxVolume = colunaDe("VOLUME") ?? (idxEndereco != null ? idxEndereco + 1 : 2);
+  const temCabecalho = colunaDe("DATA") != null || colunaDe("CLIENTE") != null;
+
+  const indiceClientes = clientes.length > 0 ? indexarClientes(clientes) : [];
   const agrupado = new Map<string, LancamentoPlanilha>();
   let ignoradas = 0;
-  for (const linha of linhas) {
-    const data = dataISO(linha?.[0]);
-    const nome = typeof linha?.[1] === "string" ? linha[1] : "";
-    if (!data || !nome.trim()) {
+  for (const linha of temCabecalho ? linhas.slice(1) : linhas) {
+    const data = dataISO(linha?.[idxData]);
+    const clienteColuna = typeof linha?.[idxCliente] === "string" ? (linha[idxCliente] as string) : "";
+    if (!data || !clienteColuna.trim()) {
       ignoradas += 1;
       continue;
     }
+    const endereco =
+      idxEndereco != null && typeof linha?.[idxEndereco] === "string"
+        ? (linha[idxEndereco] as string).trim()
+        : "";
+
+    // nome que identifica o lançamento: o cliente do cadastro quando o endereço indica qual é
+    let nome = clienteColuna;
+    if (endereco && indiceClientes.length > 0) {
+      const id = casarClientePeloEndereco(clienteColuna, endereco, indiceClientes);
+      const cliente = id ? indiceClientes.find((c) => c.id === id) : undefined;
+      if (cliente) nome = cliente.name;
+    }
+
     const chave = `${nome}|${data}`;
     const atual = agrupado.get(chave);
+    const volume = volumeNumero(linha[idxVolume]);
     if (atual) {
-      atual.volume = Math.round((atual.volume + volumeNumero(linha[2])) * 100) / 100;
+      atual.volume = Math.round((atual.volume + volume) * 100) / 100;
       atual.trocas += 1;
     } else {
       agrupado.set(chave, {
         nome,
         data,
-        volume: Math.round(volumeNumero(linha[2]) * 100) / 100,
+        volume: Math.round(volume * 100) / 100,
         trocas: 1,
       });
     }

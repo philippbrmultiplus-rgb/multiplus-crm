@@ -75,3 +75,31 @@ export function casarCliente(nome: string, indice: ClienteIndexado[]): string | 
 
   return null;
 }
+
+/**
+ * Planilhas em que o mesmo cliente aparece com vários endereços (ex.: as cooperativas
+ * HAVILA): usa a coluna de endereço para escolher qual cadastro recebe cada lançamento.
+ * Só devolve cliente quando o endereço aponta para um único cadastro.
+ */
+export function casarClientePeloEndereco(
+  clienteColuna: string,
+  endereco: string,
+  indice: ClienteIndexado[],
+): string | null {
+  const tokensEndereco = loose(endereco)
+    .split(" ")
+    .filter((t) => t.length > 2);
+  if (tokensEndereco.length === 0) return null;
+
+  const tokensCliente = loose(clienteColuna)
+    .split(" ")
+    .filter((t) => t.length > 2 && t !== "COOPERATIVA");
+
+  let candidatos = indice.filter((c) => tokensEndereco.every((t) => c.loose.includes(t)));
+  if (tokensCliente.length > 0) {
+    candidatos = candidatos.filter((c) => tokensCliente.some((t) => c.loose.includes(t)));
+  }
+
+  const ids = new Set(candidatos.map((c) => c.id));
+  return ids.size === 1 ? candidatos[0].id : null;
+}

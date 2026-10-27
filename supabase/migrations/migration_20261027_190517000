@@ -1,0 +1,80 @@
+-- a HAVILA deixa de ser uma linha avulsa (sem cadastro) e passa a ter os 4 endereços
+delete from public.client_monthly_volumes where client_id is null and label = 'COOPERATIVA HAVILA  - ';
+delete from public.client_cadence where client_id is null and nome_planilha = 'COOPERATIVA HAVILA  - ';
+
+-- volumes mensais de cada endereço
+insert into public.client_monthly_volumes (id, client_id, label, month, volume_m3) values
+  ('vol-cli-147-2026-07-01', 'cli-147', null, '2026-07-01', 15),
+  ('vol-cli-147-2026-08-01', 'cli-147', null, '2026-08-01', 20),
+  ('vol-cli-147-2026-09-01', 'cli-147', null, '2026-09-01', 10),
+  ('vol-cli-147-2026-10-01', 'cli-147', null, '2026-10-01', 10),
+  ('vol-cli-181-2026-07-01', 'cli-181', null, '2026-07-01', 5),
+  ('vol-cli-181-2026-08-01', 'cli-181', null, '2026-08-01', 10),
+  ('vol-cli-181-2026-09-01', 'cli-181', null, '2026-09-01', 5),
+  ('vol-cli-181-2026-10-01', 'cli-181', null, '2026-10-01', 5),
+  ('vol-cli-190-2026-07-01', 'cli-190', null, '2026-07-01', 15),
+  ('vol-cli-190-2026-08-01', 'cli-190', null, '2026-08-01', 15),
+  ('vol-cli-190-2026-09-01', 'cli-190', null, '2026-09-01', 5),
+  ('vol-cli-190-2026-10-01', 'cli-190', null, '2026-10-01', 5),
+  ('vol-cli-216-2026-07-01', 'cli-216', null, '2026-07-01', 15),
+  ('vol-cli-216-2026-08-01', 'cli-216', null, '2026-08-01', 10),
+  ('vol-cli-216-2026-09-01', 'cli-216', null, '2026-09-01', 10),
+  ('vol-cli-216-2026-10-01', 'cli-216', null, '2026-10-01', 5)
+on conflict (id) do update set client_id = excluded.client_id, label = excluded.label, month = excluded.month, volume_m3 = excluded.volume_m3;
+
+-- cadência de trocas de cada endereço
+insert into public.client_cadence (client_id, nome_planilha, media_dias, coletas, ultima_coleta, datas, atualizado_em) values
+  ('cli-216', 'COOPERATIVA HAVILA - ECOPONTO JD MARISA', 13, 8, '2026-10-06', array['2026-07-07','2026-07-20','2026-07-31','2026-08-11','2026-08-26','2026-09-14','2026-09-19','2026-10-06']::date[], now()),
+  ('cli-190', 'COOPERATIVA HAVILA - ECOPONTO PQ VIA NORTE', 13.1, 8, '2026-10-03', array['2026-07-03','2026-07-16','2026-07-23','2026-08-06','2026-08-14','2026-08-17','2026-09-22','2026-10-03']::date[], now()),
+  ('cli-181', 'COOPERATIVA HAVILA- ECOPONTO PQ SÃO JORGE', 20.5, 5, '2026-10-13', array['2026-07-23','2026-08-11','2026-08-31','2026-09-16','2026-10-13']::date[], now()),
+  ('cli-147', 'COOPERATIVA HAVILA- PQ ITAJAI', 10, 11, '2026-10-21', array['2026-07-13','2026-07-17','2026-07-22','2026-08-05','2026-08-13','2026-08-17','2026-08-31','2026-09-16','2026-09-24','2026-10-13','2026-10-21']::date[], now())
+on conflict (nome_planilha) do update set client_id = excluded.client_id, media_dias = excluded.media_dias, coletas = excluded.coletas, ultima_coleta = excluded.ultima_coleta, datas = excluded.datas, atualizado_em = now();
+
+-- histórico de trocas/coletas de cada endereço
+insert into public.coletas (client_id, collect_date, volume_m3, trocas) values
+  ('cli-216', '2026-07-07', 5, 1),
+  ('cli-216', '2026-07-20', 5, 1),
+  ('cli-216', '2026-07-31', 5, 1),
+  ('cli-216', '2026-08-11', 5, 1),
+  ('cli-216', '2026-08-26', 5, 1),
+  ('cli-216', '2026-09-14', 5, 1),
+  ('cli-216', '2026-09-19', 5, 1),
+  ('cli-216', '2026-10-06', 5, 1),
+  ('cli-190', '2026-07-03', 5, 1),
+  ('cli-190', '2026-07-16', 5, 1),
+  ('cli-190', '2026-07-23', 5, 1),
+  ('cli-190', '2026-08-06', 5, 1),
+  ('cli-190', '2026-08-14', 5, 1),
+  ('cli-190', '2026-08-17', 5, 1),
+  ('cli-190', '2026-09-22', 5, 1),
+  ('cli-190', '2026-10-03', 5, 1),
+  ('cli-181', '2026-07-23', 5, 1),
+  ('cli-181', '2026-08-11', 5, 1),
+  ('cli-181', '2026-08-31', 5, 1),
+  ('cli-181', '2026-09-16', 5, 1),
+  ('cli-181', '2026-10-13', 5, 1),
+  ('cli-147', '2026-07-13', 5, 1),
+  ('cli-147', '2026-07-17', 5, 1),
+  ('cli-147', '2026-07-22', 5, 1),
+  ('cli-147', '2026-08-05', 5, 1),
+  ('cli-147', '2026-08-13', 5, 1),
+  ('cli-147', '2026-08-17', 5, 1),
+  ('cli-147', '2026-08-31', 5, 1),
+  ('cli-147', '2026-09-16', 5, 1),
+  ('cli-147', '2026-09-24', 5, 1),
+  ('cli-147', '2026-10-13', 5, 1),
+  ('cli-147', '2026-10-21', 5, 1)
+on conflict (client_id, collect_date) do update set volume_m3 = excluded.volume_m3, trocas = excluded.trocas;
+
+-- data da última troca no cadastro de cada endereço
+update public.clients c set last_collect_at = m.data, updated_at = now()
+from (values
+  ('cli-216', '2026-10-06'::date),
+  ('cli-190', '2026-10-03'::date),
+  ('cli-181', '2026-10-13'::date),
+  ('cli-147', '2026-10-21'::date)
+) as m(id, data)
+where c.id = m.id and (c.last_collect_at is null or c.last_collect_at < m.data);
+
+-- versão da planilha aplicada
+update public.settings set planilha_versao = '2026-10-27.3', updated_at = now() where id = 1;

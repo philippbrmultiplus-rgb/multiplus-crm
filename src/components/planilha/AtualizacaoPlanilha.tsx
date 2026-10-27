@@ -59,7 +59,7 @@ export function AtualizacaoPlanilha() {
     setNomeArquivo(arquivo.name);
     setLendo(true);
     try {
-      const resultado = await lerPlanilhaDeAtualizacao(arquivo);
+      const resultado = await lerPlanilhaDeAtualizacao(arquivo, state.clients);
       if (resultado.lancamentos.length === 0) {
         setErro(
           "Nenhum lançamento encontrado. Confira se o arquivo tem as colunas Data, Cliente e Volume.",

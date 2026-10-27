@@ -1,0 +1,2 @@
+-- quem envia a planilha também pode limpar cadências de nomes que saíram da planilha
+alter policy cc_delete on public.client_cadence using (is_liberado_planilha());
