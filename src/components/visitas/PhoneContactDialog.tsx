@@ -77,11 +77,13 @@ export function PhoneContactDialog({
       photoDataList: [foto],
       tipoContato: "telefone",
     };
-    addVisit(visit, { uploadPhoto: true });
-    if (routeVisitId) markRouteVisitStatus(routeVisitId, "concluida");
-    setSaving(false);
-    toast.success("Contato por telefone registrado — a contagem de dias sem visita foi reiniciada.");
-    onClose();
+    addVisit(visit, { uploadPhoto: true }).then((salvou) => {
+      setSaving(false);
+      if (!salvou) return; // mantém a janela aberta para tentar de novo
+      if (routeVisitId) markRouteVisitStatus(routeVisitId, "concluida");
+      toast.success("Contato por telefone registrado — a contagem de dias sem visita foi reiniciada.");
+      onClose();
+    });
   };
 
   return (

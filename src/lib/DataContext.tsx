@@ -598,8 +598,8 @@ interface DataContextValue {
   addRouteVisit: (route: WeeklyRoute, clientId: string, day: number) => void;
   deleteRoute: (routeId: string) => void;
   publishRoute: (routeId: string) => void;
-  addVisit: (visit: Visit, opts?: { uploadPhoto?: boolean }) => void;
-  registerProspectVisit: (args: ProspectVisitInput) => void;
+  addVisit: (visit: Visit, opts?: { uploadPhoto?: boolean }) => Promise<boolean>;
+  registerProspectVisit: (args: ProspectVisitInput) => Promise<boolean>;
   setProspeccaoStatus: (clientId: string, status: "fechado" | "proposta_recusada", justificativa?: string) => void;
   updateVisit: (id: string, patch: Partial<Visit>) => void;
   deleteVisit: (id: string) => void;
@@ -2090,7 +2090,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
         );
       if (urls.length === 0) return 0;
       const ok = await attachVisitPhotos(visit.id, urls);
-      if (!ok) return 0;
+      if (!ok) {
+        // não conseguiu gravar agora: fica na fila para tentar de novo quando a conexão voltar
+        enqueuePendingPhotos(visit.id, urls);
+        return 0;
+      }
       setAppState((prev) => ({
         ...prev,
         visits: prev.visits.map((v) =>
@@ -2101,7 +2105,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       }));
       return urls.length;
     },
-    [attachVisitPhotos, setAppState],
+    [attachVisitPhotos, enqueuePendingPhotos, setAppState],
   );
 
   /* ---------- fotos e anotações pendentes: tenta ao entrar no app e quando a conexão volta ---------- */
@@ -2117,81 +2121,74 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("online", aoVoltarConexao);
   }, [user, flushPendingPhotos, flushPendingNotes]);
 
+  /**
+   * Grava a visita JÁ COM as fotos: primeiro sobe as imagens, depois insere a visita.
+   * Se a foto não subir, a visita não é salva (o banco também recusa visita realizada sem foto).
+   */
   const addVisit = useCallback(
-    (visit: Visit, opts?: { uploadPhoto?: boolean }) => {
-      const localDate = toLocalDateKey(visit.visitedAt);
-      setAppState((prev) => {
-        const clients =
-          visit.status === "realizada"
-            ? prev.clients.map((c) => (c.id === visit.clientId ? applyLastVisitDate(c, localDate) : c))
-            : prev.clients;
-        return { ...prev, visits: [visit, ...prev.visits], clients };
-      });
-      if (!uidRef.current) return;
-      void (async () => {
-        // 1) grava a VISITA primeiro (sem as fotos) — assim uma falha no upload
-        //    de foto nunca impede o registro da visita
-        const semFotos: Visit = {
-          ...visit,
-          photos: null,
-          photoUrl: null,
-          photoData: undefined,
-          photoDataList: undefined,
-        };
-        const { error } = await supabase.from("visits").insert(visitToRow(semFotos));
-        if (error) {
-          console.error("falha ao salvar visita:", error.message);
-          toast.error("Não foi possível salvar a visita", {
-            description: `${error.message} — tente registrar novamente.`,
-          });
-          return;
-        }
-
-        // visita registrada: limpa um eventual agendamento deste cliente
-        const clienteAtual = state.clients.find((c) => c.id === visit.clientId);
-        if (clienteAtual?.visitaAgendada) {
-          await supabase.from("clients").update({ visita_agendada: null }).eq("id", visit.clientId);
-          setAppState((prev) => ({
-            ...prev,
-            clients: prev.clients.map((c) =>
-              c.id === visit.clientId ? { ...c, visitaAgendada: null } : c,
-            ),
-          }));
-        }
-
-        // 2) agora sobe as fotos e completa o registro (se falhar, a visita já está salva)
-        const list = visit.photoDataList?.length
-          ? visit.photoDataList
-          : visit.photoData
-            ? [visit.photoData]
-            : [];
-        const uploaded = opts?.uploadPhoto
-          ? await uploadVisitPhotos(visit, list.filter((d) => d.startsWith("data:")))
+    async (visit: Visit, opts?: { uploadPhoto?: boolean }): Promise<boolean> => {
+      if (!uidRef.current) {
+        toast.error("Faça login para registrar a visita.");
+        return false;
+      }
+      // 1) fotos primeiro
+      const lista = visit.photoDataList?.length
+        ? visit.photoDataList
+        : visit.photoData
+          ? [visit.photoData]
           : [];
-        if (uploaded.length) {
-          const synced: Visit = {
-            ...visit,
-            photos: uploaded,
-            photoUrl: uploaded[0] ?? null,
-            photoData: uploaded[0],
-            photoDataList: undefined,
-          };
-          const anexado = await attachVisitPhotos(visit.id, uploaded);
-          if (anexado) {
-            setAppState((prev) => ({
-              ...prev,
-              visits: prev.visits.map((v) => (v.id === visit.id ? synced : v)),
-            }));
-          } else {
-            enqueuePendingPhotos(visit.id, uploaded);
-            toast.warning("As fotos foram enviadas, mas não anexaram à visita.", {
-              description: "Vamos tentar de novo automaticamente quando a conexão voltar.",
-            });
-          }
-        }
-      })();
+      const paraSubir = opts?.uploadPhoto ? lista.filter((d) => d.startsWith("data:")) : [];
+      const uploaded = paraSubir.length ? await uploadVisitPhotos(visit, paraSubir) : [];
+      const fotos = uploaded.length ? uploaded : lista.filter((d) => !d.startsWith("data:"));
+      if (paraSubir.length > 0 && uploaded.length === 0) {
+        toast.error("A foto não foi enviada — a visita NÃO foi salva.", {
+          description: "Confira a conexão e registre a visita novamente.",
+        });
+        return false;
+      }
+      const completo: Visit = {
+        ...visit,
+        photos: fotos.length ? fotos : null,
+        photoUrl: fotos[0] ?? null,
+        photoData: fotos[0],
+        photoDataList: undefined,
+      };
+
+      // 2) grava a visita com as fotos
+      const { error } = await supabase.from("visits").insert(visitToRow(completo));
+      if (error) {
+        console.error("falha ao salvar visita:", error.message);
+        toast.error("Não foi possível salvar a visita", {
+          description: `${error.message} — tente registrar novamente.`,
+        });
+        return false;
+      }
+
+      // 3) estado local + limpa o agendamento desse cliente
+      const localDate = toLocalDateKey(visit.visitedAt);
+      setAppState((prev) => ({
+        ...prev,
+        visits: [completo, ...prev.visits],
+        clients:
+          completo.status === "realizada"
+            ? prev.clients.map((c) =>
+                c.id === completo.clientId ? applyLastVisitDate(c, localDate) : c,
+              )
+            : prev.clients,
+      }));
+
+      if (state.clients.find((c) => c.id === visit.clientId)?.visitaAgendada) {
+        await supabase.from("clients").update({ visita_agendada: null }).eq("id", visit.clientId);
+        setAppState((prev) => ({
+          ...prev,
+          clients: prev.clients.map((c) =>
+            c.id === visit.clientId ? { ...c, visitaAgendada: null } : c,
+          ),
+        }));
+      }
+      return true;
     },
-    [setAppState, state.clients, uploadVisitPhotos, attachVisitPhotos, enqueuePendingPhotos],
+    [setAppState, state.clients, uploadVisitPhotos],
   );
 
   /**
@@ -2200,7 +2197,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
    * real ao coordenador (cliente, item da rota e visita).
    */
   const registerProspectVisit = useCallback(
-    (args: ProspectVisitInput) => {
+    async (args: ProspectVisitInput): Promise<boolean> => {
       const clientId = `cli-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
       const rvId = `rv-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
       const nowIso = new Date().toISOString();
@@ -2266,61 +2263,63 @@ export function DataProvider({ children }: { children: ReactNode }) {
         routeVisits: withRoute ? [...prev.routeVisits, rv] : prev.routeVisits,
         visits: [visit, ...prev.visits],
       }));
-      if (!uidRef.current) return;
-      void (async () => {
-        const { error: cErr } = await supabase.from("clients").insert(clientToRow(novo));
-        if (cErr) {
-          console.error("criar prospecção:", cErr.message);
-          toast.error("Não foi possível salvar a prospecção", { description: cErr.message });
-          return;
+      // fotos primeiro: sem foto a prospecção não é salva
+      const lista = args.photoDataList?.length
+        ? args.photoDataList
+        : args.photoData
+          ? [args.photoData]
+          : [];
+      const uploaded = uidRef.current
+        ? await uploadVisitPhotos(visit, lista.filter((d) => d.startsWith("data:")))
+        : [];
+      if (lista.some((d) => d.startsWith("data:")) && uploaded.length === 0) {
+        toast.error("A foto não foi enviada — a prospecção NÃO foi salva.", {
+          description: "Confira a conexão e registre novamente.",
+        });
+        return false;
+      }
+      const fotos = uploaded.length ? uploaded : lista.filter((d) => !d.startsWith("data:"));
+      const visitaCompleta: Visit = {
+        ...visit,
+        photos: fotos.length ? fotos : null,
+        photoUrl: fotos[0] ?? null,
+        photoData: fotos[0],
+        photoDataList: undefined,
+      };
+
+      const { error: cErr } = uidRef.current
+        ? await supabase.from("clients").insert(clientToRow(novo))
+        : { error: null };
+      if (cErr) {
+        console.error("criar prospecção:", cErr.message);
+        toast.error("Não foi possível salvar a prospecção", { description: cErr.message });
+        return false;
+      }
+      if (withRoute && uidRef.current) {
+        const { error: rErr } = await supabase.from("route_visits").insert(rvToRow(rv));
+        if (rErr) {
+          console.error("incluir prospecção na rota:", rErr.message);
+          toast.error("Não foi possível incluir a prospecção na rota", { description: rErr.message });
         }
-        if (withRoute) {
-          const { error: rErr } = await supabase.from("route_visits").insert(rvToRow(rv));
-          if (rErr) {
-            console.error("incluir prospecção na rota:", rErr.message);
-            toast.error("Não foi possível incluir a prospecção na rota", { description: rErr.message });
-          }
-        }
-        // 1) visita primeiro (sem fotos), para não perder o registro
-        const { error: vErr } = await supabase
-          .from("visits")
-          .insert(visitToRow({ ...visit, photos: null, photoUrl: null, photoData: undefined }));
+      }
+      if (uidRef.current) {
+        const { error: vErr } = await supabase.from("visits").insert(visitToRow(visitaCompleta));
         if (vErr) {
           console.error("salvar visita prospecção:", vErr.message);
-          toast.error("Não foi possível salvar a visita", { description: vErr.message });
-          return;
+          toast.error("Prospecção salva, mas a visita não", { description: vErr.message });
+          return false;
         }
-        // 2) depois as fotos
-        const lista = args.photoDataList?.length
-          ? args.photoDataList
-          : args.photoData
-            ? [args.photoData]
-            : [];
-        const uploaded = await uploadVisitPhotos(visit, lista.filter((d) => d.startsWith("data:")));
-        if (uploaded.length) {
-          const synced: Visit = {
-            ...visit,
-            photos: uploaded,
-            photoUrl: uploaded[0] ?? null,
-            photoData: uploaded[0],
-            photoDataList: undefined,
-          };
-          const anexado = await attachVisitPhotos(visit.id, uploaded);
-          if (anexado) {
-            setAppState((prev) => ({
-              ...prev,
-              visits: prev.visits.map((v) => (v.id === visit.id ? synced : v)),
-            }));
-          } else {
-            enqueuePendingPhotos(visit.id, uploaded);
-            toast.warning("As fotos foram enviadas, mas não anexaram à visita.", {
-              description: "Vamos tentar de novo automaticamente quando a conexão voltar.",
-            });
-          }
-        }
-      })();
+      }
+
+      setAppState((prev) => ({
+        ...prev,
+        clients: [...prev.clients, novo],
+        routeVisits: withRoute ? [...prev.routeVisits, rv] : prev.routeVisits,
+        visits: [visitaCompleta, ...prev.visits],
+      }));
+      return true;
     },
-    [setAppState, state.routeVisits, state.settings, uploadVisitPhotos, attachVisitPhotos, enqueuePendingPhotos],
+    [setAppState, state.routeVisits, state.settings, uploadVisitPhotos],
   );
 
   /** finaliza a prospecção (fechado ou proposta recusada) — trava depois de decidido */

@@ -180,36 +180,37 @@ export function ProspectVisitDialog({
     }
     setError(null);
     setSaving(true);
-    registerProspectVisit({
-      routeId,
-      day: dia,
-      nome,
-      responsavel,
-      contato,
-      endereco,
-      // grava com a grafia já existente (evita duplicar a cidade no filtro)
-      cidade: canonicalCidade(cidade, cidadesSalvas),
-      segmento,
-      segmentoComercial,
-      visitaAgendada,
-      obs,
-      status,
-      comments,
-      nextActions,
-      photoData: photos[0],
-      photoDataList: photos,
-      gpsLat: geo?.lat ?? null,
-      gpsLng: geo?.lng ?? null,
-      gpsAccuracyM: geo ? Math.round(geo.acc) : null,
-      // já deixa o cliente prospectado geocodificado (aparece no mapa)
-      clientLat: geo?.lat ?? null,
-      clientLng: geo?.lng ?? null,
-    });
-    setTimeout(() => {
+    void (async () => {
+      const salvou = await registerProspectVisit({
+        routeId,
+        day: dia,
+        nome,
+        responsavel,
+        contato,
+        endereco,
+        // grava com a grafia já existente (evita duplicar a cidade no filtro)
+        cidade: canonicalCidade(cidade, cidadesSalvas),
+        segmento,
+        segmentoComercial,
+        visitaAgendada,
+        obs,
+        status,
+        comments,
+        nextActions,
+        photoData: photos[0],
+        photoDataList: photos,
+        gpsLat: geo?.lat ?? null,
+        gpsLng: geo?.lng ?? null,
+        gpsAccuracyM: geo ? Math.round(geo.acc) : null,
+        // já deixa o cliente prospectado geocodificado (aparece no mapa)
+        clientLat: geo?.lat ?? null,
+        clientLng: geo?.lng ?? null,
+      });
       setSaving(false);
+      if (!salvou) return; // mantém a janela aberta para tentar de novo
       onClose();
       toast.success("Prospecção registrada! O coordenador já vai receber.");
-    }, 250);
+    })();
   };
 
   return (

@@ -1,0 +1,15 @@
+create or replace function public.visits_exigem_foto() returns trigger
+language plpgsql as $$
+begin
+  if new.status = 'realizada'
+     and coalesce(jsonb_array_length(new.photos), 0) = 0
+     and new.photo_url is null then
+    raise exception 'Visita realizada exige pelo menos uma foto de comprovacao';
+  end if;
+  return new;
+end;
+$$;
+
+create trigger trg_visits_exigem_foto
+before insert on public.visits
+for each row execute function public.visits_exigem_foto();

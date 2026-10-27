@@ -189,10 +189,15 @@ export function VisitForm({
       alerta,
       alertaMotivo: alertaMotivo.trim(),
     };
-    addVisit(visit, { uploadPhoto: photos.some((p) => p.startsWith("data:")) });
-    if (routeVisitId) markRouteVisitStatus(routeVisitId, "concluida");
-    setSaving(false);
-    onClose();
+    void (async () => {
+      const salvou = await addVisit(visit, {
+        uploadPhoto: photos.some((p) => p.startsWith("data:")),
+      });
+      setSaving(false);
+      if (!salvou) return; // mantém o formulário aberto para tentar de novo
+      if (routeVisitId) markRouteVisitStatus(routeVisitId, "concluida");
+      onClose();
+    })();
   };
 
   return (
