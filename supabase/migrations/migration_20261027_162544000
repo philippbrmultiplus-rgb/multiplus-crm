@@ -1,0 +1,66 @@
+-- nova liberação: enviar a planilha de atualização dos números
+alter table public.user_permissoes
+  add column if not exists atualizar_planilha boolean not null default false;
+
+create or replace function public.is_liberado_planilha()
+returns boolean language sql stable security definer set search_path to 'public' as $$
+  select is_coordenador() or exists (
+    select 1 from public.user_permissoes p where p.user_id = auth.uid() and p.atualizar_planilha
+  );
+$$;
+
+-- lançamentos das atualizações semanais enviadas pelo app
+create table if not exists public.planilha_lancamentos (
+  id text primary key default (gen_random_uuid())::text,
+  nome_planilha text not null,
+  collect_date date not null,
+  volume_m3 numeric,
+  trocas integer not null default 1,
+  enviado_por uuid,
+  enviado_em timestamptz not null default now(),
+  unique (nome_planilha, collect_date)
+);
+
+alter table public.planilha_lancamentos enable row level security;
+
+create policy pl_select on public.planilha_lancamentos for select to authenticated using (true);
+create policy pl_insert on public.planilha_lancamentos for insert to authenticated with check (is_liberado_planilha());
+create policy pl_update on public.planilha_lancamentos for update to authenticated using (is_liberado_planilha()) with check (is_liberado_planilha());
+create policy pl_delete on public.planilha_lancamentos for delete to authenticated using (is_coordenador());
+
+-- quem envia a planilha grava também os números derivados dela
+alter policy cmv_insert on public.client_monthly_volumes with check (is_liberado_planilha());
+alter policy cmv_update on public.client_monthly_volumes
+  using (is_liberado_planilha()) with check (is_liberado_planilha());
+alter policy cc_insert on public.client_cadence with check (is_liberado_planilha());
+alter policy cc_update on public.client_cadence
+  using (is_liberado_planilha()) with check (is_liberado_planilha());
+alter policy coletas_insert on public.coletas
+  with check ((auth.uid() is not null and not is_leitor_apenas()) or is_liberado_planilha());
+alter policy coletas_update on public.coletas
+  using (is_liberado_planilha()) with check (is_liberado_planilha());
+alter policy clients_update_coord on public.clients
+  using (is_liberado_editar_clientes() or is_liberado_planilha())
+  with check (is_liberado_editar_clientes() or is_liberado_planilha());
+
+-- quem só tem a liberação da planilha só consegue mexer na data da última troca
+create or replace function public.limita_edicao_planilha()
+returns trigger language plpgsql security definer set search_path to 'public' as $$
+declare
+  data_enviada date := new.last_collect_at;
+begin
+  if auth.uid() is not null
+     and not is_coordenador()
+     and not is_liberado_editar_clientes()
+     and is_liberado_planilha() then
+    new := old;
+    if data_enviada is not null and (old.last_collect_at is null or old.last_collect_at < data_enviada) then
+      new.last_collect_at := data_enviada;
+    end if;
+  end if;
+  return new;
+end $$;
+
+create trigger trg_limita_edicao_planilha
+  before update on public.clients
+  for each row execute function public.limita_edicao_planilha();

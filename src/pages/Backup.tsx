@@ -27,6 +27,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useData } from "@/lib/DataContext";
+import { AtualizacaoPlanilha } from "@/components/planilha/AtualizacaoPlanilha";
 import { BASE_ADDRESS, DAY_NAMES } from "@/lib/geo";
 import type { Role } from "@/lib/types";
 
@@ -49,6 +50,7 @@ export default function Backup() {
     recarregarPlanilha,
     permissoes,
     setPermissao,
+    podeAtualizarPlanilha,
   } = useData();
   const podeEditar = role === "coordenador";
   const [usuarios, setUsuarios] = useState<Array<{ id: string; fullName: string; role: Role }>>([]);
@@ -92,20 +94,21 @@ export default function Backup() {
   /** concede ou revoga uma liberação temporária de um usuário */
   const alternarLiberacao = (
     usuario: { id: string; fullName: string },
-    patch: { editarClientes?: boolean; gerirRota?: boolean },
+    patch: { editarClientes?: boolean; gerirRota?: boolean; atualizarPlanilha?: boolean },
   ) => {
     void setPermissao(usuario.id, patch).then((err) => {
       if (err) {
         toast.error("Não foi possível salvar a liberação", { description: err });
         return;
       }
-      const edicao = patch.editarClientes != null;
-      const ligado = patch.editarClientes ?? patch.gerirRota;
-      toast.success(
-        `${edicao ? "Edição de clientes" : "Rota semanal"} ${ligado ? "liberada" : "bloqueada"} para ${
-          usuario.fullName || "usuário"
-        }.`,
-      );
+      const rotulo =
+        patch.editarClientes != null
+          ? "Edição de clientes"
+          : patch.gerirRota != null
+            ? "Rota semanal"
+            : "Envio da planilha";
+      const ligado = patch.editarClientes ?? patch.gerirRota ?? patch.atualizarPlanilha;
+      toast.success(`${rotulo} ${ligado ? "liberada" : "bloqueada"} para ${usuario.fullName || "usuário"}.`);
     });
   };
 
@@ -157,7 +160,7 @@ export default function Backup() {
             Exporte o backup e abra neste mesmo app no aparelho do vendedor (opção "Importar backup")
             para sincronizar clientes, rotas e visitas.
           </p>
-          {podeEditar && (
+          {podeAtualizarPlanilha && (
             <div className="flex flex-wrap items-center gap-2 border-t pt-3">
               <Button
                 variant="secondary"
@@ -170,14 +173,16 @@ export default function Backup() {
                 <RefreshCw className="mr-2 h-4 w-4" /> Recarregar planilha de coletas
               </Button>
               <span className="text-xs text-muted-foreground">
-                Relê a planilha <b>PAULINIA</b> (coletas de julho a outubro/2026) e atualiza o
-                comparativo mensal, a cadência de trocas, a última troca de cada cliente e o
-                histórico. Versão aplicada: <b>{s.planilhaVersao ?? "—"}</b>.
+                Relê a planilha base do app e reaplica todos os números enviados (comparativo mensal,
+                cadência de trocas, última troca de cada cliente e histórico). Versão da base:{" "}
+                <b>{s.planilhaVersao ?? "—"}</b>.
               </span>
             </div>
           )}
         </CardContent>
       </Card>
+
+      {podeAtualizarPlanilha && <AtualizacaoPlanilha />}
 
       <Card className="card-soft">
         <CardHeader>
@@ -407,6 +412,14 @@ export default function Backup() {
                       checked={ehCoordenador || !!p?.gerirRota}
                       disabled={ehCoordenador}
                       onCheckedChange={(v) => alternarLiberacao(u, { gerirRota: v })}
+                    />
+                  </label>
+                  <label className="flex items-center justify-between gap-3 text-sm">
+                    <span>Enviar planilha de atualização dos números</span>
+                    <Switch
+                      checked={ehCoordenador || !!p?.atualizarPlanilha}
+                      disabled={ehCoordenador}
+                      onCheckedChange={(v) => alternarLiberacao(u, { atualizarPlanilha: v })}
                     />
                   </label>
                   {ehCoordenador && (

@@ -1,3 +1,5 @@
+import { supabase } from "@/integrations/supabase/client";
+import { casarCliente, indexarClientes, type ClienteCasavel } from "./planilhaMatch";
 import type { ClientCadence, MonthlyVolume } from "./types";
 
 /** uma coleta da planilha: [data, volume em m³, nº de lançamentos do dia] */
@@ -17,6 +19,15 @@ interface ArquivoPlanilha {
   periodo?: [string, string];
   gerado_em?: string;
   clientes: ClientePlanilha[];
+}
+
+/** lançamento enviado pelo app (atualização semanal da planilha) */
+export interface LancamentoPlanilha {
+  /** nome do cliente exatamente como vem na planilha */
+  nome: string;
+  data: string;
+  volume: number;
+  trocas: number;
 }
 
 export interface ColetaPlanilha {
@@ -73,36 +84,57 @@ function slugDoNome(nome: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-/** agrupa as coletas por cliente cadastrado (ou pelo nome da planilha, sem cadastro) */
-function agrupar(arquivo: ArquivoPlanilha): Map<string, Grupo> {
-  const grupos = new Map<string, Grupo>();
+/** agrupa as coletas por nome da planilha, aplicando antes as atualizações enviadas */
+/**
+ * Junta a planilha base com os lançamentos enviados pelo app: o que veio depois
+ * manda nas datas que ele cobre, as demais datas continuam como estavam.
+ */
+function coletasPorNome(
+  arquivo: ArquivoPlanilha,
+  lancamentos: LancamentoPlanilha[],
+): Map<string, Map<string, { volume: number; trocas: number }>> {
+  const porNome = new Map<string, Map<string, { volume: number; trocas: number }>>();
+  const diasDe = (nome: string) => {
+    const atual = porNome.get(nome);
+    if (atual) return atual;
+    const novo = new Map<string, { volume: number; trocas: number }>();
+    porNome.set(nome, novo);
+    return novo;
+  };
+
   for (const linha of arquivo.clientes) {
     if (!linha || !Array.isArray(linha.coletas)) continue;
-    const chave = linha.cliente ? `cli:${linha.cliente}` : `sem:${linha.nome}`;
-    const grupo =
-      grupos.get(chave) ??
-      ({
-        nome: linha.nome,
-        cliente: linha.cliente ?? null,
-        dias: new Map(),
-      } satisfies Grupo);
+    const dias = diasDe(linha.nome);
     for (const [data, volume, trocas] of linha.coletas) {
       const dia = String(data).slice(0, 10);
-      const atual = grupo.dias.get(dia);
+      const atual = dias.get(dia);
       if (atual) {
         atual.volume += Number(volume) || 0;
         atual.trocas += Number(trocas) || 1;
       } else {
-        grupo.dias.set(dia, { volume: Number(volume) || 0, trocas: Number(trocas) || 1 });
+        dias.set(dia, { volume: Number(volume) || 0, trocas: Number(trocas) || 1 });
       }
     }
-    grupos.set(chave, grupo);
   }
-  return grupos;
+
+  for (const l of lancamentos) {
+    const dia = String(l.data).slice(0, 10);
+    if (!l.nome || !dia) continue;
+    diasDe(l.nome).set(dia, {
+      volume: Number(l.volume) || 0,
+      trocas: Math.max(1, Number(l.trocas) || 1),
+    });
+  }
+
+  return porNome;
 }
 
-/** converte a planilha em volumes mensais, cadência, histórico de coletas e última data */
-export function calcularDados(arquivo: ArquivoPlanilha): DadosPlanilha {
+/** converte a planilha (base + atualizações enviadas no app) em volumes, cadência e histórico */
+export function calcularDados(
+  arquivo: ArquivoPlanilha,
+  lancamentos: LancamentoPlanilha[] = [],
+  clientes: ClienteCasavel[] = [],
+): DadosPlanilha {
   const volumes: MonthlyVolume[] = [];
   const cadence: ClientCadence[] = [];
   const coletas: ColetaPlanilha[] = [];
@@ -110,7 +142,34 @@ export function calcularDados(arquivo: ArquivoPlanilha): DadosPlanilha {
   const semCadastro: string[] = [];
   let totalColetas = 0;
 
-  for (const grupo of agrupar(arquivo).values()) {
+  // nome da planilha -> cliente do cadastro (a planilha base já vem resolvida; nomes
+  // novos das atualizações são casados na hora, com os clientes carregados no app)
+  const clienteDoNome = new Map<string, string | null>();
+  for (const linha of arquivo.clientes) clienteDoNome.set(linha.nome, linha.cliente ?? null);
+  const indice = clientes.length > 0 ? indexarClientes(clientes) : [];
+
+  const grupos = new Map<string, Grupo>();
+  for (const [nome, dias] of coletasPorNome(arquivo, lancamentos)) {
+    const cliente = clienteDoNome.has(nome)
+      ? (clienteDoNome.get(nome) ?? null)
+      : indice.length > 0
+        ? casarCliente(nome, indice)
+        : null;
+    const chave = cliente ? `cli:${cliente}` : `sem:${nome}`;
+    const grupo = grupos.get(chave) ?? { nome, cliente, dias: new Map() };
+    for (const [dia, valor] of dias) {
+      const atual = grupo.dias.get(dia);
+      if (atual) {
+        atual.volume += valor.volume;
+        atual.trocas += valor.trocas;
+      } else {
+        grupo.dias.set(dia, { ...valor });
+      }
+    }
+    grupos.set(chave, grupo);
+  }
+
+  for (const grupo of grupos.values()) {
     const datas = [...grupo.dias.keys()].sort();
     const prefixo = grupo.cliente ? `vol-${grupo.cliente}` : `vol-sem-${slugDoNome(grupo.nome)}`;
 
@@ -166,14 +225,52 @@ export function calcularDados(arquivo: ArquivoPlanilha): DadosPlanilha {
   };
 }
 
-/** busca a planilha publicada com o app e devolve os dados já calculados */
-export async function carregarPlanilha(): Promise<DadosPlanilha | null> {
+/** nome da planilha -> cliente vinculado, conforme a planilha base do app */
+export async function carregarNomesDaBase(): Promise<Record<string, string | null>> {
+  try {
+    const res = await fetch(URL_PLANILHA);
+    if (!res.ok) return {};
+    const arquivo = (await res.json()) as ArquivoPlanilha;
+    const mapa: Record<string, string | null> = {};
+    for (const linha of arquivo?.clientes ?? []) mapa[linha.nome] = linha.cliente ?? null;
+    return mapa;
+  } catch {
+    return {};
+  }
+}
+
+/** lançamentos das atualizações semanais enviadas pelo app */
+export async function carregarLancamentos(): Promise<LancamentoPlanilha[]> {
+  const { data, error } = await supabase
+    .from("planilha_lancamentos")
+    .select("nome_planilha, collect_date, volume_m3, trocas");
+  if (error) {
+    console.warn("lançamentos da planilha:", error.message);
+    return [];
+  }
+  return (data ?? []).map((r) => {
+    const row = r as Record<string, unknown>;
+    return {
+      nome: String(row.nome_planilha ?? ""),
+      data: String(row.collect_date ?? "").slice(0, 10),
+      volume: Number(row.volume_m3 ?? 0),
+      trocas: Number(row.trocas ?? 1) || 1,
+    };
+  });
+}
+
+/**
+ * Busca a planilha base publicada com o app, junta as atualizações semanais
+ * enviadas e devolve os números já calculados.
+ */
+export async function carregarPlanilha(clientes: ClienteCasavel[] = []): Promise<DadosPlanilha | null> {
   try {
     const res = await fetch(URL_PLANILHA);
     if (!res.ok) return null;
     const arquivo = (await res.json()) as ArquivoPlanilha;
     if (!arquivo || !Array.isArray(arquivo.clientes)) return null;
-    return calcularDados(arquivo);
+    const lancamentos = await carregarLancamentos();
+    return calcularDados(arquivo, lancamentos, clientes);
   } catch (err) {
     console.warn("planilha de coletas não pôde ser lida:", err);
     return null;

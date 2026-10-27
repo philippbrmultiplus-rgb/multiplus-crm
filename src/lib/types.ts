@@ -10,6 +10,8 @@ export interface PermissaoUsuario {
   editarClientes: boolean;
   /** pode gerar, editar e publicar a rota semanal */
   gerirRota: boolean;
+  /** pode enviar a planilha de atualização semanal dos números */
+  atualizarPlanilha: boolean;
   atualizadoEm: string | null;
 }
 

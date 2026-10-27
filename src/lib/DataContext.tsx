@@ -34,7 +34,7 @@ import type {
   ProspectVisitInput,
 } from "./types";
 import { generateWeekRoute, mergeWeekRoute } from "./route";
-import { carregarPlanilha } from "./planilha";
+import { carregarPlanilha, type LancamentoPlanilha } from "./planilha";
 import { formatDateBR, toLocalDateKey } from "./geo";
 
 const STORAGE_KEY = "mp-paulinia-app-state.v1";
@@ -245,6 +245,7 @@ function permissaoFromRow(r: Record<string, any>): PermissaoUsuario {
     userId: String(r.user_id),
     editarClientes: r.editar_clientes ?? false,
     gerirRota: r.gerir_rota ?? false,
+    atualizarPlanilha: r.atualizar_planilha ?? false,
     atualizadoEm: r.atualizado_em ?? null,
   };
 }
@@ -618,6 +619,10 @@ interface DataContextValue {
   ) => Promise<Array<{ date: string; note: string; volume: number | null; trocas: number }>>;
   /** relê a planilha de coletas publicada no app (volumes, cadência e histórico) */
   recarregarPlanilha: () => Promise<void>;
+  /** envia uma planilha de atualização semanal e reaplica os números */
+  enviarAtualizacaoPlanilha: (lancamentos: LancamentoPlanilha[]) => Promise<string | null>;
+  /** o usuário logado pode enviar a planilha de atualização dos números */
+  podeAtualizarPlanilha: boolean;
   /** liberações temporárias concedidas pelo coordenador (o vendedor vê só a dele) */
   permissoes: PermissaoUsuario[];
   /** o usuário logado pode editar/cadastrar clientes (papel ou liberação temporária) */
@@ -626,7 +631,7 @@ interface DataContextValue {
   podeGerirRota: boolean;
   setPermissao: (
     userId: string,
-    patch: { editarClientes?: boolean; gerirRota?: boolean },
+    patch: { editarClientes?: boolean; gerirRota?: boolean; atualizarPlanilha?: boolean },
   ) => Promise<string | null>;
   listProfiles: () => Promise<Array<{ id: string; fullName: string; role: Role }>>;
   setUserRole: (id: string, role: Role) => Promise<string | null>;
@@ -741,8 +746,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       clients: Client[],
       opts?: { versaoSalva?: string | null; semDados?: boolean; forcar?: boolean },
     ) => {
-      if (roleRef.current !== "coordenador" || !uidRef.current) return;
-      const dados = await carregarPlanilha();
+      if (!uidRef.current) return;
+      if (roleRef.current !== "coordenador" && !checarAtualizarPlanilha()) return;
+      const dados = await carregarPlanilha(clients);
       if (!dados) {
         toast.error("Não foi possível ler a planilha de coletas do app.");
         return;
@@ -821,7 +827,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         settings: { ...prev.settings, planilhaVersao: dados.versao ?? prev.settings.planilhaVersao },
       }));
       // registra a versão aplicada, para as próximas cargas não repetirem a importação
-      if (dados.versao) {
+      if (dados.versao && roleRef.current === "coordenador") {
         const novoSettings: Settings = { ...settingsRef.current, planilhaVersao: dados.versao };
         settingsRef.current = novoSettings;
         const { error: sErr } = await supabase.from("settings").upsert(settingsToRow(novoSettings));
@@ -839,6 +845,43 @@ export function DataProvider({ children }: { children: ReactNode }) {
   /** reaproveita a importação da planilha a partir da tela de dados (coordenador) */
   const recarregarPlanilha = useCallback(
     () => importarPlanilha(clientsRef.current, { forcar: true }),
+    [importarPlanilha],
+  );
+
+  /**
+   * Recebe a planilha de atualização semanal (já lida e agrupada por cliente/dia),
+   * grava os lançamentos na nuvem e reaplica os números (comparativo, cadência,
+   * última troca e histórico).
+   */
+  const enviarAtualizacaoPlanilha = useCallback(
+    async (lancamentos: LancamentoPlanilha[]) => {
+      if (!uidRef.current) return "Faça login para enviar a planilha.";
+      if (!checarAtualizarPlanilha()) return "Sem liberação para enviar a planilha de atualização.";
+      if (lancamentos.length === 0) return "Nenhum lançamento válido encontrado no arquivo.";
+
+      const erro = await enviarEmLotes(
+        lancamentos.map((l) => ({
+          nome_planilha: l.nome,
+          collect_date: l.data,
+          volume_m3: l.volume,
+          trocas: l.trocas,
+          enviado_por: uidRef.current,
+          enviado_em: new Date().toISOString(),
+        })),
+        (parte) =>
+          supabase
+            .from("planilha_lancamentos")
+            .upsert(parte, { onConflict: "nome_planilha,collect_date" }),
+      );
+      if (erro) {
+        console.error("enviar planilha de atualização:", erro);
+        toast.error("Não foi possível gravar a planilha", { description: erro });
+        return erro;
+      }
+
+      await importarPlanilha(clientsRef.current, { forcar: true });
+      return null;
+    },
     [importarPlanilha],
   );
 
@@ -1606,6 +1649,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const checarGerirRota = () =>
     roleRef.current === "coordenador" ||
     permissoesRef.current.some((p) => p.userId === uidRef.current && p.gerirRota);
+
+  /** quem pode enviar a planilha de atualização dos números */
+  const checarAtualizarPlanilha = () =>
+    roleRef.current === "coordenador" ||
+    permissoesRef.current.some((p) => p.userId === uidRef.current && p.atualizarPlanilha);
 
   const canWriteClientData = () => roleRef.current === "coordenador" && !!uidRef.current;
 
@@ -2703,12 +2751,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
    * Serve para dar acesso pontual a um vendedor e bloquear depois.
    */
   const setPermissao = useCallback(
-    async (userId: string, patch: { editarClientes?: boolean; gerirRota?: boolean }) => {
+    async (userId: string, patch: { editarClientes?: boolean; gerirRota?: boolean; atualizarPlanilha?: boolean }) => {
       const atual = permissoesRef.current.find((p) => p.userId === userId);
       const registro: PermissaoUsuario = {
         userId,
         editarClientes: patch.editarClientes ?? atual?.editarClientes ?? false,
         gerirRota: patch.gerirRota ?? atual?.gerirRota ?? false,
+        atualizarPlanilha: patch.atualizarPlanilha ?? atual?.atualizarPlanilha ?? false,
         atualizadoEm: new Date().toISOString(),
       };
       const { error } = await supabase.from("user_permissoes").upsert(
@@ -2716,6 +2765,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           user_id: userId,
           editar_clientes: registro.editarClientes,
           gerir_rota: registro.gerirRota,
+          atualizar_planilha: registro.atualizarPlanilha,
           atualizado_em: registro.atualizadoEm,
           atualizado_por: uidRef.current,
         },
@@ -3309,6 +3359,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
     deleteClient,
     loadClientColetas,
     recarregarPlanilha,
+    enviarAtualizacaoPlanilha,
+    podeAtualizarPlanilha:
+      role === "coordenador" || !!permissoes.find((p) => p.userId === user?.id)?.atualizarPlanilha,
     listProfiles,
     setUserRole,
     recomputeTiers,

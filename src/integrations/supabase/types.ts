@@ -3787,6 +3787,36 @@ export type Database = {
         }
         Relationships: []
       }
+      planilha_lancamentos: {
+        Row: {
+          collect_date: string
+          enviado_em: string
+          enviado_por: string | null
+          id: string
+          nome_planilha: string
+          trocas: number
+          volume_m3: number | null
+        }
+        Insert: {
+          collect_date: string
+          enviado_em?: string
+          enviado_por?: string | null
+          id?: string
+          nome_planilha: string
+          trocas?: number
+          volume_m3?: number | null
+        }
+        Update: {
+          collect_date?: string
+          enviado_em?: string
+          enviado_por?: string | null
+          id?: string
+          nome_planilha?: string
+          trocas?: number
+          volume_m3?: number | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -3945,6 +3975,7 @@ export type Database = {
         Row: {
           atualizado_em: string
           atualizado_por: string | null
+          atualizar_planilha: boolean
           editar_clientes: boolean
           gerir_rota: boolean
           user_id: string
@@ -3952,6 +3983,7 @@ export type Database = {
         Insert: {
           atualizado_em?: string
           atualizado_por?: string | null
+          atualizar_planilha?: boolean
           editar_clientes?: boolean
           gerir_rota?: boolean
           user_id: string
@@ -3959,6 +3991,7 @@ export type Database = {
         Update: {
           atualizado_em?: string
           atualizado_por?: string | null
+          atualizar_planilha?: boolean
           editar_clientes?: boolean
           gerir_rota?: boolean
           user_id?: string
@@ -4113,6 +4146,10 @@ export type Database = {
         Returns: boolean
       }
       is_liberado_gerir_rota: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      is_liberado_planilha: {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }
