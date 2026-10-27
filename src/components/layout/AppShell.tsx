@@ -142,7 +142,9 @@ export function AppShell({ children }: { children: ReactNode }) {
         </SidebarHeader>
         <SidebarContent>
           <SidebarGroup>
-            <SidebarGroupLabel>{role === "coordenador" ? "Gestão" : "Execução"}</SidebarGroupLabel>
+            <SidebarGroupLabel>
+              {role === "coordenador" || role === "gerente" ? "Gestão" : "Execução"}
+            </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 {items.map((item) => {
@@ -194,6 +196,11 @@ export function AppShell({ children }: { children: ReactNode }) {
             <span className="rounded-full bg-secondary px-2.5 py-1 font-medium text-secondary-foreground">
               {roleLabel}
             </span>
+            {currentRole === "gerente" && (
+              <span className="rounded-full border border-border px-2.5 py-1 font-medium text-muted-foreground">
+                somente leitura
+              </span>
+            )}
             {!cloudReady && (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
             )}

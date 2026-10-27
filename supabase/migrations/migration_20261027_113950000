@@ -1,0 +1,33 @@
+-- o gerente é somente leitura: nenhuma escrita passa pelo banco
+create or replace function public.is_leitor_apenas()
+returns boolean language sql stable security definer set search_path to 'public' as $$
+  select exists (select 1 from public.profiles where id = auth.uid() and role = 'gerente');
+$$;
+
+alter policy coletas_insert on public.coletas
+  with check (auth.uid() is not null and not is_leitor_apenas());
+
+alter policy rv_write_vendor on public.route_visits
+  with check (auth.uid() is not null and not is_leitor_apenas());
+alter policy rv_update_any on public.route_visits
+  using (auth.uid() is not null and not is_leitor_apenas())
+  with check (auth.uid() is not null and not is_leitor_apenas());
+alter policy rv_write_prospect on public.route_visits
+  with check (
+    exists (select 1 from public.clients c where c.id = route_visits.client_id and c.is_prospecao = true)
+    and not is_leitor_apenas()
+  );
+
+alter policy visits_insert on public.visits
+  with check (not is_leitor_apenas());
+alter policy visits_update on public.visits
+  using (((auth.uid() = created_by) or is_coordenador()) and not is_leitor_apenas())
+  with check (not is_leitor_apenas());
+alter policy visits_delete on public.visits
+  using (((auth.uid() = created_by) or is_coordenador()) and not is_leitor_apenas());
+
+alter policy clients_insert_prospect on public.clients
+  with check (is_prospecao = true and not is_leitor_apenas());
+alter policy clients_update_prospect on public.clients
+  using (is_prospecao = true and not is_leitor_apenas())
+  with check (is_prospecao = true and not is_leitor_apenas());
