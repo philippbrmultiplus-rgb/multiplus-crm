@@ -187,7 +187,8 @@ export default function Clientes() {
       if (ignore !== "segmento" && segment !== "all" && (c.segment || "(sem segmento)") !== segment)
         return false;
       if (ignore !== "grupo" && tier !== "all" && c.tier !== tier) return false;
-      if (onlyActive && !c.active) return false;
+      // marcado: só clientes ativos; desmarcado: só os inativos
+      if (onlyActive ? !c.active : c.active) return false;
       if (situ === "atrasada" && !isColetaOverdue(c)) return false;
       if (situ === "em_dia" && (c.lastCollectAt == null || isColetaOverdue(c))) return false;
       if (situ === "sem_data" && c.lastCollectAt != null) return false;
@@ -263,7 +264,7 @@ export default function Clientes() {
   const matching = useMemo(() => {
     const q = search.trim().toLowerCase();
     return clients
-      .filter((c) => (onlyActive ? c.active : true))
+      .filter((c) => (onlyActive ? c.active : !c.active))
       .filter((c) => (tier === "all" ? true : c.tier === tier))
       .filter((c) => (city === "all" ? true : cidadeKey(c.city || "(sem cidade)") === cidadeKey(city)))
       .filter((c) => {
@@ -597,9 +598,12 @@ export default function Clientes() {
             <SelectItem value="volume">Maior volume (t/mês)</SelectItem>
           </SelectContent>
         </Select>
-        <label className="flex h-9 items-center gap-2 text-sm text-muted-foreground">
+        <label
+          className="flex h-9 items-center gap-2 text-sm text-muted-foreground"
+          title="Marcado mostra só os ativos; desmarcado mostra só os inativos"
+        >
           <Checkbox checked={onlyActive} onCheckedChange={(v) => setOnlyActive(!!v)} />
-          Só ativos
+          {onlyActive ? "Só ativos" : "Só inativos"}
         </label>
         {anyFilter && (
           <Button variant="ghost" size="sm" onClick={resetFilters}>
