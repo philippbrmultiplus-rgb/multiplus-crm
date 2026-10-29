@@ -84,9 +84,12 @@ import {
   EQUIPAMENTOS_CONTRATO,
   baixarArquivo,
   gerarContratoDocx,
+  montarContrato,
   nomeArquivoContrato,
   proximoNumeroContrato,
+  type ContratoMontado,
 } from "@/lib/contrato";
+import { ContratoPreviewDialog } from "@/components/clients/ContratoPreviewDialog";
 import type { Client, Visit } from "@/lib/types";
 
 const PROSPECTA = "__prospecao__";
@@ -989,7 +992,8 @@ function EditClientDialog({
   const [diaPagamento, setDiaPagamento] = useState(String(client?.diaPagamento ?? 10));
   const [formaPagamento, setFormaPagamento] = useState(client?.formaPagamento ?? "Fechamento mensal");
   const [localColeta, setLocalColeta] = useState(client?.localColeta ?? "");
-  const [gerando, setGerando] = useState(false);
+  const [previa, setPrevia] = useState<ContratoMontado | null>(null);
+  const [baixando, setBaixando] = useState(false);
 
   // condições de pagamento (editáveis junto com o cadastro)
   type PagamentoDraft = {
@@ -1090,10 +1094,10 @@ function EditClientDialog({
   };
 
   /**
-   * Grava os dados do contrato no cadastro e gera o documento em Word
-   * já preenchido com as informações deste cliente.
+   * Grava os dados do contrato no cadastro e monta o documento para
+   * a pré-visualização (só depois, se estiver tudo certo, ele é baixado).
    */
-  const gerarContrato = async () => {
+  const abrirPreviaContrato = () => {
     if (!client) return;
     const patch: Partial<Client> = {
       cnpj: cnpj.trim() || null,
@@ -1109,27 +1113,36 @@ function EditClientDialog({
     };
     updateClient(client.id, patch);
     const numero = (patch.contratoNumero as string | null) ?? proximoNumeroContrato(state.clients);
-    setGerando(true);
-    try {
-      const blob = await gerarContratoDocx({
+    setPrevia(
+      montarContrato({
         numero,
         cliente: { ...client, ...patch },
         settings: state.settings,
-      });
-      baixarArquivo(blob, nomeArquivoContrato(client, numero));
+      }),
+    );
+  };
+
+  /** baixa o contrato em Word exatamente como está na prévia */
+  const baixarContrato = async () => {
+    if (!previa) return;
+    setBaixando(true);
+    try {
+      const blob = await gerarContratoDocx(previa);
+      baixarArquivo(blob, nomeArquivoContrato(previa.clienteNome, previa.numero));
       toast.success("Contrato gerado", {
-        description: `Nº ${numero} — arquivo Word pronto para assinatura`,
+        description: `Nº ${previa.numero} — arquivo Word pronto para assinatura`,
       });
     } catch (err) {
       toast.error("Não foi possível gerar o contrato", {
         description: err instanceof Error ? err.message : undefined,
       });
     } finally {
-      setGerando(false);
+      setBaixando(false);
     }
   };
 
   return (
+    <>
     <Dialog open={!!client} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-h-[calc(100dvh-2.5rem)] max-w-2xl overflow-y-auto overscroll-contain">
         <DialogHeader>
@@ -1399,16 +1412,12 @@ function EditClientDialog({
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <Button type="button" variant="secondary" disabled={gerando} onClick={() => void gerarContrato()}>
-                {gerando ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <FileSignature className="mr-2 h-4 w-4" />
-                )}
-                Gerar contrato (Word)
+              <Button type="button" variant="secondary" onClick={abrirPreviaContrato}>
+                <FileSignature className="mr-2 h-4 w-4" />
+                Gerar contrato
               </Button>
               <span className="text-xs text-muted-foreground">
-                gera o contrato para assinatura e baixa em .docx
+                abre a prévia para conferir os dados antes de baixar em Word
               </span>
             </div>
           </div>
@@ -1421,6 +1430,14 @@ function EditClientDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <ContratoPreviewDialog
+      montado={previa}
+      onClose={() => setPrevia(null)}
+      onBaixar={() => void baixarContrato()}
+      baixando={baixando}
+    />
+      </>
   );
 }
 
