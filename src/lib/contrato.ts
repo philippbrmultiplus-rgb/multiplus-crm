@@ -26,6 +26,17 @@ const MESES = [
   "dezembro",
 ];
 
+/**
+ * Separa o texto em partes normais e em negrito: o que vem entre ** aparece
+ * destacado (usado nos dados do cliente).
+ */
+export function partesDoTexto(texto: string): Array<{ texto: string; negrito: boolean }> {
+  return texto
+    .split("**")
+    .filter((parte) => parte !== "")
+    .map((parte, i) => ({ texto: parte, negrito: i % 2 === 1 }));
+}
+
 /** pedaços do contrato: o mesmo conteúdo alimenta a prévia e o arquivo do Word */
 export type BlocoContrato =
   | { tipo: "numero"; numero: string }
@@ -40,7 +51,7 @@ export type BlocoContrato =
       espacoAntes?: number;
       espacoDepois?: number;
     }
-  | { tipo: "tabela"; cabecalho: string[]; linhas: string[][] }
+  | { tipo: "tabela"; cabecalho: string[]; linhas: string[][]; negritoValores?: boolean }
   | { tipo: "assinatura"; nome: string; cargo: string }
   | { tipo: "testemunhas"; nome: string; cpf: string }
   | { tipo: "quebra" };
@@ -122,7 +133,7 @@ export function montarContrato({ numero, cliente, settings, data = new Date() }:
     { tipo: "titulo", texto: "INSTRUMENTO PARTICULAR\nDE CONTRATO DE PRESTAÇÃO DE SERVIÇOS" },
 
     p(
-      `Pelo presente instrumento particular e na melhor forma de direito, de um lado, a pessoa jurídica de direito privado ${cli.razao}, estabelecida na ${cli.endereco}${cliente.cnpj ? `, inscrita no CNPJ n° ${cliente.cnpj}` : ""}; Inscrição Estadual n° ${cliente.inscricaoEstadual || "ISENTO"}, doravante denominada de CONTRATANTE e;`,
+      `Pelo presente instrumento particular e na melhor forma de direito, de um lado, a pessoa jurídica de direito privado **${cli.razao}**, estabelecida na **${cli.endereco}**${cliente.cnpj ? `, inscrita no CNPJ n° **${cliente.cnpj}**` : ""}; Inscrição Estadual n° **${cliente.inscricaoEstadual || "ISENTO"}**, doravante denominada de CONTRATANTE e;`,
       { espacoAntes: 240 },
     ),
     p(
@@ -282,12 +293,13 @@ export function montarContrato({ numero, cliente, settings, data = new Date() }:
       { espacoAntes: 240 },
     ),
     { tipo: "rotulo", texto: "Local da Coleta:" },
-    p(localColeta, { espacoDepois: 240 }),
+    p(`**${localColeta}**`, { espacoDepois: 240 }),
     { tipo: "rotulo", texto: "Equipamentos Alocados a título de comodato:" },
     {
       tipo: "tabela",
       cabecalho: ["Quantidade", "Equipamento", "Mínimo de Trocas Mensais", "R$/troca"],
       linhas: [[String(quantidade), equipamento, String(trocas), valorTroca]],
+      negritoValores: true,
     },
     p(
       `A medição será realizada mensalmente, com o pagamento para o dia ${diaPagamento} do mês subsequente da CONTRATADA ${emp.razao} para a ${cli.razao}. Forma de pagamento: ${formaPagamento}.`,
@@ -365,14 +377,15 @@ export async function gerarContratoDocx(
               ? AlignmentType.LEFT
               : AlignmentType.JUSTIFIED,
       spacing: { before: opcoes?.espacoAntes ?? 0, after: opcoes?.espacoDepois ?? 120, line: 276 },
-      children: [
-        new TextRun({
-          text: texto,
-          font: FONTE,
-          size: opcoes?.tamanho ?? CORPO,
-          bold: opcoes?.negrito ?? false,
-        }),
-      ],
+      children: partesDoTexto(texto).map(
+        (parte) =>
+          new TextRun({
+            text: parte.texto,
+            font: FONTE,
+            size: opcoes?.tamanho ?? CORPO,
+            bold: (opcoes?.negrito ?? false) || parte.negrito,
+          }),
+      ),
     });
 
   const borda = { style: BorderStyle.SINGLE, size: 4, color: "666666" };
@@ -445,7 +458,14 @@ export async function gerarContratoDocx(
                         children: [
                           new Paragraph({
                             alignment: AlignmentType.CENTER,
-                            children: [new TextRun({ text: valor, font: FONTE, size: CORPO })],
+                            children: [
+                              new TextRun({
+                                text: valor,
+                                font: FONTE,
+                                size: CORPO,
+                                bold: bloco.negritoValores ?? false,
+                              }),
+                            ],
                           }),
                         ],
                       }),

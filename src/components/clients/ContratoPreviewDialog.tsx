@@ -8,7 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { LOGO_CONTRATO, type BlocoContrato, type ContratoMontado } from "@/lib/contrato";
+import { LOGO_CONTRATO, partesDoTexto, type BlocoContrato, type ContratoMontado } from "@/lib/contrato";
 
 /** parágrafo do contrato na prévia (mesmo texto usado no Word) */
 function Bloco({ bloco }: { bloco: BlocoContrato }) {
@@ -22,7 +22,15 @@ function Bloco({ bloco }: { bloco: BlocoContrato }) {
     case "titulo":
       return (
         <p className="mt-2 mb-8 whitespace-pre-line text-center text-[16px] font-bold uppercase leading-snug">
-          {bloco.texto}
+          {partesDoTexto(bloco.texto).map((parte, i) =>
+            parte.negrito ? (
+              <strong key={i} className="font-bold">
+                {parte.texto}
+              </strong>
+            ) : (
+              <span key={i}>{parte.texto}</span>
+            ),
+          )}
         </p>
       );
     case "secao":
@@ -45,7 +53,15 @@ function Bloco({ bloco }: { bloco: BlocoContrato }) {
           ].join(" ")}
           style={{ marginTop: bloco.espacoAntes ? bloco.espacoAntes / 20 : undefined }}
         >
-          {bloco.texto}
+          {partesDoTexto(bloco.texto).map((parte, i) =>
+            parte.negrito ? (
+              <strong key={i} className="font-bold">
+                {parte.texto}
+              </strong>
+            ) : (
+              <span key={i}>{parte.texto}</span>
+            ),
+          )}
         </p>
       );
     case "tabela":
@@ -67,7 +83,12 @@ function Bloco({ bloco }: { bloco: BlocoContrato }) {
             {bloco.linhas.map((linha, i) => (
               <tr key={i}>
                 {linha.map((valor, j) => (
-                  <td key={j} className="border border-neutral-500 px-2 py-2 text-center">
+                  <td
+                    key={j}
+                    className={`border border-neutral-500 px-2 py-2 text-center ${
+                      bloco.negritoValores ? "font-bold" : ""
+                    }`}
+                  >
                     {valor}
                   </td>
                 ))}
