@@ -1,21 +1,31 @@
+import { Suspense, lazy, type ReactNode } from "react";
 import { Navigate } from "react-router-dom";
 import { AppShell } from "@/components/layout/AppShell";
 import { AuthScreen } from "@/components/layout/AuthScreen";
-import Dashboard from "./pages/Dashboard";
-import Clientes from "./pages/Clientes";
-import MapaClientes from "./pages/MapaClientes";
-import Prospeccoes from "./pages/Prospeccoes";
-import RotaSemanal from "./pages/RotaSemanal";
-import MinhaRota from "./pages/MinhaRota";
-import MinhaRotaSemana from "./pages/MinhaRotaSemana";
-import MinhaRotaMes from "./pages/MinhaRotaMes";
-import Visitas from "./pages/Visitas";
-import Alertas from "./pages/Alertas";
-import ComparativoMensal from "./pages/ComparativoMensal";
-import Cadencia from "./pages/Cadencia";
-import ProspeccaoInterna from "./pages/ProspeccaoInterna";
-import Backup from "./pages/Backup";
-import NotFound from "./pages/NotFound";
+import { PageLoading } from "@/components/layout/PageLoading";
+
+// cada tela vira um arquivo separado: o app abre sem baixar mapa, gráficos etc.
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Clientes = lazy(() => import("./pages/Clientes"));
+const MapaClientes = lazy(() => import("./pages/MapaClientes"));
+const Prospeccoes = lazy(() => import("./pages/Prospeccoes"));
+const RotaSemanal = lazy(() => import("./pages/RotaSemanal"));
+const MinhaRota = lazy(() => import("./pages/MinhaRota"));
+const MinhaRotaSemana = lazy(() => import("./pages/MinhaRotaSemana"));
+const MinhaRotaMes = lazy(() => import("./pages/MinhaRotaMes"));
+const Visitas = lazy(() => import("./pages/Visitas"));
+const Alertas = lazy(() => import("./pages/Alertas"));
+const ComparativoMensal = lazy(() => import("./pages/ComparativoMensal"));
+const Cadencia = lazy(() => import("./pages/Cadencia"));
+const ProspeccaoInterna = lazy(() => import("./pages/ProspeccaoInterna"));
+const Backup = lazy(() => import("./pages/Backup"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+
+const pagina = (conteudo: ReactNode) => (
+  <AppShell>
+    <Suspense fallback={<PageLoading />}>{conteudo}</Suspense>
+  </AppShell>
+);
 
 export const routers = [
   {
@@ -26,128 +36,72 @@ export const routers = [
   {
     path: "/dashboard",
     name: "dashboard",
-    element: (
-      <AppShell>
-        <Dashboard />
-      </AppShell>
-    ),
+    element: pagina(<Dashboard />),
   },
   {
     path: "/clientes",
     name: "clientes",
-    element: (
-      <AppShell>
-        <Clientes />
-      </AppShell>
-    ),
+    element: pagina(<Clientes />),
   },
   {
     path: "/mapa",
     name: "mapa",
-    element: (
-      <AppShell>
-        <MapaClientes />
-      </AppShell>
-    ),
+    element: pagina(<MapaClientes />),
   },
   {
     path: "/prospeccoes",
     name: "prospeccoes",
-    element: (
-      <AppShell>
-        <Prospeccoes />
-      </AppShell>
-    ),
+    element: pagina(<Prospeccoes />),
   },
   {
     path: "/rota",
     name: "rota",
-    element: (
-      <AppShell>
-        <RotaSemanal />
-      </AppShell>
-    ),
+    element: pagina(<RotaSemanal />),
   },
   {
     path: "/hoje",
     name: "hoje",
-    element: (
-      <AppShell>
-        <MinhaRota />
-      </AppShell>
-    ),
+    element: pagina(<MinhaRota />),
   },
   {
     path: "/minha-semana",
     name: "minha-semana",
-    element: (
-      <AppShell>
-        <MinhaRotaSemana />
-      </AppShell>
-    ),
+    element: pagina(<MinhaRotaSemana />),
   },
   {
     path: "/meu-mes",
     name: "meu-mes",
-    element: (
-      <AppShell>
-        <MinhaRotaMes />
-      </AppShell>
-    ),
+    element: pagina(<MinhaRotaMes />),
   },
   {
     path: "/visitas",
     name: "visitas",
-    element: (
-      <AppShell>
-        <Visitas />
-      </AppShell>
-    ),
+    element: pagina(<Visitas />),
   },
   {
     path: "/alertas",
     name: "alertas",
-    element: (
-      <AppShell>
-        <Alertas />
-      </AppShell>
-    ),
+    element: pagina(<Alertas />),
   },
   {
     path: "/comparativo",
     name: "comparativo",
-    element: (
-      <AppShell>
-        <ComparativoMensal />
-      </AppShell>
-    ),
+    element: pagina(<ComparativoMensal />),
   },
   {
     path: "/cadencia",
     name: "cadencia",
-    element: (
-      <AppShell>
-        <Cadencia />
-      </AppShell>
-    ),
+    element: pagina(<Cadencia />),
   },
   {
     path: "/prospeccao-interna",
     name: "prospeccao-interna",
-    element: (
-      <AppShell>
-        <ProspeccaoInterna />
-      </AppShell>
-    ),
+    element: pagina(<ProspeccaoInterna />),
   },
   {
     path: "/backup",
     name: "backup",
-    element: (
-      <AppShell>
-        <Backup />
-      </AppShell>
-    ),
+    element: pagina(<Backup />),
   },
   {
     path: "/",
@@ -158,7 +112,11 @@ export const routers = [
   {
     path: "*",
     name: "404",
-    element: <NotFound />,
+    element: (
+      <Suspense fallback={<PageLoading />}>
+        <NotFound />
+      </Suspense>
+    ),
   },
 ];
 
