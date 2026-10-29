@@ -1090,8 +1090,24 @@ function EditClientDialog({
       lat,
       lng,
       geocodeStatus: lat != null ? "ok" : client.geocodeStatus,
+      // contrato: número, CNPJ, equipamento, valores e local da coleta
+      ...dadosContrato(),
     });
   };
+
+  /** dados do contrato como estão no formulário (gravados ao gerar e ao salvar) */
+  const dadosContrato = (): Partial<Client> => ({
+    cnpj: cnpj.trim() || null,
+    inscricaoEstadual: inscricaoEstadual.trim() || null,
+    contratoNumero: contratoNumero.trim() || null,
+    equipamento,
+    equipamentosQtd: Number(equipamentosQtd) || 1,
+    trocasMinimas: Number(trocasMinimas) || 0,
+    valorTroca: valorTroca.trim() || null,
+    diaPagamento: Number(diaPagamento) || 10,
+    formaPagamento: formaPagamento.trim() || null,
+    localColeta: localColeta.trim() || null,
+  });
 
   /**
    * Grava os dados do contrato no cadastro e monta o documento para
@@ -1099,20 +1115,11 @@ function EditClientDialog({
    */
   const abrirPreviaContrato = () => {
     if (!client) return;
-    const patch: Partial<Client> = {
-      cnpj: cnpj.trim() || null,
-      inscricaoEstadual: inscricaoEstadual.trim() || null,
-      contratoNumero: contratoNumero.trim() || null,
-      equipamento,
-      equipamentosQtd: Number(equipamentosQtd) || 1,
-      trocasMinimas: Number(trocasMinimas) || 0,
-      valorTroca: valorTroca.trim() || null,
-      diaPagamento: Number(diaPagamento) || 10,
-      formaPagamento: formaPagamento.trim() || null,
-      localColeta: localColeta.trim() || null,
-    };
+    // se o número ainda não foi informado, usa o próximo e já grava (para não repetir)
+    const numero = contratoNumero.trim() || proximoNumeroContrato(state.clients);
+    if (!contratoNumero.trim()) setContratoNumero(numero);
+    const patch: Partial<Client> = { ...dadosContrato(), contratoNumero: numero };
     updateClient(client.id, patch);
-    const numero = (patch.contratoNumero as string | null) ?? proximoNumeroContrato(state.clients);
     setPrevia(
       montarContrato({
         numero,
