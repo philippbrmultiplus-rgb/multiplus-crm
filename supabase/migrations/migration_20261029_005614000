@@ -1,0 +1,46 @@
+-- dados do contrato por cliente (modelo CONTRATO DE PRESTAÇÃO DE SERVIÇOS)
+alter table public.clients
+  add column if not exists cnpj text,
+  add column if not exists inscricao_estadual text,
+  add column if not exists contrato_numero text,
+  add column if not exists equipamento text,
+  add column if not exists equipamentos_qtd integer,
+  add column if not exists trocas_minimas integer,
+  add column if not exists valor_troca text,
+  add column if not exists dia_pagamento integer,
+  add column if not exists forma_pagamento text,
+  add column if not exists local_coleta text;
+
+-- dados da empresa contratada e parâmetros fixos do contrato
+alter table public.settings
+  add column if not exists empresa_razao text,
+  add column if not exists empresa_cnpj text,
+  add column if not exists empresa_ie text,
+  add column if not exists empresa_endereco text,
+  add column if not exists empresa_cidade text,
+  add column if not exists empresa_uf text,
+  add column if not exists empresa_cep text,
+  add column if not exists contrato_foro text,
+  add column if not exists contrato_prazo_meses integer,
+  add column if not exists contrato_valor_viagem numeric,
+  add column if not exists contrato_valor_equipamento numeric,
+  add column if not exists contrato_testemunha_nome text,
+  add column if not exists contrato_testemunha_cpf text;
+
+-- valores do modelo, usados como ponto de partida (podem ser editados no app)
+update public.settings set
+  empresa_razao = coalesce(empresa_razao, 'MULTIPLUS RECICLAGEM DE GESSO LTDA'),
+  empresa_cnpj = coalesce(empresa_cnpj, '54.927.423/0001-80'),
+  empresa_ie = coalesce(empresa_ie, '096/4011336'),
+  empresa_endereco = coalesce(empresa_endereco, 'AV SEVERO DULLIUS, N°125, ANCHIETA'),
+  empresa_cidade = coalesce(empresa_cidade, 'Porto Alegre'),
+  empresa_uf = coalesce(empresa_uf, 'RS'),
+  empresa_cep = coalesce(empresa_cep, '90200-310'),
+  contrato_foro = coalesce(contrato_foro, 'Porto Alegre/RS'),
+  contrato_prazo_meses = coalesce(contrato_prazo_meses, 36),
+  contrato_valor_viagem = coalesce(contrato_valor_viagem, 1400),
+  contrato_valor_equipamento = coalesce(contrato_valor_equipamento, 1400),
+  contrato_testemunha_nome = coalesce(contrato_testemunha_nome, 'Fernando Melini'),
+  contrato_testemunha_cpf = coalesce(contrato_testemunha_cpf, '078.988.489-50'),
+  updated_at = now()
+where id = 1;

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Download, HardDriveDownload, RefreshCw, RotateCcw, Settings2, Unlock, Upload, Users } from "lucide-react";
+import { Download, FileSignature, HardDriveDownload, RefreshCw, RotateCcw, Settings2, Unlock, Upload, Users } from "lucide-react";
 import { toast } from "sonner";
 import {
   Select,
@@ -29,7 +29,24 @@ import {
 import { useData } from "@/lib/DataContext";
 import { AtualizacaoPlanilha } from "@/components/planilha/AtualizacaoPlanilha";
 import { BASE_ADDRESS, DAY_NAMES } from "@/lib/geo";
-import type { Role } from "@/lib/types";
+import type { Role, Settings } from "@/lib/types";
+
+/** campos da empresa/parâmetros que aparecem no contrato gerado */
+const CAMPOS_EMPRESA: Array<{ chave: keyof Settings; label: string; tipo?: string }> = [
+  { chave: "empresaRazao", label: "Razão social (contratada)" },
+  { chave: "empresaCnpj", label: "CNPJ" },
+  { chave: "empresaIe", label: "Inscrição estadual" },
+  { chave: "empresaEndereco", label: "Endereço" },
+  { chave: "empresaCidade", label: "Cidade" },
+  { chave: "empresaUf", label: "UF" },
+  { chave: "empresaCep", label: "CEP" },
+  { chave: "contratoForo", label: "Foro (cidade/UF)" },
+  { chave: "contratoPrazoMeses", label: "Prazo do contrato (meses)", tipo: "number" },
+  { chave: "contratoValorViagem", label: "Viagem perdida (R$)", tipo: "number" },
+  { chave: "contratoValorEquipamento", label: "Indenização do equipamento (R$)", tipo: "number" },
+  { chave: "contratoTestemunhaNome", label: "Testemunha (nome)" },
+  { chave: "contratoTestemunhaCpf", label: "Testemunha (CPF)" },
+];
 
 function roleLabelOf(r: Role): string {
   return r === "coordenador" ? "Coordenador" : r === "gerente" ? "Gerente" : "Vendedor";
@@ -318,6 +335,41 @@ export default function Backup() {
           </CardContent>
         )}
       </Card>
+
+      {podeEditar && (
+        <Card className="card-soft">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <FileSignature className="h-4 w-4" /> Dados da empresa nos contratos
+            </CardTitle>
+            <CardDescription>
+              Aparecem no cabeçalho e nas cláusulas do contrato gerado para cada cliente (botão
+              "Gerar contrato" na ficha do cliente).
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {CAMPOS_EMPRESA.map((campo) => (
+              <div key={campo.chave} className="space-y-2">
+                <Label>{campo.label}</Label>
+                <Input
+                  type={campo.tipo ?? "text"}
+                  value={String(s[campo.chave] ?? "")}
+                  onChange={(e) =>
+                    updateSettings(
+                      {
+                        [campo.chave]:
+                          campo.tipo === "number"
+                            ? Number(e.target.value.replace(",", ".")) || null
+                            : e.target.value,
+                      } as Partial<Settings>,
+                    )
+                  }
+                />
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       {podeEditar && (
         <Card className="card-soft">

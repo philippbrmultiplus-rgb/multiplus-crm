@@ -61,6 +61,20 @@ export interface Client {
   lng: number | null;
   geocodeStatus: GeocodeStatus;
   obs?: string;
+  /** dados usados no contrato de prestação de serviços */
+  cnpj?: string | null;
+  inscricaoEstadual?: string | null;
+  contratoNumero?: string | null;
+  /** "Caçamba Roll On - 26m³", "Caçamba Poli - 5m³"… */
+  equipamento?: string | null;
+  equipamentosQtd?: number | null;
+  trocasMinimas?: number | null;
+  /** valor por troca, como sai no contrato (ex.: "R$ 300,00") */
+  valorTroca?: string | null;
+  diaPagamento?: number | null;
+  formaPagamento?: string | null;
+  /** local da coleta (padrão: endereço do cliente) */
+  localColeta?: string | null;
 }
 
 export interface Settings {
@@ -76,6 +90,20 @@ export interface Settings {
   visitRadiusM: number;
   /** versão da planilha de coletas já importada (para aplicar atualizações novas sozinho) */
   planilhaVersao?: string | null;
+  /** empresa contratada e parâmetros fixos usados na geração dos contratos */
+  empresaRazao?: string | null;
+  empresaCnpj?: string | null;
+  empresaIe?: string | null;
+  empresaEndereco?: string | null;
+  empresaCidade?: string | null;
+  empresaUf?: string | null;
+  empresaCep?: string | null;
+  contratoForo?: string | null;
+  contratoPrazoMeses?: number | null;
+  contratoValorViagem?: number | null;
+  contratoValorEquipamento?: number | null;
+  contratoTestemunhaNome?: string | null;
+  contratoTestemunhaCpf?: string | null;
 }
 
 export type RouteStatus = "rascunho" | "publicada" | "encerrada";

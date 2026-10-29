@@ -5,6 +5,7 @@ import {
   CalendarDays,
   CheckCircle2,
   Download,
+  FileSignature,
   Filter,
   History,
   Loader2,
@@ -79,6 +80,13 @@ import { ColetaBadge, TierBadge, VisitaBadge } from "@/components/clients/client
 import { PhotoZoom } from "@/components/visitas/PhotoZoom";
 import { NewClientDialog } from "@/components/clients/NewClientDialog";
 import { ClientPaymentsDialog } from "@/components/clients/ClientPaymentsDialog";
+import {
+  EQUIPAMENTOS_CONTRATO,
+  baixarArquivo,
+  gerarContratoDocx,
+  nomeArquivoContrato,
+  proximoNumeroContrato,
+} from "@/lib/contrato";
 import type { Client, Visit } from "@/lib/types";
 
 const PROSPECTA = "__prospecao__";
@@ -955,7 +963,7 @@ function EditClientDialog({
   onClose: () => void;
   onSave: (patch: Partial<Client>) => void;
 }) {
-  const { state, saveClientPayment, deleteClientPayment } = useData();
+  const { state, updateClient, saveClientPayment, deleteClientPayment } = useData();
   const [name, setName] = useState(client?.name ?? "");
   const [address, setAddress] = useState(client?.address ?? "");
   const [city, setCity] = useState(client?.city ?? "");
@@ -967,6 +975,21 @@ function EditClientDialog({
   const [isProsp, setIsProsp] = useState(client?.isProspecao ?? false);
   const [lat, setLat] = useState<number | null>(client?.lat ?? null);
   const [lng, setLng] = useState<number | null>(client?.lng ?? null);
+
+  // dados do contrato de prestação de serviços (usados no documento em Word)
+  const [cnpj, setCnpj] = useState(client?.cnpj ?? "");
+  const [inscricaoEstadual, setInscricaoEstadual] = useState(client?.inscricaoEstadual ?? "");
+  const [contratoNumero, setContratoNumero] = useState(
+    client?.contratoNumero ?? (client ? proximoNumeroContrato(state.clients) : ""),
+  );
+  const [equipamento, setEquipamento] = useState(client?.equipamento ?? EQUIPAMENTOS_CONTRATO[0]);
+  const [equipamentosQtd, setEquipamentosQtd] = useState(String(client?.equipamentosQtd ?? 1));
+  const [trocasMinimas, setTrocasMinimas] = useState(String(client?.trocasMinimas ?? 1));
+  const [valorTroca, setValorTroca] = useState(client?.valorTroca ?? "");
+  const [diaPagamento, setDiaPagamento] = useState(String(client?.diaPagamento ?? 10));
+  const [formaPagamento, setFormaPagamento] = useState(client?.formaPagamento ?? "Fechamento mensal");
+  const [localColeta, setLocalColeta] = useState(client?.localColeta ?? "");
+  const [gerando, setGerando] = useState(false);
 
   // condições de pagamento (editáveis junto com o cadastro)
   type PagamentoDraft = {
@@ -1064,6 +1087,46 @@ function EditClientDialog({
       lng,
       geocodeStatus: lat != null ? "ok" : client.geocodeStatus,
     });
+  };
+
+  /**
+   * Grava os dados do contrato no cadastro e gera o documento em Word
+   * já preenchido com as informações deste cliente.
+   */
+  const gerarContrato = async () => {
+    if (!client) return;
+    const patch: Partial<Client> = {
+      cnpj: cnpj.trim() || null,
+      inscricaoEstadual: inscricaoEstadual.trim() || null,
+      contratoNumero: contratoNumero.trim() || null,
+      equipamento,
+      equipamentosQtd: Number(equipamentosQtd) || 1,
+      trocasMinimas: Number(trocasMinimas) || 0,
+      valorTroca: valorTroca.trim() || null,
+      diaPagamento: Number(diaPagamento) || 10,
+      formaPagamento: formaPagamento.trim() || null,
+      localColeta: localColeta.trim() || null,
+    };
+    updateClient(client.id, patch);
+    const numero = (patch.contratoNumero as string | null) ?? proximoNumeroContrato(state.clients);
+    setGerando(true);
+    try {
+      const blob = await gerarContratoDocx({
+        numero,
+        cliente: { ...client, ...patch },
+        settings: state.settings,
+      });
+      baixarArquivo(blob, nomeArquivoContrato(client, numero));
+      toast.success("Contrato gerado", {
+        description: `Nº ${numero} — arquivo Word pronto para assinatura`,
+      });
+    } catch (err) {
+      toast.error("Não foi possível gerar o contrato", {
+        description: err instanceof Error ? err.message : undefined,
+      });
+    } finally {
+      setGerando(false);
+    }
   };
 
   return (
@@ -1231,6 +1294,124 @@ function EditClientDialog({
               </div>
             </div>
           ))}
+
+          {/* contrato de prestação de serviços: dados usados no documento em Word */}
+          <div className="space-y-3 rounded-lg border p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="flex items-center gap-2 text-sm font-medium">
+                <FileSignature className="h-4 w-4" /> Contrato de prestação de serviços
+              </span>
+              <span className="text-xs text-muted-foreground">
+                preenche o modelo com os dados deste cliente
+              </span>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Nº do contrato</Label>
+                <Input
+                  value={contratoNumero}
+                  onChange={(e) => setContratoNumero(e.target.value)}
+                  placeholder="26351"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">CNPJ do cliente</Label>
+                <Input
+                  value={cnpj}
+                  onChange={(e) => setCnpj(e.target.value)}
+                  placeholder="00.000.000/0001-00"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Inscrição estadual</Label>
+                <Input
+                  value={inscricaoEstadual}
+                  onChange={(e) => setInscricaoEstadual(e.target.value)}
+                  placeholder="ISENTO"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Equipamento</Label>
+                <Select value={equipamento} onValueChange={setEquipamento}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Escolha o equipamento" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[...new Set([equipamento, ...EQUIPAMENTOS_CONTRATO].filter(Boolean))].map((e) => (
+                      <SelectItem key={e} value={e}>
+                        {e}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Quantidade</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={equipamentosQtd}
+                  onChange={(e) => setEquipamentosQtd(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Trocas mínimas/mês</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={trocasMinimas}
+                  onChange={(e) => setTrocasMinimas(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Valor por troca</Label>
+                <Input
+                  value={valorTroca}
+                  onChange={(e) => setValorTroca(e.target.value)}
+                  placeholder="R$ 300,00"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Dia de pagamento</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={31}
+                  value={diaPagamento}
+                  onChange={(e) => setDiaPagamento(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Forma de pagamento</Label>
+                <Input
+                  value={formaPagamento}
+                  onChange={(e) => setFormaPagamento(e.target.value)}
+                  placeholder="Fechamento mensal · Coletou pagou"
+                />
+              </div>
+              <div className="space-y-1.5 sm:col-span-3">
+                <Label className="text-xs">Local da coleta</Label>
+                <Input
+                  value={localColeta}
+                  onChange={(e) => setLocalColeta(e.target.value)}
+                  placeholder={[address, city, state].filter(Boolean).join(" - ")}
+                />
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button type="button" variant="secondary" disabled={gerando} onClick={() => void gerarContrato()}>
+                {gerando ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <FileSignature className="mr-2 h-4 w-4" />
+                )}
+                Gerar contrato (Word)
+              </Button>
+              <span className="text-xs text-muted-foreground">
+                gera o contrato para assinatura e baixa em .docx
+              </span>
+            </div>
+          </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>

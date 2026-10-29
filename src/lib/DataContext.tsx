@@ -114,6 +114,19 @@ export const defaultSettings: Settings = {
   tierBThreshold: 20,
   visitRadiusM: 300,
   planilhaVersao: null,
+  empresaRazao: "MULTIPLUS RECICLAGEM DE GESSO LTDA",
+  empresaCnpj: "54.927.423/0001-80",
+  empresaIe: "096/4011336",
+  empresaEndereco: "AV SEVERO DULLIUS, N°125, ANCHIETA",
+  empresaCidade: "Porto Alegre",
+  empresaUf: "RS",
+  empresaCep: "90200-310",
+  contratoForo: "Porto Alegre/RS",
+  contratoPrazoMeses: 36,
+  contratoValorViagem: 1400,
+  contratoValorEquipamento: 1400,
+  contratoTestemunhaNome: "Fernando Melini",
+  contratoTestemunhaCpf: "078.988.489-50",
 };
 
 // eslint-disable-next-line react-refresh/only-export-components
@@ -383,6 +396,16 @@ function clientFromRow(r: Record<string, any>): Client {
     lng: r.lng,
     geocodeStatus: r.geocode_status ?? "pendente",
     obs: r.obs ?? undefined,
+    cnpj: r.cnpj ?? null,
+    inscricaoEstadual: r.inscricao_estadual ?? null,
+    contratoNumero: r.contrato_numero ?? null,
+    equipamento: r.equipamento ?? null,
+    equipamentosQtd: r.equipamentos_qtd != null ? Number(r.equipamentos_qtd) : null,
+    trocasMinimas: r.trocas_minimas != null ? Number(r.trocas_minimas) : null,
+    valorTroca: r.valor_troca ?? null,
+    diaPagamento: r.dia_pagamento != null ? Number(r.dia_pagamento) : null,
+    formaPagamento: r.forma_pagamento ?? null,
+    localColeta: r.local_coleta ?? null,
   };
 }
 
@@ -414,6 +437,16 @@ function clientToRow(c: Client): Record<string, any> {
     lng: c.lng,
     geocode_status: c.geocodeStatus,
     obs: c.obs ?? null,
+    cnpj: c.cnpj ?? null,
+    inscricao_estadual: c.inscricaoEstadual ?? null,
+    contrato_numero: c.contratoNumero ?? null,
+    equipamento: c.equipamento ?? null,
+    equipamentos_qtd: c.equipamentosQtd ?? null,
+    trocas_minimas: c.trocasMinimas ?? null,
+    valor_troca: c.valorTroca ?? null,
+    dia_pagamento: c.diaPagamento ?? null,
+    forma_pagamento: c.formaPagamento ?? null,
+    local_coleta: c.localColeta ?? null,
     updated_at: new Date().toISOString(),
   };
 }
@@ -447,6 +480,16 @@ function clientPatchToRow(patch: Partial<Client>): Record<string, any> {
     geoAproximado: "geo_aproximado",
     geocodeStatus: "geocode_status",
     obs: "obs",
+    cnpj: "cnpj",
+    inscricaoEstadual: "inscricao_estadual",
+    contratoNumero: "contrato_numero",
+    equipamento: "equipamento",
+    equipamentosQtd: "equipamentos_qtd",
+    trocasMinimas: "trocas_minimas",
+    valorTroca: "valor_troca",
+    diaPagamento: "dia_pagamento",
+    formaPagamento: "forma_pagamento",
+    localColeta: "local_coleta",
   };
   for (const [key, column] of Object.entries(map)) {
     if (key in patch) row[column] = (patch as Record<string, unknown>)[key] ?? null;
@@ -470,6 +513,20 @@ function settingsFromRow(r: Record<string, any>): Settings {
     tierBThreshold: Number(r.tier_b_threshold ?? 20),
     visitRadiusM: Number(r.visit_radius_m ?? 300),
     planilhaVersao: r.planilha_versao ?? null,
+    empresaRazao: r.empresa_razao ?? null,
+    empresaCnpj: r.empresa_cnpj ?? null,
+    empresaIe: r.empresa_ie ?? null,
+    empresaEndereco: r.empresa_endereco ?? null,
+    empresaCidade: r.empresa_cidade ?? null,
+    empresaUf: r.empresa_uf ?? null,
+    empresaCep: r.empresa_cep ?? null,
+    contratoForo: r.contrato_foro ?? null,
+    contratoPrazoMeses: r.contrato_prazo_meses != null ? Number(r.contrato_prazo_meses) : null,
+    contratoValorViagem: r.contrato_valor_viagem != null ? Number(r.contrato_valor_viagem) : null,
+    contratoValorEquipamento:
+      r.contrato_valor_equipamento != null ? Number(r.contrato_valor_equipamento) : null,
+    contratoTestemunhaNome: r.contrato_testemunha_nome ?? null,
+    contratoTestemunhaCpf: r.contrato_testemunha_cpf ?? null,
   };
 }
 
@@ -487,6 +544,19 @@ function settingsToRow(s: Settings): Record<string, any> {
     tier_b_threshold: s.tierBThreshold,
     visit_radius_m: s.visitRadiusM,
     planilha_versao: s.planilhaVersao ?? null,
+    empresa_razao: s.empresaRazao ?? null,
+    empresa_cnpj: s.empresaCnpj ?? null,
+    empresa_ie: s.empresaIe ?? null,
+    empresa_endereco: s.empresaEndereco ?? null,
+    empresa_cidade: s.empresaCidade ?? null,
+    empresa_uf: s.empresaUf ?? null,
+    empresa_cep: s.empresaCep ?? null,
+    contrato_foro: s.contratoForo ?? null,
+    contrato_prazo_meses: s.contratoPrazoMeses ?? null,
+    contrato_valor_viagem: s.contratoValorViagem ?? null,
+    contrato_valor_equipamento: s.contratoValorEquipamento ?? null,
+    contrato_testemunha_nome: s.contratoTestemunhaNome ?? null,
+    contrato_testemunha_cpf: s.contratoTestemunhaCpf ?? null,
     updated_at: new Date().toISOString(),
   };
 }
