@@ -262,6 +262,16 @@ export interface ClientProspectNote {
   createdAt: string;
 }
 
+/** observação registrada no cliente, com data de quando foi colocada */
+export interface ClientNote {
+  id: string;
+  clientId: string;
+  texto: string;
+  createdBy?: string | null;
+  createdByName?: string | null;
+  createdAt: string;
+}
+
 export interface AppState {
   version: number;
   sessionRole: Role;
@@ -278,6 +288,7 @@ export interface AppState {
   internalProspects: InternalProspect[];
   internalProspectNotes: InternalProspectNote[];
   clientProspectNotes: ClientProspectNote[];
+  clientNotes: ClientNote[];
 }
 
 export interface DaySummary {

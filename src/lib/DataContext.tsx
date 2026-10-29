@@ -16,6 +16,7 @@ import type {
   Client,
   ClientAlert,
   ClientCadence,
+  ClientNote,
   ClientPayment,
   ClientProspectNote,
   InternalProspect,
@@ -71,7 +72,7 @@ function savePendingPhotos(list: PendingPhoto[]) {
 const PENDING_NOTES_KEY = "rs-pending-notes.v1";
 
 interface PendingNote {
-  tabela: "client_prospect_notes" | "internal_prospect_notes";
+  tabela: "client_prospect_notes" | "internal_prospect_notes" | "client_notes";
   row: Record<string, unknown>;
 }
 
@@ -248,6 +249,17 @@ function internalProspectFromRow(r: Record<string, any>): InternalProspect {
   };
 }
 
+function clientNoteFromRow(r: Record<string, any>): ClientNote {
+  return {
+    id: r.id,
+    clientId: r.client_id,
+    texto: r.texto ?? "",
+    createdBy: r.created_by ?? null,
+    createdByName: r.created_by_name ?? null,
+    createdAt: r.created_at ?? new Date().toISOString(),
+  };
+}
+
 function clientProspectNoteFromRow(r: Record<string, any>): ClientProspectNote {
   return {
     id: r.id,
@@ -287,6 +299,7 @@ function emptyState(): AppState {
     internalProspects: [],
     internalProspectNotes: [],
     clientProspectNotes: [],
+    clientNotes: [],
   };
 }
 
@@ -306,6 +319,7 @@ function loadLocalCache(): AppState | null {
           internalProspects: parsed.internalProspects ?? [],
           internalProspectNotes: parsed.internalProspectNotes ?? [],
           clientProspectNotes: parsed.clientProspectNotes ?? [],
+          clientNotes: parsed.clientNotes ?? [],
         };
     }
   } catch {
@@ -625,6 +639,8 @@ interface DataContextValue {
   scheduleInternalVisit: (id: string, data: string | null) => void;
   addClientProspectNote: (clientId: string, texto: string) => void;
   deleteClientProspectNote: (id: string) => void;
+  addClientNote: (clientId: string, texto: string) => void;
+  deleteClientNote: (id: string) => void;
   /** procura no armazenamento as fotos de uma visita que não anexaram e grava na visita */
   recoverVisitPhotos: (visit: Visit) => Promise<number>;
   storageUsageKb: number;
@@ -697,6 +713,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       internalProspectsRes,
       internalProspectNotesRes,
       clientProspectNotesRes,
+      clientNotesRes,
     ] = await Promise.all([
       supabase.from("clients").select("*").order("name"),
       supabase.from("settings").select("*").eq("id", 1).maybeSingle(),
@@ -711,6 +728,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       supabase.from("internal_prospects").select("*").order("created_at", { ascending: false }),
       supabase.from("internal_prospect_notes").select("*").order("created_at"),
       supabase.from("client_prospect_notes").select("*").order("created_at"),
+      supabase.from("client_notes").select("*").order("created_at", { ascending: false }),
     ]);
 
     const clients = (clientsRes.data ?? []).map((r) => clientFromRow(r as unknown as Record<string, any>));
@@ -749,6 +767,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const clientProspectNotes = (clientProspectNotesRes.data ?? []).map((r) =>
       clientProspectNoteFromRow(r as unknown as Record<string, any>),
     );
+    const clientNotes = (clientNotesRes.data ?? []).map((r) =>
+      clientNoteFromRow(r as unknown as Record<string, any>),
+    );
 
     // coordenaador: aplica cadência/frequência e última troca da planilha uma única vez
     let finalClients = clients;
@@ -779,6 +800,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       internalProspects,
       internalProspectNotes,
       clientProspectNotes,
+      clientNotes,
     }));
     setCloudReady(true);
     setLastSyncAt(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }));
@@ -1381,6 +1403,28 @@ export function DataProvider({ children }: { children: ReactNode }) {
             clientProspectNotes: prev.clientProspectNotes.some((n) => n.id === note.id)
               ? prev.clientProspectNotes.map((n) => (n.id === note.id ? note : n))
               : [...prev.clientProspectNotes, note],
+          }));
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "client_notes" },
+        (payload) => {
+          const row = (payload.new ?? payload.old) as Record<string, any>;
+          if (!row?.id) return;
+          if (payload.eventType === "DELETE") {
+            setAppState((prev) => ({
+              ...prev,
+              clientNotes: prev.clientNotes.filter((n) => n.id !== row.id),
+            }));
+            return;
+          }
+          const note = clientNoteFromRow(row);
+          setAppState((prev) => ({
+            ...prev,
+            clientNotes: prev.clientNotes.some((n) => n.id === note.id)
+              ? prev.clientNotes.map((n) => (n.id === note.id ? note : n))
+              : [note, ...prev.clientNotes],
           }));
         },
       )
@@ -2952,6 +2996,71 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [setAppState],
   );
 
+  /* ---------- observações do cliente (histórico com data) ---------- */
+
+  /** registra uma observação no histórico do cliente */
+  const addClientNote = useCallback(
+    (clientId: string, texto: string) => {
+      const conteudo = texto.trim();
+      if (!conteudo) {
+        toast.error("Escreva a observação.");
+        return;
+      }
+      const nota: ClientNote = {
+        id: `cn-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        clientId,
+        texto: conteudo,
+        createdBy: uidRef.current,
+        createdByName: user?.fullName ?? null,
+        createdAt: new Date().toISOString(),
+      };
+      setAppState((prev) => ({ ...prev, clientNotes: [nota, ...prev.clientNotes] }));
+      if (!uidRef.current) return;
+      const row = {
+        id: nota.id,
+        client_id: clientId,
+        texto: conteudo,
+        created_by: uidRef.current,
+        created_by_name: nota.createdByName,
+      };
+      void supabase
+        .from("client_notes")
+        .insert(row)
+        .then(({ error }) => {
+          if (error) {
+            console.error("salvar observação:", error.message);
+            enqueuePendingNote({ tabela: "client_notes", row });
+            toast.warning("Observação guardada no aparelho", {
+              description:
+                "Não conseguimos salvar agora — vamos tentar de novo automaticamente quando a conexão voltar.",
+            });
+            return;
+          }
+          toast.success("Observação registrada no histórico do cliente.");
+        });
+    },
+    [setAppState, user],
+  );
+
+  /** remove uma observação (quem escreveu ou o coordenador) */
+  const deleteClientNote = useCallback(
+    (id: string) => {
+      setAppState((prev) => ({ ...prev, clientNotes: prev.clientNotes.filter((n) => n.id !== id) }));
+      if (!uidRef.current) return;
+      void supabase
+        .from("client_notes")
+        .delete()
+        .eq("id", id)
+        .then(({ error }) => {
+          if (error) {
+            console.error("excluir observação:", error.message);
+            toast.error("Não foi possível excluir a observação", { description: error.message });
+          }
+        });
+    },
+    [setAppState],
+  );
+
   /* ---------- backup / utilitários ---------- */
 
   const resetData = useCallback(() => {
@@ -2983,6 +3092,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         internalProspects: parsed.internalProspects ?? [],
         internalProspectNotes: parsed.internalProspectNotes ?? [],
         clientProspectNotes: parsed.clientProspectNotes ?? [],
+        clientNotes: parsed.clientNotes ?? [],
         settings: { ...defaultSettings, ...parsed.settings },
       });
       if (canWriteClientData()) {
@@ -3102,6 +3212,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
     scheduleInternalVisit,
     addClientProspectNote,
     deleteClientProspectNote,
+    addClientNote,
+    deleteClientNote,
     recoverVisitPhotos,
     storageUsageKb,
     lastSyncAt,

@@ -126,6 +126,16 @@ export function mesLabel(iso: string): string {
   return `${MESES[(m || 1) - 1]}/${y}`;
 }
 
+/** "2026-10-19T14:32:00Z" -> "19/10/2026 11:32" (fuso local) */
+export function formatDataHora(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return `${d.toLocaleDateString("pt-BR")} ${d.toLocaleTimeString("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  })}`;
+}
+
 /** número no padrão pt-BR com até 1 casa decimal (ex.: 13,4) */
 export function formatNumero(n: number): string {
   return n.toLocaleString("pt-BR", { maximumFractionDigits: 1 });

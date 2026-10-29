@@ -49,6 +49,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -64,7 +65,16 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useStickyState } from "@/hooks/use-sticky-state";
 import { LeafletMap } from "@/components/map/LeafletMap";
 import { cadenceLabel } from "@/lib/cadence";
-import { agruparCidades, cidadeKey, formatDateBR, formatKm, formatM3, formatNumero, mesLabel } from "@/lib/geo";
+import {
+  agruparCidades,
+  cidadeKey,
+  formatDataHora,
+  formatDateBR,
+  formatKm,
+  formatM3,
+  formatNumero,
+  mesLabel,
+} from "@/lib/geo";
 import { SEGMENTOS_LOGISTICOS } from "@/lib/segmentos";
 import {
   coletaDays,
@@ -1225,11 +1235,12 @@ const HIST_STATUS_LABEL: Record<Visit["status"], string> = {
 
 /** histórico do cliente: visitas registradas pelo vendedor + trocas/coletas */
 function ClientHistoryDialog({ client, onClose }: { client: Client | null; onClose: () => void }) {
-  const { state, loadClientColetas } = useData();
+  const { state, role, user, loadClientColetas, addClientNote, deleteClientNote } = useData();
   const [coletas, setColetas] = useState<
     Array<{ date: string; note: string; volume: number | null; trocas: number }>
   >([]);
   const [loading, setLoading] = useState(false);
+  const [novaObs, setNovaObs] = useState("");
 
   useEffect(() => {
     if (!client) {
@@ -1254,6 +1265,10 @@ function ClientHistoryDialog({ client, onClose }: { client: Client | null; onClo
     .filter((v) => v.clientId === client.id)
     .sort((a, b) => (a.month < b.month ? 1 : -1));
   const volumeTotal = volumes.reduce((acc, v) => acc + v.volumeM3, 0);
+
+  // observações registradas no cliente (mais recentes primeiro)
+  const notasCliente = state.clientNotes.filter((n) => n.clientId === client.id);
+  const podeEscreverObs = role === "coordenador" || role === "vendedor";
 
   type Linha =
     | { kind: "visita"; key: string; date: string; visit: Visit }
@@ -1294,6 +1309,77 @@ function ClientHistoryDialog({ client, onClose }: { client: Client | null; onClo
             {coletas.length > 0 && ` · ${coletas.length} registro(s) de troca/coleta`}
           </DialogDescription>
         </DialogHeader>
+
+        <div className="space-y-2 rounded-lg border p-3">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <span className="text-xs font-medium text-muted-foreground">Observações do cliente</span>
+            <span className="text-xs text-muted-foreground">{notasCliente.length} registro(s)</span>
+          </div>
+
+          {notasCliente.length === 0 && (
+            <p className="text-xs text-muted-foreground">
+              Nenhuma observação registrada ainda
+              {podeEscreverObs ? " — use o campo abaixo para anotar algo importante." : "."}
+            </p>
+          )}
+
+          {notasCliente.length > 0 && (
+            <ol className="max-h-64 space-y-2 overflow-y-auto overscroll-contain">
+              {notasCliente.map((n) => {
+                const podeExcluir = role === "coordenador" || n.createdBy === user?.id;
+                return (
+                  <li key={n.id} className="rounded-md border p-2 text-sm">
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+                      <span>
+                        {formatDataHora(n.createdAt)}
+                        {n.createdByName ? ` · ${n.createdByName}` : ""}
+                      </span>
+                      {podeExcluir && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                          title="Excluir esta observação"
+                          onClick={() => deleteClientNote(n.id)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                    </div>
+                    <p className="mt-1 whitespace-pre-wrap">{n.texto}</p>
+                  </li>
+                );
+              })}
+            </ol>
+          )}
+
+          {podeEscreverObs && (
+            <div className="space-y-1.5 border-t pt-2">
+              <Label htmlFor="cliente-nova-obs" className="text-xs">
+                Nova observação
+              </Label>
+              <Textarea
+                id="cliente-nova-obs"
+                rows={2}
+                value={novaObs}
+                onChange={(e) => setNovaObs(e.target.value)}
+                placeholder="Ex.: cliente pediu para coletar sempre às sextas; combinado desconto de 5%…"
+              />
+              <div className="flex justify-end">
+                <Button
+                  size="sm"
+                  disabled={!novaObs.trim()}
+                  onClick={() => {
+                    addClientNote(client.id, novaObs);
+                    setNovaObs("");
+                  }}
+                >
+                  <Plus className="mr-1.5 h-4 w-4" /> Salvar observação
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
 
         {volumes.length > 0 && (
           <div className="rounded-lg border p-3">
