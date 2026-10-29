@@ -18,6 +18,7 @@ import {
   RotateCcw,
   Search,
   Trash2,
+  StickyNote,
   Wallet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -90,7 +91,8 @@ import {
   type ContratoMontado,
 } from "@/lib/contrato";
 import { ContratoPreviewDialog } from "@/components/clients/ContratoPreviewDialog";
-import type { Client, Visit } from "@/lib/types";
+import { Textarea } from "@/components/ui/textarea";
+import type { Client, ClientNote, Visit } from "@/lib/types";
 
 const PROSPECTA = "__prospecao__";
 
@@ -966,7 +968,8 @@ function EditClientDialog({
   onClose: () => void;
   onSave: (patch: Partial<Client>) => void;
 }) {
-  const { state, updateClient, saveClientPayment, deleteClientPayment } = useData();
+  const { state, user, role, updateClient, saveClientPayment, deleteClientPayment, addClientNote } =
+    useData();
   const [name, setName] = useState(client?.name ?? "");
   const [address, setAddress] = useState(client?.address ?? "");
   const [city, setCity] = useState(client?.city ?? "");
@@ -992,6 +995,7 @@ function EditClientDialog({
   const [diaPagamento, setDiaPagamento] = useState(String(client?.diaPagamento ?? 10));
   const [formaPagamento, setFormaPagamento] = useState(client?.formaPagamento ?? "Fechamento mensal");
   const [localColeta, setLocalColeta] = useState(client?.localColeta ?? "");
+  const [observacao, setObservacao] = useState("");
   const [previa, setPrevia] = useState<ContratoMontado | null>(null);
   const [baixando, setBaixando] = useState(false);
 
@@ -1315,6 +1319,41 @@ function EditClientDialog({
             </div>
           ))}
 
+          {/* observações: histórico permanente, com a data de cada registro */}
+          <div className="space-y-3 rounded-lg border p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="flex items-center gap-2 text-sm font-medium">
+                <StickyNote className="h-4 w-4" /> Observações
+              </span>
+              <span className="text-xs text-muted-foreground">
+                fica salvo no histórico, com a data do registro
+              </span>
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
+              <Textarea
+                value={observacao}
+                onChange={(e) => setObservacao(e.target.value)}
+                placeholder="Ex.: portão 2 é o acesso do caminhão; pediu para não coletar nas sextas…"
+                className="min-h-[64px]"
+              />
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={!observacao.trim()}
+                onClick={() => {
+                  addClientNote(client.id, observacao);
+                  setObservacao("");
+                }}
+              >
+                <Plus className="mr-2 h-4 w-4" /> Registrar
+              </Button>
+            </div>
+            <ObservacoesCliente
+              clientId={client.id}
+              podeExcluir={(n) => role === "coordenador" || n.createdBy === user?.id}
+            />
+          </div>
+
           {/* contrato de prestação de serviços: dados usados no documento em Word */}
           <div className="space-y-3 rounded-lg border p-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1455,6 +1494,55 @@ const HIST_STATUS_LABEL: Record<Visit["status"], string> = {
   nao_realizada: "Não realizada",
 };
 
+/** histórico de observações do cliente (mais recente primeiro) */
+function ObservacoesCliente({
+  clientId,
+  podeExcluir,
+}: {
+  clientId: string;
+  podeExcluir: (nota: ClientNote) => boolean;
+}) {
+  const { state, deleteClientNote } = useData();
+  const notas = state.clientNotes
+    .filter((n) => n.clientId === clientId)
+    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+
+  if (notas.length === 0) {
+    return <p className="text-xs text-muted-foreground">Nenhuma observação registrada ainda.</p>;
+  }
+
+  return (
+    <ul className="max-h-60 space-y-1.5 overflow-y-auto overscroll-contain">
+      {notas.map((n) => (
+        <li key={n.id} className="rounded-md border px-2 py-1.5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-[11px] font-medium text-muted-foreground">
+              {formatDateBR(n.createdAt.slice(0, 10))} ·{" "}
+              {new Date(n.createdAt).toLocaleTimeString("pt-BR", {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+              {n.createdByName ? ` · ${n.createdByName}` : ""}
+            </span>
+            {podeExcluir(n) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                title="Excluir esta observação"
+                onClick={() => deleteClientNote(n.id)}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            )}
+          </div>
+          <p className="mt-0.5 whitespace-pre-wrap text-sm">{n.texto}</p>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 /** histórico do cliente: visitas registradas pelo vendedor + trocas/coletas */
 function ClientHistoryDialog({ client, onClose }: { client: Client | null; onClose: () => void }) {
   const { state, loadClientColetas } = useData();
@@ -1543,6 +1631,13 @@ function ClientHistoryDialog({ client, onClose }: { client: Client | null; onClo
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+        {state.clientNotes.some((n) => n.clientId === client.id) && (
+          <div className="rounded-lg border p-3">
+            <p className="mb-2 text-xs font-medium text-muted-foreground">Observações</p>
+            <ObservacoesCliente clientId={client.id} podeExcluir={() => false} />
           </div>
         )}
 

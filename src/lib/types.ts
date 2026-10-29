@@ -267,6 +267,17 @@ export interface ClientCadence {
   datas: string[];
 }
 
+/** observação lançada na ficha do cliente (fica no histórico, com data e autor) */
+export interface ClientNote {
+  id: string;
+  clientId: string;
+  texto: string;
+  createdBy: string | null;
+  createdByName: string | null;
+  /** data/hora em que a observação foi registrada */
+  createdAt: string;
+}
+
 /** prospecção interna: ficha preenchida pela equipe (sem visita em campo) */
 export interface InternalProspect {
   id: string;
@@ -325,6 +336,7 @@ export interface AppState {
   internalProspects: InternalProspect[];
   internalProspectNotes: InternalProspectNote[];
   clientProspectNotes: ClientProspectNote[];
+  clientNotes: ClientNote[];
 }
 
 export interface DaySummary {
