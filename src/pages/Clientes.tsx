@@ -95,6 +95,8 @@ import { Textarea } from "@/components/ui/textarea";
 import type { Client, ClientNote, Visit } from "@/lib/types";
 
 const PROSPECTA = "__prospecao__";
+/** rótulo usado quando o cliente não tem segmento comercial */
+const SEM_SEGMENTO_COMERCIAL = "(sem segmento comercial)";
 
 /** coluna Pago: "Não" quando não há condição registrada; "Sim" abre os detalhes */
 function PagamentoCell({ tem, onOpen }: { tem: boolean; onOpen: () => void }) {
@@ -157,6 +159,10 @@ export default function Clientes() {
   const [city, setCity] = useStickyState("rs-clientes-city", "all");
   const [tier, setTier] = useStickyState("rs-clientes-tier", "all");
   const [segment, setSegment] = useStickyState("rs-clientes-segment", "all");
+  const [segmentoComercial, setSegmentoComercial] = useStickyState(
+    "rs-clientes-segmento-comercial",
+    "all",
+  );
   const [params] = useSearchParams();
   const [situ, setSitu] = useStickyState("rs-clientes-situ", params.get("situ") ?? "todas");
   const [situVisita, setSituVisita] = useStickyState(
@@ -188,7 +194,7 @@ export default function Clientes() {
 
   // confere se o cliente passa em TODOS os filtros atuais, exceto o informado em "ignore"
   const matchOutros = useCallback(
-    (c: Client, ignore: "cidade" | "segmento" | "grupo") => {
+    (c: Client, ignore: "cidade" | "segmento" | "segmentoComercial" | "grupo") => {
       // as prospecções ficam separadas da lista normal de clientes
       if (segment === PROSPECTA) {
         if (!c.isProspecao) return false;
@@ -198,6 +204,12 @@ export default function Clientes() {
       if (ignore !== "cidade" && city !== "all" && cidadeKey(c.city || "(sem cidade)") !== cidadeKey(city))
         return false;
       if (ignore !== "segmento" && segment !== "all" && (c.segment || "(sem segmento)") !== segment)
+        return false;
+      if (
+        ignore !== "segmentoComercial" &&
+        segmentoComercial !== "all" &&
+        (c.segmentoComercial || SEM_SEGMENTO_COMERCIAL) !== segmentoComercial
+      )
         return false;
       if (ignore !== "grupo" && tier !== "all" && c.tier !== tier) return false;
       // marcado: só clientes ativos; desmarcado: só os inativos
@@ -212,7 +224,7 @@ export default function Clientes() {
       if (situVisita === "sem_visita" && c.lastVisitAt != null) return false;
       return true;
     },
-    [city, segment, tier, onlyActive, situ, situVisita],
+    [city, segment, segmentoComercial, tier, onlyActive, situ, situVisita],
   );
 
   // cidades em ordem alfabética, agrupando grafias que só diferem por maiúscula/minúscula
@@ -238,6 +250,18 @@ export default function Clientes() {
     if (segment !== "all" && !map.has(segment)) map.set(segment, 0);
     return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0], "pt-BR"));
   }, [clients, matchOutros, segment]);
+
+  const segmentosComerciais = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const c of clients) {
+      if (!matchOutros(c, "segmentoComercial")) continue;
+      const k = c.segmentoComercial || SEM_SEGMENTO_COMERCIAL;
+      map.set(k, (map.get(k) ?? 0) + 1);
+    }
+    if (segmentoComercial !== "all" && !map.has(segmentoComercial))
+      map.set(segmentoComercial, 0);
+    return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0], "pt-BR"));
+  }, [clients, matchOutros, segmentoComercial]);
 
   const grupoOptions = useMemo(() => {
     const tiers = new Set<string>();
@@ -287,6 +311,11 @@ export default function Clientes() {
         if (c.isProspecao) return q !== "" && bateSegmento;
         return bateSegmento;
       })
+      .filter((c) =>
+        segmentoComercial === "all"
+          ? true
+          : (c.segmentoComercial || SEM_SEGMENTO_COMERCIAL) === segmentoComercial,
+      )
       .filter((c) => {
         if (situ === "todas") return true;
         if (situ === "sem_data") return c.lastCollectAt == null;
@@ -329,7 +358,21 @@ export default function Clientes() {
         }
         return compareClients(a, b, sortBy);
       });
-  }, [clients, search, city, tier, segment, situ, situVisita, dist, pago, sortBy, onlyActive, comPagamento]);
+  }, [
+    clients,
+    search,
+    city,
+    tier,
+    segment,
+    segmentoComercial,
+    situ,
+    situVisita,
+    dist,
+    pago,
+    sortBy,
+    onlyActive,
+    comPagamento,
+  ]);
 
   /** a lista é longa: mostra até 300, mas o total filtrado continua contando todos */
   const filtered = useMemo(() => matching.slice(0, 300), [matching]);
@@ -342,6 +385,7 @@ export default function Clientes() {
     city !== "all" ||
     tier !== "all" ||
     segment !== "all" ||
+    segmentoComercial !== "all" ||
     situ !== "todas" ||
     situVisita !== "todas" ||
     dist !== "todas" ||
@@ -352,6 +396,7 @@ export default function Clientes() {
     setCity("all");
     setTier("all");
     setSegment("all");
+    setSegmentoComercial("all");
     setSitu("todas");
     setSituVisita("todas");
     setDist("todas");
@@ -527,7 +572,7 @@ export default function Clientes() {
         </Select>
         <Select value={segment} onValueChange={setSegment}>
           <SelectTrigger className="w-48">
-            <SelectValue placeholder="Segmento" />
+            <SelectValue placeholder="Segmento logístico" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos os segmentos</SelectItem>
@@ -535,6 +580,19 @@ export default function Clientes() {
               <SelectItem value={PROSPECTA}>Prospecção ({prospectCount})</SelectItem>
             )}
             {segments.map(([name, n]) => (
+              <SelectItem key={name} value={name}>
+                {name} ({n})
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={segmentoComercial} onValueChange={setSegmentoComercial}>
+          <SelectTrigger className="w-52">
+            <SelectValue placeholder="Segmento comercial" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os segmentos comerciais</SelectItem>
+            {segmentosComerciais.map(([name, n]) => (
               <SelectItem key={name} value={name}>
                 {name} ({n})
               </SelectItem>
