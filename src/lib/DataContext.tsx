@@ -42,7 +42,7 @@ const STORAGE_KEY = "mp-paulinia-app-state.v1";
 
 /** mensagem amigável quando o navegador não consegue falar com o servidor */
 const MENSAGEM_SEM_CONEXAO =
-  "Não consegui falar com o servidor (falha de conexão). Confira a internet, desative VPN/bloqueios e tente novamente.";
+  "O servidor não respondeu (tempo esgotado). Se a internet está funcionando, desative VPN / iCloud Private Relay / bloqueador de anúncios ou DNS particular neste aparelho e tente de novo — ou use outro aparelho.";
 
 /** erros de rede do navegador (o famoso "Failed to fetch") */
 function falhaDeRede(mensagem: string): boolean {
