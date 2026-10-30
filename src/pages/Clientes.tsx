@@ -98,12 +98,12 @@ const PROSPECTA = "__prospecao__";
 /** rótulo usado quando o cliente não tem segmento comercial */
 const SEM_SEGMENTO_COMERCIAL = "(sem segmento comercial)";
 
-/** coluna "A receber": sem condição registrada mostra "—"; com valor abre os detalhes */
+/** coluna Pago: "Não" quando não há condição registrada; "Sim" abre os detalhes */
 function PagamentoCell({ tem, onOpen }: { tem: boolean; onOpen: () => void }) {
-  if (!tem) return <span className="text-xs text-muted-foreground">—</span>;
+  if (!tem) return <span className="text-xs text-muted-foreground">Não</span>;
   return (
     <Button variant="link" size="sm" className="h-auto p-0" onClick={onOpen}>
-      A receber
+      Sim
     </Button>
   );
 }
@@ -452,7 +452,7 @@ export default function Clientes() {
       "Dias sem visita": lastVisitDays(c) ?? "",
       "Situação da visita": situacaoVisita(c),
       Ativo: c.active ? "Sim" : "Não",
-      "A receber": comPagamento.has(c.id) ? "Sim" : "Não",
+      Pago: comPagamento.has(c.id) ? "Sim" : "Não",
       Prospecção: c.isProspecao ? "Sim" : "Não",
       Observações: c.obs ?? "",
       Latitude: c.lat ?? "",
@@ -649,13 +649,13 @@ export default function Clientes() {
           </SelectContent>
         </Select>
         <Select value={pago} onValueChange={setPago}>
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="A receber" />
+          <SelectTrigger className="w-40">
+            <SelectValue placeholder="Pago" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="todos">A receber: todos</SelectItem>
-            <SelectItem value="sim">Com valor a receber ({comPagamento.size})</SelectItem>
-            <SelectItem value="nao">Sem valor a receber</SelectItem>
+            <SelectItem value="todos">Pago: todos</SelectItem>
+            <SelectItem value="sim">Pago: sim ({comPagamento.size})</SelectItem>
+            <SelectItem value="nao">Pago: não</SelectItem>
           </SelectContent>
         </Select>
         <Select value={sortBy} onValueChange={(v) => setSortBy(v as ClientSort)}>
@@ -752,7 +752,7 @@ export default function Clientes() {
                   <TierBadge tier={c.tier} />
                 </div>
                 <div>
-                  <span className="block text-[11px] text-muted-foreground">A receber</span>
+                  <span className="block text-[11px] text-muted-foreground">Pago</span>
                   <PagamentoCell tem={comPagamento.has(c.id)} onOpen={() => setPagamento(c)} />
                 </div>
               </div>
@@ -832,7 +832,7 @@ export default function Clientes() {
                 <TableHead>Grupo</TableHead>
                 <TableHead>Últ. troca / dias</TableHead>
                 <TableHead>Últ. visita</TableHead>
-                <TableHead>A receber</TableHead>
+                <TableHead>Pago</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
@@ -1309,7 +1309,7 @@ function EditClientDialog({
         <div className="space-y-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <Label className="flex items-center gap-1.5">
-              <Wallet className="h-3.5 w-3.5 text-primary" /> A receber
+              <Wallet className="h-3.5 w-3.5 text-primary" /> Pago
               <span className="font-normal text-muted-foreground">(condições de pagamento)</span>
             </Label>
             <Button type="button" variant="outline" size="sm" onClick={adicionarPagamento}>

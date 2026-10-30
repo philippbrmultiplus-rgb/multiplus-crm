@@ -30,7 +30,7 @@ export function ClientPaymentsDialog({
       <DialogContent className="max-h-[calc(100dvh-2.5rem)] max-w-lg overflow-y-auto overscroll-contain">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Wallet className="h-4 w-4 text-primary" /> A receber
+            <Wallet className="h-4 w-4 text-primary" /> Pago
           </DialogTitle>
           <DialogDescription>
             {client.name}
