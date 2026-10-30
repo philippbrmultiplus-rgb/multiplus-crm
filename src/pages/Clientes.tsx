@@ -48,6 +48,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { MultiSelect } from "@/components/ui/multi-select";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
@@ -147,17 +148,21 @@ export default function Clientes() {
 
   // filtros ficam guardados: ao sair da tela e voltar, continuam como você deixou
   const [search, setSearch] = useStickyState("rs-clientes-search", "");
-  const [city, setCity] = useStickyState("rs-clientes-city", "all");
-  const [tier, setTier] = useStickyState("rs-clientes-tier", "all");
-  const [segment, setSegment] = useStickyState("rs-clientes-segment", "all");
+  // filtros de seleção múltipla (vazio = todos)
+  const [city, setCity] = useStickyState<string[]>("rs-clientes-city-v2", []);
+  const [tier, setTier] = useStickyState<string[]>("rs-clientes-tier-v2", []);
+  const [segment, setSegment] = useStickyState<string[]>("rs-clientes-segment-v2", []);
   const [params] = useSearchParams();
-  const [situ, setSitu] = useStickyState("rs-clientes-situ", params.get("situ") ?? "todas");
-  const [situVisita, setSituVisita] = useStickyState(
-    "rs-clientes-situ-visita",
-    params.get("situVisita") ?? "todas",
+  const [situ, setSitu] = useStickyState<string[]>(
+    "rs-clientes-situ-v2",
+    params.get("situ") ? [params.get("situ") as string] : [],
   );
-  const [dist, setDist] = useStickyState("rs-clientes-dist", "todas");
-  const [pago, setPago] = useStickyState("rs-clientes-pago", "todos");
+  const [situVisita, setSituVisita] = useStickyState<string[]>(
+    "rs-clientes-situ-visita-v2",
+    params.get("situVisita") ? [params.get("situVisita") as string] : [],
+  );
+  const [dist, setDist] = useStickyState<string[]>("rs-clientes-dist-v2", []);
+  const [pago, setPago] = useStickyState<string[]>("rs-clientes-pago-v2", []);
   const [sortBy, setSortBy] = useStickyState<ClientSort>("rs-clientes-ordem", "nome");
   const [onlyActive, setOnlyActive] = useStickyState("rs-clientes-apenas-ativos", true);
   const [editing, setEditing] = useState<Client | null>(null);
@@ -168,8 +173,8 @@ export default function Clientes() {
   useEffect(() => {
     const s = params.get("situ");
     const sv = params.get("situVisita");
-    if (s) setSitu(s);
-    if (sv) setSituVisita(sv);
+    if (s) setSitu([s]);
+    if (sv) setSituVisita([sv]);
   }, [params, setSitu, setSituVisita]);
 
   // atualiza o contador "há X dias" automaticamente
@@ -183,42 +188,57 @@ export default function Clientes() {
   const matchOutros = useCallback(
     (c: Client, ignore: "cidade" | "segmento" | "grupo") => {
       // as prospecções ficam separadas da lista normal de clientes
-      if (segment === PROSPECTA) {
+      if (segment.includes(PROSPECTA)) {
         if (!c.isProspecao) return false;
       } else if (c.isProspecao) {
         return false;
       }
-      if (ignore !== "cidade" && city !== "all" && cidadeKey(c.city || "(sem cidade)") !== cidadeKey(city))
+      if (
+        ignore !== "cidade" &&
+        city.length > 0 &&
+        !city.includes(cidadeKey(c.city || "(sem cidade)"))
+      )
         return false;
-      if (ignore !== "segmento" && segment !== "all" && (c.segment || "(sem segmento)") !== segment)
+      if (
+        ignore !== "segmento" &&
+        segment.length > 0 &&
+        !segment.includes(c.segment || "(sem segmento)")
+      )
         return false;
-      if (ignore !== "grupo" && tier !== "all" && c.tier !== tier) return false;
+      if (ignore !== "grupo" && tier.length > 0 && !tier.includes(c.tier)) return false;
       if (onlyActive && !c.active) return false;
-      if (situ === "atrasada" && !isColetaOverdue(c)) return false;
-      if (situ === "em_dia" && (c.lastCollectAt == null || isColetaOverdue(c))) return false;
-      if (situ === "sem_data" && c.lastCollectAt != null) return false;
-      if (situVisita === "atrasada" && visitaStatus(c) !== "late") return false;
-      if (situVisita === "sem_ou_atrasada" && c.lastVisitAt != null && visitaStatus(c) !== "late")
-        return false;
-      if (situVisita === "em_dia" && (c.lastVisitAt == null || visitaStatus(c) === "late")) return false;
-      if (situVisita === "sem_visita" && c.lastVisitAt != null) return false;
+      if (situ.length > 0) {
+        const atrasada = isColetaOverdue(c);
+        const emDia = c.lastCollectAt != null && !atrasada;
+        const semData = c.lastCollectAt == null;
+        if (!(situ.includes("atrasada") && atrasada) && !(situ.includes("em_dia") && emDia) && !(situ.includes("sem_data") && semData))
+          return false;
+      }
+      if (situVisita.length > 0) {
+        const atrasada = visitaStatus(c) === "late";
+        const emDia = c.lastVisitAt != null && !atrasada;
+        const semVisita = c.lastVisitAt == null;
+        if (
+          !(situVisita.includes("atrasada") && atrasada) &&
+          !(situVisita.includes("em_dia") && emDia) &&
+          !(situVisita.includes("sem_visita") && semVisita) &&
+          !(situVisita.includes("sem_ou_atrasada") && (atrasada || semVisita))
+        )
+          return false;
+      }
       return true;
     },
     [city, segment, tier, onlyActive, situ, situVisita],
   );
 
   // cidades em ordem alfabética, agrupando grafias que só diferem por maiúscula/minúscula
-  const cities = useMemo(() => {
-    const lista = agruparCidades(
-      clients.filter((c) => matchOutros(c, "cidade")).map((c) => c.city || "(sem cidade)"),
-    );
-    if (city !== "all" && !lista.some((o) => cidadeKey(o.label) === cidadeKey(city))) {
-      return [...lista, { label: city, count: 0 }].sort((a, b) =>
-        a.label.localeCompare(b.label, "pt-BR"),
-      );
-    }
-    return lista;
-  }, [clients, matchOutros, city]);
+  const cities = useMemo(
+    () =>
+      agruparCidades(
+        clients.filter((c) => matchOutros(c, "cidade")).map((c) => c.city || "(sem cidade)"),
+      ),
+    [clients, matchOutros],
+  );
 
   const segments = useMemo(() => {
     const map = new Map<string, number>();
@@ -227,14 +247,13 @@ export default function Clientes() {
       const k = c.segment || "(sem segmento)";
       map.set(k, (map.get(k) ?? 0) + 1);
     }
-    if (segment !== "all" && !map.has(segment)) map.set(segment, 0);
     return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0], "pt-BR"));
-  }, [clients, matchOutros, segment]);
+  }, [clients, matchOutros]);
 
   const grupoOptions = useMemo(() => {
     const tiers = new Set<string>();
     for (const c of clients) if (matchOutros(c, "grupo")) tiers.add(c.tier);
-    return (["A", "B", "C", "D"] as const).filter((t) => tiers.has(t) || tier === t);
+    return (["A", "B", "C", "D"] as const).filter((t) => tiers.has(t) || tier.includes(t));
   }, [clients, matchOutros, tier]);
 
   // clientes com condição de pagamento registrada (planilha de pagamentos)
@@ -270,32 +289,46 @@ export default function Clientes() {
     const q = search.trim().toLowerCase();
     return clients
       .filter((c) => (onlyActive ? c.active : true))
-      .filter((c) => (tier === "all" ? true : c.tier === tier))
-      .filter((c) => (city === "all" ? true : cidadeKey(c.city || "(sem cidade)") === cidadeKey(city)))
+      .filter((c) => (tier.length === 0 ? true : tier.includes(c.tier)))
+      .filter((c) =>
+        city.length === 0 ? true : city.includes(cidadeKey(c.city || "(sem cidade)")),
+      )
       .filter((c) => {
-        const bateSegmento = segment === "all" || (c.segment || "(sem segmento)") === segment;
-        if (segment === PROSPECTA) return c.isProspecao && bateSegmento;
+        const bateSegmento =
+          segment.length === 0 || segment.includes(c.segment || "(sem segmento)");
+        if (segment.includes(PROSPECTA)) return c.isProspecao && bateSegmento;
         // prospecções ficam fora da carteira, mas aparecem na busca pelo nome
         if (c.isProspecao) return q !== "" && bateSegmento;
         return bateSegmento;
       })
       .filter((c) => {
-        if (situ === "todas") return true;
-        if (situ === "sem_data") return c.lastCollectAt == null;
-        if (situ === "em_dia") return c.lastCollectAt != null && !isColetaOverdue(c);
-        return isColetaOverdue(c);
+        if (situ.length === 0) return true;
+        const atrasada = isColetaOverdue(c);
+        const emDia = c.lastCollectAt != null && !atrasada;
+        const semData = c.lastCollectAt == null;
+        return (
+          (situ.includes("atrasada") && atrasada) ||
+          (situ.includes("em_dia") && emDia) ||
+          (situ.includes("sem_data") && semData)
+        );
       })
       .filter((c) => {
-        if (situVisita === "todas") return true;
-        if (situVisita === "sem_visita") return c.lastVisitAt == null;
-        if (situVisita === "em_dia") return c.lastVisitAt != null && visitaStatus(c) !== "late";
-        if (situVisita === "sem_ou_atrasada")
-          return c.lastVisitAt == null || visitaStatus(c) === "late";
-        return visitaStatus(c) === "late";
+        if (situVisita.length === 0) return true;
+        const atrasada = visitaStatus(c) === "late";
+        const emDia = c.lastVisitAt != null && !atrasada;
+        const semVisita = c.lastVisitAt == null;
+        return (
+          (situVisita.includes("atrasada") && atrasada) ||
+          (situVisita.includes("em_dia") && emDia) ||
+          (situVisita.includes("sem_visita") && semVisita) ||
+          (situVisita.includes("sem_ou_atrasada") && (atrasada || semVisita))
+        );
       })
-      .filter((c) => (dist === "todas" ? true : distanciaFaixa(c) === dist))
+      .filter((c) => (dist.length === 0 ? true : dist.includes(distanciaFaixa(c))))
       .filter((c) =>
-        pago === "todos" ? true : pago === "sim" ? comPagamento.has(c.id) : !comPagamento.has(c.id),
+        pago.length === 0
+          ? true
+          : pago.some((p) => (p === "sim" ? comPagamento.has(c.id) : !comPagamento.has(c.id))),
       )
       .filter((c) =>
         q ? `${c.name} ${c.address} ${c.city} ${c.segment}`.toLowerCase().includes(q) : true,
@@ -305,12 +338,12 @@ export default function Clientes() {
         if (sortBy === "nome") return compareClients(a, b, "nome");
         // a situação escolhida define a ordem: atrasada = da mais atrasada para baixo;
         // em dia = da mais em dia (menos dias sem coleta) para baixo
-        if (situ === "atrasada") {
+        if (situ.length === 1 && situ[0] === "atrasada") {
           const da = coletaDays(a) ?? -1;
           const db = coletaDays(b) ?? -1;
           return db - da || compareClients(a, b, "grupo");
         }
-        if (situ === "em_dia") {
+        if (situ.length === 1 && situ[0] === "em_dia") {
           const da = coletaDays(a) ?? Number.POSITIVE_INFINITY;
           const db = coletaDays(b) ?? Number.POSITIVE_INFINITY;
           return da - db || compareClients(a, b, "grupo");
@@ -327,23 +360,23 @@ export default function Clientes() {
 
   const anyFilter =
     search.trim() !== "" ||
-    city !== "all" ||
-    tier !== "all" ||
-    segment !== "all" ||
-    situ !== "todas" ||
-    situVisita !== "todas" ||
-    dist !== "todas" ||
-    pago !== "todos";
+    city.length > 0 ||
+    tier.length > 0 ||
+    segment.length > 0 ||
+    situ.length > 0 ||
+    situVisita.length > 0 ||
+    dist.length > 0 ||
+    pago.length > 0;
 
   const resetFilters = () => {
     setSearch("");
-    setCity("all");
-    setTier("all");
-    setSegment("all");
-    setSitu("todas");
-    setSituVisita("todas");
-    setDist("todas");
-    setPago("todos");
+    setCity([]);
+    setTier([]);
+    setSegment([]);
+    setSitu([]);
+    setSituVisita([]);
+    setDist([]);
+    setPago([]);
   };
 
   const pendingGeocode = clients.filter((c) => c.lat == null || c.geocodeStatus !== "ok").length;
@@ -494,94 +527,89 @@ export default function Clientes() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <Select value={city} onValueChange={setCity}>
-          <SelectTrigger className="w-44">
-            <SelectValue placeholder="Cidade" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todas as cidades</SelectItem>
-            {cities.map(({ label, count }) => (
-              <SelectItem key={label} value={label}>
-                {label} ({count})
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={segment} onValueChange={setSegment}>
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="Segmento" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os segmentos</SelectItem>
-            {prospectCount > 0 && (
-              <SelectItem value={PROSPECTA}>Prospecção ({prospectCount})</SelectItem>
-            )}
-            {segments.map(([name, n]) => (
-              <SelectItem key={name} value={name}>
-                {name} ({n})
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={tier} onValueChange={setTier}>
-          <SelectTrigger className="w-40">
-            <SelectValue placeholder="Grupo" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os grupos</SelectItem>
-            {grupoOptions.map((t) => (
-              <SelectItem key={t} value={t}>
-                Grupo {t}
-                {t === "A" ? " (4x/mês)" : t === "B" ? " (3x/mês)" : t === "C" ? " (2x/mês)" : " (<2x/mês)"}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={situ} onValueChange={setSitu}>
-          <SelectTrigger className="w-44">
-            <SelectValue placeholder="Situação da coleta" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="todas">Todas as situações</SelectItem>
-            <SelectItem value="atrasada">Coleta atrasada</SelectItem>
-            <SelectItem value="em_dia">Em dia</SelectItem>
-            <SelectItem value="sem_data">Sem data de coleta</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={dist} onValueChange={setDist}>
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="Distância da base" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="todas">Todas as distâncias</SelectItem>
-            <SelectItem value="ate100">Até 100 km</SelectItem>
-            <SelectItem value="100a200">100 a 200 km</SelectItem>
-            <SelectItem value="200mais">200 km ou mais</SelectItem>
-            <SelectItem value="sem">Sem coordenadas</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={situVisita} onValueChange={setSituVisita}>
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="Situação da visita" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="todas">Todas as visitas</SelectItem>
-            <SelectItem value="atrasada">Visita atrasada (&gt;30 dias)</SelectItem>
-            <SelectItem value="em_dia">Visita em dia</SelectItem>
-            <SelectItem value="sem_visita">Sem visita registrada</SelectItem>
-            <SelectItem value="sem_ou_atrasada">Sem visita ou atrasada (&gt;30 dias)</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={pago} onValueChange={setPago}>
-          <SelectTrigger className="w-40">
-            <SelectValue placeholder="Pago" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="todos">Pago: todos</SelectItem>
-            <SelectItem value="sim">Pago: sim ({comPagamento.size})</SelectItem>
-            <SelectItem value="nao">Pago: não</SelectItem>
-          </SelectContent>
-        </Select>
+        <MultiSelect
+          values={city}
+          onChange={setCity}
+          placeholder="Todas as cidades"
+          allLabel="Todas as cidades"
+          widthClass="w-44"
+          options={cities.map(({ label, count }) => ({ value: label, label, count }))}
+        />
+        <MultiSelect
+          values={segment}
+          onChange={setSegment}
+          placeholder="Todos os segmentos"
+          allLabel="Todos os segmentos"
+          widthClass="w-52"
+          options={[
+            ...(prospectCount > 0
+              ? [{ value: PROSPECTA, label: "Prospecção", count: prospectCount }]
+              : []),
+            ...segments.map(([name, n]) => ({ value: name, label: name, count: n })),
+          ]}
+        />
+        <MultiSelect
+          values={tier}
+          onChange={setTier}
+          placeholder="Todos os grupos"
+          allLabel="Todos os grupos"
+          widthClass="w-48"
+          options={grupoOptions.map((t) => ({
+            value: t,
+            label: `Grupo ${t}${
+              t === "A" ? " (4x/mês)" : t === "B" ? " (3x/mês)" : t === "C" ? " (2x/mês)" : " (<2x/mês)"
+            }`,
+          }))}
+        />
+        <MultiSelect
+          values={situ}
+          onChange={setSitu}
+          placeholder="Todas as situações"
+          allLabel="Todas as situações"
+          widthClass="w-48"
+          options={[
+            { value: "atrasada", label: "Coleta atrasada (>30 dias)" },
+            { value: "em_dia", label: "Coleta em dia" },
+            { value: "sem_data", label: "Sem data de coleta" },
+          ]}
+        />
+        <MultiSelect
+          values={dist}
+          onChange={setDist}
+          placeholder="Todas as distâncias"
+          allLabel="Todas as distâncias"
+          widthClass="w-48"
+          options={[
+            { value: "ate100", label: "Até 100 km" },
+            { value: "100a200", label: "100 a 200 km" },
+            { value: "200mais", label: "200 km ou mais" },
+            { value: "sem", label: "Sem coordenadas" },
+          ]}
+        />
+        <MultiSelect
+          values={situVisita}
+          onChange={setSituVisita}
+          placeholder="Todas as visitas"
+          allLabel="Todas as visitas"
+          widthClass="w-52"
+          options={[
+            { value: "atrasada", label: "Visita atrasada (>30 dias)" },
+            { value: "em_dia", label: "Visita em dia" },
+            { value: "sem_visita", label: "Sem visita registrada" },
+            { value: "sem_ou_atrasada", label: "Sem visita ou atrasada (>30 dias)" },
+          ]}
+        />
+        <MultiSelect
+          values={pago}
+          onChange={setPago}
+          placeholder="Pago: todos"
+          allLabel="Pago: todos"
+          widthClass="w-44"
+          options={[
+            { value: "sim", label: "Pago: sim", count: comPagamento.size },
+            { value: "nao", label: "Pago: não" },
+          ]}
+        />
         <Select value={sortBy} onValueChange={(v) => setSortBy(v as ClientSort)}>
           <SelectTrigger className="w-56">
             <SelectValue placeholder="Ordem" />
@@ -728,7 +756,7 @@ export default function Clientes() {
         </div>
       ) : (
         <div className="card-soft overflow-x-auto">
-          <Table className="table-fixed [&_th]:px-2 [&_th]:py-1.5 [&_td]:px-2 [&_td]:py-1.5">
+          <Table className="table-fixed [&_th]:px-2 [&_th]:py-1.5 [&_td]:px-2 [&_td]:py-1.5 [&_thead_tr]:bg-primary [&_thead_th]:font-semibold [&_thead_th]:text-primary-foreground">
             <colgroup>
               <col className="w-[18%]" />
               <col className="w-[8%]" />
