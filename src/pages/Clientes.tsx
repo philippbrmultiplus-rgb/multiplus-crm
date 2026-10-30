@@ -269,6 +269,18 @@ export default function Clientes() {
     return (["A", "B", "C", "D"] as const).filter((t) => tiers.has(t) || tier === t);
   }, [clients, matchOutros, tier]);
 
+  // clientes cuja forma de pagamento registrada é "À receber / A receber"
+  const comAReceber = useMemo(() => {
+    const ids = new Set<string>();
+    for (const p of state.payments) {
+      const modalidade = String(p.modalidade ?? "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
+      if (p.clientId && /a\s*receber/i.test(modalidade)) ids.add(p.clientId);
+    }
+    return ids;
+  }, [state.payments]);
+
   // clientes com condição de pagamento registrada (planilha de pagamentos)
   const comPagamento = useMemo(() => {
     const ids = new Set<string>();
@@ -332,7 +344,13 @@ export default function Clientes() {
       })
       .filter((c) => (dist === "todas" ? true : distanciaFaixa(c) === dist))
       .filter((c) =>
-        pago === "todos" ? true : pago === "sim" ? comPagamento.has(c.id) : !comPagamento.has(c.id),
+        pago === "todos"
+          ? true
+          : pago === "receber"
+            ? comAReceber.has(c.id)
+            : pago === "sim"
+              ? comPagamento.has(c.id)
+              : !comPagamento.has(c.id),
       )
       .filter((c) =>
         q
@@ -372,6 +390,7 @@ export default function Clientes() {
     sortBy,
     onlyActive,
     comPagamento,
+    comAReceber,
   ]);
 
   /** a lista é longa: mostra até 300, mas o total filtrado continua contando todos */
@@ -654,6 +673,7 @@ export default function Clientes() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="todos">Pago: todos</SelectItem>
+            <SelectItem value="receber">A receber ({comAReceber.size})</SelectItem>
             <SelectItem value="sim">Pago: sim ({comPagamento.size})</SelectItem>
             <SelectItem value="nao">Pago: não</SelectItem>
           </SelectContent>
