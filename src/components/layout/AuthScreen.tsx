@@ -1,11 +1,12 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { Loader2, Lock, Mail, User as UserIcon } from "lucide-react";
+import { CheckCircle2, Loader2, Lock, Mail, User as UserIcon, Wifi } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useData } from "@/lib/DataContext";
+import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from "@/integrations/supabase/client";
 
 export function AuthScreen({ embedded = false }: { embedded?: boolean }) {
   const { signIn, signUp, role, user } = useData();
@@ -16,6 +17,33 @@ export function AuthScreen({ embedded = false }: { embedded?: boolean }) {
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // teste de conexão com o servidor (útil quando aparece "falha de conexão")
+  const [teste, setTeste] = useState<string | null>(null);
+  const [testando, setTestando] = useState(false);
+
+  const testarConexao = async () => {
+    setTestando(true);
+    setTeste("Testando o servidor…");
+    const inicio = Date.now();
+    try {
+      const res = await fetch(`${SUPABASE_URL}/auth/v1/settings`, {
+        headers: { apikey: SUPABASE_PUBLISHABLE_KEY },
+      });
+      const ms = Date.now() - inicio;
+      setTeste(
+        res.ok
+          ? `Servidor respondeu em ${ms} ms — se o login falhar, confira e-mail e senha.`
+          : `Servidor respondeu com erro ${res.status}.`,
+      );
+    } catch (err) {
+      console.error("teste de conexão:", err);
+      setTeste(
+        "Sem conexão com o servidor. Verifique a internet, VPN ou bloqueios de rede deste aparelho.",
+      );
+    } finally {
+      setTestando(false);
+    }
+  };
 
   useEffect(() => {
     if (user && role) {
@@ -143,6 +171,25 @@ export function AuthScreen({ embedded = false }: { embedded?: boolean }) {
             >
               {mode === "login" ? "Não tenho conta — criar agora" : "Já tenho conta — entrar"}
             </Button>
+            <Button
+              variant="link"
+              size="sm"
+              className="mt-1 w-full text-xs text-muted-foreground"
+              disabled={testando}
+              onClick={() => void testarConexao()}
+            >
+              {testando ? (
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Wifi className="mr-1.5 h-3.5 w-3.5" />
+              )}
+              Testar conexão com o servidor
+            </Button>
+            {teste && (
+              <p className="mt-1 flex items-start gap-1.5 text-xs text-muted-foreground">
+                <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" /> {teste}
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>

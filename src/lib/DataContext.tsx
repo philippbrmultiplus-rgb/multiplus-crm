@@ -40,6 +40,17 @@ import { formatDateBR, toLocalDateKey } from "./geo";
 
 const STORAGE_KEY = "mp-paulinia-app-state.v1";
 
+/** mensagem amigável quando o navegador não consegue falar com o servidor */
+const MENSAGEM_SEM_CONEXAO =
+  "Não consegui falar com o servidor (falha de conexão). Confira a internet, desative VPN/bloqueios e tente novamente.";
+
+/** erros de rede do navegador (o famoso "Failed to fetch") */
+function falhaDeRede(mensagem: string): boolean {
+  return /failed to fetch|networkerror|network error|load failed|fetch failed|econn|timeout/i.test(
+    mensagem,
+  );
+}
+
 /** fotos já enviadas que não conseguiram anexar à visita (queda de conexão no meio do caminho) */
 const PENDING_PHOTOS_KEY = "rs-pending-photos.v1";
 
@@ -1244,8 +1255,23 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const signIn = useCallback(
     async (email: string, pw: string): Promise<string | null> => {
-      const { error } = await supabase.auth.signInWithPassword({ email, password: pw });
-      return error?.message ?? null;
+      // a conexão pode oscilar: uma tentativa extra antes de avisar o usuário
+      for (let tentativa = 1; tentativa <= 2; tentativa++) {
+        try {
+          const { error } = await supabase.auth.signInWithPassword({ email, password: pw });
+          if (!error) return null;
+          if (!falhaDeRede(error.message) || tentativa === 2) {
+            return falhaDeRede(error.message) ? MENSAGEM_SEM_CONEXAO : error.message;
+          }
+        } catch (err) {
+          if (tentativa === 2) {
+            console.error("entrar:", err);
+            return MENSAGEM_SEM_CONEXAO;
+          }
+        }
+        await new Promise((r) => setTimeout(r, 900));
+      }
+      return MENSAGEM_SEM_CONEXAO;
     },
     [],
   );
@@ -1260,7 +1286,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           emailRedirectTo: `${window.location.origin}/`,
         },
       });
-      if (error) return error.message;
+      if (error) return falhaDeRede(error.message) ? MENSAGEM_SEM_CONEXAO : error.message;
       if (data.session?.user) {
         // sessão já veio (auto-confirm): garante que o perfil foi criado
         await new Promise((r) => setTimeout(r, 800));
