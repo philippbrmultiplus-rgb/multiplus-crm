@@ -322,6 +322,25 @@ export default function Clientes() {
     return () => clearInterval(t);
   }, []);
 
+  // clientes cuja forma de pagamento registrada é "À receber / A receber"
+  const comAReceber = useMemo(() => {
+    const ids = new Set<string>();
+    for (const p of state.payments) {
+      const modalidade = String(p.modalidade ?? "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
+      if (p.clientId && /a\s*receber/i.test(modalidade)) ids.add(p.clientId);
+    }
+    return ids;
+  }, [state.payments]);
+
+  // clientes com condição de pagamento registrada (planilha de pagamentos)
+  const comPagamento = useMemo(() => {
+    const ids = new Set<string>();
+    for (const p of state.payments) if (p.clientId) ids.add(p.clientId);
+    return ids;
+  }, [state.payments]);
+
   // confere se o cliente passa em TODOS os filtros atuais (grupos com várias opções)
   const matchOutros = useCallback(
     (c: Client, ignore?: "cidade" | "segmento" | "segmentoComercial" | "grupo" | "situacao" | "visita" | "distancia" | "pago") => {
@@ -435,25 +454,6 @@ export default function Clientes() {
     const marcados = escolhidos(tier);
     return (["A", "B", "C", "D"] as const).filter((t) => tiers.has(t) || marcados.includes(t));
   }, [clients, matchOutros, tier]);
-
-  // clientes cuja forma de pagamento registrada é "À receber / A receber"
-  const comAReceber = useMemo(() => {
-    const ids = new Set<string>();
-    for (const p of state.payments) {
-      const modalidade = String(p.modalidade ?? "")
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "");
-      if (p.clientId && /a\s*receber/i.test(modalidade)) ids.add(p.clientId);
-    }
-    return ids;
-  }, [state.payments]);
-
-  // clientes com condição de pagamento registrada (planilha de pagamentos)
-  const comPagamento = useMemo(() => {
-    const ids = new Set<string>();
-    for (const p of state.payments) if (p.clientId) ids.add(p.clientId);
-    return ids;
-  }, [state.payments]);
 
   // média de dias entre coletas de cada cliente (vem da Cadência de troca)
   const cadenciaPorCliente = useMemo(() => {
