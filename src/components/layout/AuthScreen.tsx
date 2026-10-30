@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { CheckCircle2, Loader2, Lock, Mail, User as UserIcon, Wifi } from "lucide-react";
+import { CheckCircle2, Loader2, Lock, Mail, RotateCcw, User as UserIcon, Wifi } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,6 +20,33 @@ export function AuthScreen({ embedded = false }: { embedded?: boolean }) {
   // teste de conexão com o servidor (útil quando aparece "falha de conexão")
   const [teste, setTeste] = useState<string | null>(null);
   const [testando, setTestando] = useState(false);
+
+  /**
+   * Quando o navegador guarda uma versão antiga do app, o login tenta falar com um
+   * endereço que não existe mais ("Failed to fetch"). Isto limpa o cache do app e
+   * recarrega o endereço com um parâmetro novo, forçando o download da versão atual.
+   */
+  const limparVersaoAntiga = async () => {
+    setTestando(true);
+    setTeste("Limpando a versão antiga do app…");
+    try {
+      const registros = await navigator.serviceWorker?.getRegistrations?.();
+      await Promise.all((registros ?? []).map((registro) => registro.unregister()));
+    } catch {
+      // alguns navegadores não permitem — seguimos com a limpeza do cache
+    }
+    try {
+      if (typeof caches !== "undefined") {
+        const chaves = await caches.keys();
+        await Promise.all(chaves.map((chave) => caches.delete(chave)));
+      }
+    } catch {
+      // ignora: o recarregamento com endereço novo já resolve a maior parte dos casos
+    }
+    const url = new URL(window.location.href);
+    url.searchParams.set("v", String(Date.now()));
+    window.location.replace(url.toString());
+  };
 
   const testarConexao = async () => {
     setTestando(true);
@@ -184,6 +211,16 @@ export function AuthScreen({ embedded = false }: { embedded?: boolean }) {
                 <Wifi className="mr-1.5 h-3.5 w-3.5" />
               )}
               Testar conexão com o servidor
+            </Button>
+            <Button
+              variant="link"
+              size="sm"
+              className="mt-0 w-full text-xs text-muted-foreground"
+              disabled={testando}
+              onClick={() => void limparVersaoAntiga()}
+            >
+              <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+              Não está abrindo? Limpar versão antiga e recarregar
             </Button>
             {teste && (
               <p className="mt-1 flex items-start gap-1.5 text-xs text-muted-foreground">
