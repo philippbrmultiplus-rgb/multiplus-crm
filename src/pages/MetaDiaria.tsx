@@ -176,6 +176,21 @@ export default function MetaDiaria() {
     return "text-destructive";
   };
 
+  /** dias de cada semana, com o período para mostrar no cartão */
+  const semanasDetalhadas = useMemo(() => {
+    const mapa = new Map<number, { dias: typeof dias; valores: ValoresDia; diasUteis: number; total: number }>();
+    for (const d of dias) {
+      const item = mapa.get(d.semana) ?? { dias: [], valores: vazio(), diasUteis: 0, total: 0 };
+      const valores = porDia[d.data] ?? vazio();
+      for (const g of GRUPOS) item.valores[g.chave] += valores[g.chave];
+      item.total += totalDoDia(valores);
+      if (d.util && (!emAndamento || d.passado)) item.diasUteis += 1;
+      item.dias.push(d);
+      mapa.set(d.semana, item);
+    }
+    return [...mapa.entries()].sort((a, b) => a[0] - b[0]);
+  }, [dias, porDia, emAndamento]);
+
   const metaAcumulada = metaDiaTotal * diasUteisMes;
   const mesAnterior = () => {
     const d = new Date(Date.UTC(ano, numeroMes - 2, 1));
@@ -311,7 +326,118 @@ export default function MetaDiaria() {
         </div>
       </div>
 
-      <div className="card-soft overflow-x-auto">
+      {/* uma semana por quadrante */}
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {semanasDetalhadas.map(([semana, dados]) => {
+          const metaSemana = metaDiaTotal * dados.diasUteis;
+          const atingido = pct(dados.total, metaSemana);
+          const primeiro = dados.dias[0]?.data ?? "";
+          const ultimo = dados.dias[dados.dias.length - 1]?.data ?? "";
+          const periodo =
+            primeiro && ultimo
+              ? `${primeiro.slice(8, 10)}/${primeiro.slice(5, 7)} a ${ultimo.slice(8, 10)}/${ultimo.slice(5, 7)}`
+              : "";
+          return (
+            <Card key={`semana-${semana}`} className="card-soft">
+              <CardHeader className="pb-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <CardTitle className="text-base">Semana {semana}</CardTitle>
+                  {metaSemana > 0 && (
+                    <Badge
+                      className={
+                        atingido >= 100
+                          ? "bg-primary/10 text-primary"
+                          : atingido >= 90
+                            ? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+                            : "bg-destructive/10 text-destructive"
+                      }
+                    >
+                      {atingido}% da meta
+                    </Badge>
+                  )}
+                </div>
+                <CardDescription>
+                  {periodo} · {dados.diasUteis} dia(s) útil(eis) · meta {formatM3(metaSemana)} m³
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
+                  <div
+                    className={`h-1.5 rounded-full ${
+                      atingido >= 100 ? "bg-primary" : atingido >= 90 ? "bg-amber-500" : "bg-destructive"
+                    }`}
+                    style={{ width: `${Math.min(100, Math.max(2, atingido))}%` }}
+                  />
+                </div>
+                {GRUPOS.map((g) => {
+                  const valor = dados.valores[g.chave];
+                  const meta = metaDoGrupo[g.chave] * dados.diasUteis;
+                  return (
+                    <div key={g.chave} className="flex items-center justify-between gap-2 text-sm">
+                      <span className="truncate text-muted-foreground">{g.label}</span>
+                      <span className="flex items-baseline gap-2 tabular-nums">
+                        <span className="font-medium">{valor ? formatM3(valor) : "—"}</span>
+                        <span
+                          className={`w-12 text-right text-xs ${
+                            meta > 0 && valor > 0 ? tom(valor, meta) : "text-muted-foreground"
+                          }`}
+                        >
+                          {meta > 0 && valor > 0 ? `${pct(valor, meta)}%` : "—"}
+                        </span>
+                      </span>
+                    </div>
+                  );
+                })}
+                <div className="flex items-baseline justify-between gap-2 border-t pt-2">
+                  <span className="text-sm font-medium">Total da semana</span>
+                  <span className="flex items-baseline gap-2 tabular-nums">
+                    <span className="text-xl font-semibold">{formatM3(dados.total)}</span>
+                    <span className="text-xs text-muted-foreground">m³</span>
+                  </span>
+                </div>
+                <details className="pt-1">
+                  <summary className="cursor-pointer select-none text-xs text-muted-foreground hover:text-foreground">
+                    Ver os dias
+                  </summary>
+                  <ul className="mt-1.5 space-y-1">
+                    {dados.dias.map((d) => {
+                      const valores = porDia[d.data] ?? vazio();
+                      const total = totalDoDia(valores);
+                      const metaDia = d.util ? metaDiaTotal : 0;
+                      return (
+                        <li
+                          key={d.data}
+                          className={`flex items-baseline justify-between gap-2 rounded px-1 text-xs ${
+                            d.util ? "" : "text-muted-foreground"
+                          }`}
+                        >
+                          <span className="tabular-nums">
+                            {d.data.slice(8, 10)}/{d.data.slice(5, 7)} ·{" "}
+                            {DIA_SEMANA[new Date(`${d.data}T00:00:00Z`).getUTCDay()]}
+                            {!d.util && (feriados.has(d.data) ? " · feriado" : "")}
+                          </span>
+                          <span className="tabular-nums">
+                            {total ? formatM3(total) : "—"}
+                            {metaDia > 0 && total > 0 && (
+                              <span className={`ml-1 ${tom(total, metaDia)}`}>{pct(total, metaDia)}%</span>
+                            )}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </details>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+
+      <details className="card-soft p-3">
+        <summary className="cursor-pointer select-none text-sm font-medium">
+          Ver o mês dia a dia (detalhado por segmento)
+        </summary>
+        <div className="mt-3 overflow-x-auto">
         <Table className="[&_th]:whitespace-nowrap [&_th]:px-2 [&_th]:py-1.5 [&_td]:px-2 [&_td]:py-1 [&_thead_tr]:bg-primary [&_thead_th]:font-semibold [&_thead_th]:text-primary-foreground">
           <TableHeader>
             <TableRow>
@@ -410,7 +536,8 @@ export default function MetaDiaria() {
             </TableRow>
           </TableFooter>
         </Table>
-      </div>
+        </div>
+      </details>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {[
