@@ -20,7 +20,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useData } from "@/lib/DataContext";
-import { diasUteisNoMes } from "@/lib/calendario";
+import { diasUteisNoMes, feriadosNoMes } from "@/lib/calendario";
 import { formatDateBR, formatM3, mesLabel, toLocalDateKey } from "@/lib/geo";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -202,6 +202,7 @@ export default function ComparativoMensal() {
         {meses.map((m) => {
           const emAndamento = m.slice(0, 7) === mesCorrente;
           const diasUteis = diasUteisNoMes(m, emAndamento ? hoje : null, state.settings.workingDays);
+          const feriados = feriadosNoMes(m);
           return (
             <Card key={m} className="card-soft">
               <CardHeader className="pb-2">
@@ -213,6 +214,12 @@ export default function ComparativoMensal() {
                 <p className="pt-1 text-xs text-muted-foreground">
                   {diasUteis} {diasUteis === 1 ? "dia útil" : "dias úteis"}
                   {emAndamento ? ` até ${formatDateBR(hoje)}` : " no mês"}
+                  {feriados.length > 0 && (
+                    <span className="block text-[11px]">
+                      − {feriados.length} feriado{feriados.length > 1 ? "s" : ""} (
+                      {feriados.map((f) => formatDateBR(f).slice(0, 5)).join(", ")})
+                    </span>
+                  )}
                 </p>
               </CardHeader>
             </Card>
@@ -452,8 +459,10 @@ export default function ComparativoMensal() {
           </CardDescription>
         </CardHeader>
         <CardContent className="text-xs text-muted-foreground">
-          {volumes.length} lançamento(s) mensais carregados. Os dias úteis seguem os dias de rota
-          (segunda a sexta) e não descontam feriados; no mês em andamento a contagem vai até hoje.
+          {volumes.length} lançamento(s) mensais carregados. Os dias úteis seguem o calendário
+          nacional: de segunda a sexta, <b>sem sábados, domingos e feriados nacionais</b> — mesmo quando
+          existe lançamento de coleta no sábado, ele não é contado como dia útil. No mês em andamento a
+          contagem vai até hoje.
         </CardContent>
       </Card>
     </div>
