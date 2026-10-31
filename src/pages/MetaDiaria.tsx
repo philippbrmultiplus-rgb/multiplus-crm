@@ -25,7 +25,6 @@ const GRUPOS = [
   { chave: "poli", label: "Poli", prefixo: "Poli", meta: "metaDiaPoli" as const },
   { chave: "pap", label: "P. a Porta", prefixo: "Porta a Porta", meta: null },
   { chave: "terceiro", label: "Terceiro", prefixo: "Terceiro", meta: "metaDiaTerceiro" as const },
-  { chave: "outros", label: "Outros", prefixo: "", meta: null },
 ] as const;
 
 type ChaveGrupo = (typeof GRUPOS)[number]["chave"];
@@ -33,16 +32,17 @@ type ValoresDia = Record<ChaveGrupo, number>;
 
 const DIA_SEMANA = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
 
-function grupoDoSegmento(segmento: string): ChaveGrupo {
+function grupoDoSegmento(segmento: string): ChaveGrupo | null {
   const seg = (segmento || "").trim();
   if (seg.startsWith("Rollon")) return "rollon";
   if (seg.startsWith("Poli")) return "poli";
   if (seg.startsWith("Porta a Porta")) return "pap";
   if (seg.startsWith("Terceiro")) return "terceiro";
-  return "outros";
+  // outros segmentos não entram no acompanhamento
+  return null;
 }
 
-const vazio = (): ValoresDia => ({ rollon: 0, poli: 0, pap: 0, terceiro: 0, outros: 0 });
+const vazio = (): ValoresDia => ({ rollon: 0, poli: 0, pap: 0, terceiro: 0 });
 
 /** acompanhamento diário das metas por segmento logístico */
 export default function MetaDiaria() {
@@ -66,6 +66,13 @@ export default function MetaDiaria() {
     terceiro: settings.metaDiaTerceiro ?? 8.5,
   };
   const metaDiaTotal = metas.rollon + metas.poli + metas.terceiro;
+  /** meta diária de cada grupo (Porta a Porta não tem meta) */
+  const metaDoGrupo: Record<ChaveGrupo, number> = {
+    rollon: metas.rollon,
+    poli: metas.poli,
+    pap: 0,
+    terceiro: metas.terceiro,
+  };
   const metaMes = settings.metaMes ?? 6000;
 
   const segmentoPorCliente = useMemo(() => {
@@ -93,6 +100,7 @@ export default function MetaDiaria() {
       const dia = String(row.collect_date ?? "").slice(0, 10);
       if (!dia) continue;
       const grupo = grupoDoSegmento(segmentoPorCliente.get(String(row.client_id)) ?? "");
+      if (!grupo) continue;
       const valores = acumulado[dia] ?? vazio();
       valores[grupo] += Number(row.volume_m3 ?? 0);
       acumulado[dia] = valores;
@@ -125,7 +133,7 @@ export default function MetaDiaria() {
   }, [mes, ultimoDia, feriados, hoje]);
 
   const totalDoDia = (valores: ValoresDia | undefined) =>
-    valores ? valores.rollon + valores.poli + valores.pap + valores.terceiro + valores.outros : 0;
+    valores ? valores.rollon + valores.poli + valores.pap + valores.terceiro : 0;
 
   const totalMes = useMemo(
     () => Object.values(porDia).reduce((acc, v) => acc + totalDoDia(v), 0),
@@ -182,7 +190,7 @@ export default function MetaDiaria() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Meta diária</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Acompanhamento Meta</h1>
           <p className="text-sm text-muted-foreground">
             Volume coletado por dia e por semana, comparado com a meta de cada segmento
             {emAndamento && " (mês em andamento)"}
@@ -313,7 +321,6 @@ export default function MetaDiaria() {
               <TableHead className="text-center">Poli</TableHead>
               <TableHead className="text-center">P. a Porta</TableHead>
               <TableHead className="text-center">Terceiro</TableHead>
-              <TableHead className="text-center">Outros</TableHead>
               <TableHead className="text-center">Total dia</TableHead>
               <TableHead className="text-center">% meta dia</TableHead>
             </TableRow>
@@ -335,11 +342,20 @@ export default function MetaDiaria() {
                     )}
                   </TableCell>
                   <TableCell className="text-center text-xs text-muted-foreground">S{d.semana}</TableCell>
-                  {GRUPOS.map((g) => (
-                    <TableCell key={g.chave} className="text-center tabular-nums">
-                      {valores[g.chave] ? formatM3(valores[g.chave]) : "—"}
-                    </TableCell>
-                  ))}
+                  {GRUPOS.map((g) => {
+                    const valor = valores[g.chave];
+                    const meta = d.util ? metaDoGrupo[g.chave] : 0;
+                    return (
+                      <TableCell key={g.chave} className="text-center tabular-nums">
+                        <span className="block font-medium">{valor ? formatM3(valor) : "—"}</span>
+                        {valor > 0 && meta > 0 && (
+                          <span className={`block text-[10px] ${tom(valor, meta)}`}>
+                            {pct(valor, meta)}%
+                          </span>
+                        )}
+                      </TableCell>
+                    );
+                  })}
                   <TableCell className="text-center font-semibold tabular-nums">
                     {total ? formatM3(total) : "—"}
                   </TableCell>
@@ -357,11 +373,20 @@ export default function MetaDiaria() {
                   <TableCell className="text-center text-xs text-muted-foreground">
                     {dados.diasUteis} dia(s)
                   </TableCell>
-                  {GRUPOS.map((g) => (
-                    <TableCell key={g.chave} className="text-center tabular-nums">
-                      {dados.valores[g.chave] ? formatM3(dados.valores[g.chave]) : "—"}
-                    </TableCell>
-                  ))}
+                  {GRUPOS.map((g) => {
+                    const valor = dados.valores[g.chave];
+                    const meta = metaDoGrupo[g.chave] * dados.diasUteis;
+                    return (
+                      <TableCell key={g.chave} className="text-center tabular-nums">
+                        <span className="block font-medium">{valor ? formatM3(valor) : "—"}</span>
+                        {valor > 0 && meta > 0 && (
+                          <span className={`block text-[10px] ${tom(valor, meta)}`}>
+                            {pct(valor, meta)}%
+                          </span>
+                        )}
+                      </TableCell>
+                    );
+                  })}
                   <TableCell className="text-center tabular-nums">{formatM3(dados.total)}</TableCell>
                   <TableCell className={`text-center tabular-nums ${metaSemana ? tom(dados.total, metaSemana) : ""}`}>
                     {metaSemana ? `${pct(dados.total, metaSemana)}%` : "—"}
@@ -430,9 +455,10 @@ export default function MetaDiaria() {
           <CardTitle className="text-base">Como a conta é feita</CardTitle>
           <CardDescription>
             Cada coleta da planilha entra no dia e no segmento do cliente. Rollon soma Rollon +
-            Rollon/Carregamento na hora; Poli soma todos os tipos de Poli; Porta a Porta idem. Sábados,
-            domingos e feriados nacionais não contam como dia útil, então as metas do dia e da semana só
-            valem para os dias úteis.
+            Rollon/Carregamento na hora; Poli soma todos os tipos de Poli; Porta a Porta idem. O
+            percentual abaixo de cada número é o atingimento do dia naquele segmento. Sábados, domingos e
+            feriados nacionais não contam como dia útil, então as metas do dia e da semana só valem para os
+            dias úteis. Volumes de outros segmentos não entram nesta tela.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">

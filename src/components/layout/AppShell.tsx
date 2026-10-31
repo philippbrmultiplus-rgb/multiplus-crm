@@ -69,7 +69,7 @@ const NAV_ITEMS: NavItem[] = [
   },
   {
     to: "/meta-diaria",
-    label: "Meta diária",
+    label: "Acompanhamento Meta",
     icon: Target,
     roles: ["coordenador", "vendedor", "gerente"],
   },
