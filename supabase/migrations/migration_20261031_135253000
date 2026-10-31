@@ -1,0 +1,14 @@
+-- metas do acompanhamento diário (editáveis no app)
+alter table public.settings
+  add column if not exists meta_dia_rollon numeric,
+  add column if not exists meta_dia_poli numeric,
+  add column if not exists meta_dia_terceiro numeric,
+  add column if not exists meta_mes numeric;
+
+update public.settings set
+  meta_dia_rollon = coalesce(meta_dia_rollon, 260),
+  meta_dia_poli = coalesce(meta_dia_poli, 60),
+  meta_dia_terceiro = coalesce(meta_dia_terceiro, 8.5),
+  meta_mes = coalesce(meta_mes, 6000),
+  updated_at = now()
+where id = 1;

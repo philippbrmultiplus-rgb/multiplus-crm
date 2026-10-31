@@ -68,6 +68,12 @@ const NAV_ITEMS: NavItem[] = [
     roles: ["coordenador", "vendedor", "gerente"],
   },
   {
+    to: "/meta-diaria",
+    label: "Meta diária",
+    icon: Target,
+    roles: ["coordenador", "vendedor", "gerente"],
+  },
+  {
     to: "/comparativo",
     label: "Comparativo mensal",
     icon: BarChart3,

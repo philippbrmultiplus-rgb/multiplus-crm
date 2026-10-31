@@ -88,3 +88,23 @@ export function feriadosNoMes(mes: string): string[] {
     return diaDaSemana >= 1 && diaDaSemana <= 5;
   });
 }
+
+/**
+ * Dias úteis entre duas datas (yyyy-mm-dd), inclusive, pelo calendário nacional:
+ * segunda a sexta, sem feriados. Sábados e domingos nunca contam.
+ */
+export function diasUteisNoPeriodo(inicio: string, fim: string): number {
+  if (!inicio || !fim) return 0;
+  let total = 0;
+  const cursor = new Date(`${inicio}T00:00:00Z`);
+  const limite = new Date(`${fim}T00:00:00Z`).getTime();
+  const feriados = new Set(feriadosNacionais(cursor.getUTCFullYear()).concat(
+    feriadosNacionais(cursor.getUTCFullYear() + 1),
+  ));
+  while (cursor.getTime() <= limite) {
+    const diaSemana = cursor.getUTCDay();
+    if (diaSemana >= 1 && diaSemana <= 5 && !feriados.has(iso(cursor))) total += 1;
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  return total;
+}

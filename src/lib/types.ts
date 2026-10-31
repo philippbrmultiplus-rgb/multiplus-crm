@@ -90,6 +90,11 @@ export interface Settings {
   visitRadiusM: number;
   /** versão da planilha de coletas já importada (para aplicar atualizações novas sozinho) */
   planilhaVersao?: string | null;
+  /** metas do acompanhamento diário (m³ por dia útil e meta do mês) */
+  metaDiaRollon?: number | null;
+  metaDiaPoli?: number | null;
+  metaDiaTerceiro?: number | null;
+  metaMes?: number | null;
   /** empresa contratada e parâmetros fixos usados na geração dos contratos */
   empresaRazao?: string | null;
   empresaCnpj?: string | null;

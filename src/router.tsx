@@ -16,6 +16,7 @@ const MinhaRotaMes = lazy(() => import("./pages/MinhaRotaMes"));
 const Visitas = lazy(() => import("./pages/Visitas"));
 const Alertas = lazy(() => import("./pages/Alertas"));
 const ComparativoMensal = lazy(() => import("./pages/ComparativoMensal"));
+const MetaDiaria = lazy(() => import("./pages/MetaDiaria"));
 const Cadencia = lazy(() => import("./pages/Cadencia"));
 const ProspeccaoInterna = lazy(() => import("./pages/ProspeccaoInterna"));
 const Backup = lazy(() => import("./pages/Backup"));
@@ -87,6 +88,11 @@ export const routers = [
     path: "/comparativo",
     name: "comparativo",
     element: pagina(<ComparativoMensal />),
+  },
+  {
+    path: "/meta-diaria",
+    name: "meta-diaria",
+    element: pagina(<MetaDiaria />),
   },
   {
     path: "/cadencia",
