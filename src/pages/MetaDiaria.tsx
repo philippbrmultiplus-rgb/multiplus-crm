@@ -117,14 +117,27 @@ export default function MetaDiaria() {
 
   /** dias do mês com marcação de dia útil (seg a sex, sem feriados) */
   const dias = useMemo(() => {
-    const lista: Array<{ dia: number; data: string; semana: number; util: boolean; passado: boolean }> = [];
+    const lista: Array<{
+      dia: number;
+      data: string;
+      /** semana do calendário (segunda a sábado); domingo não entra em semana */
+      semana: number | null;
+      util: boolean;
+      passado: boolean;
+    }> = [];
+    let semana = 0;
     for (let dia = 1; dia <= ultimoDia; dia++) {
       const data = `${mes}-${String(dia).padStart(2, "0")}`;
       const diaSemana = new Date(`${data}T00:00:00Z`).getUTCDay();
+      // domingo não faz parte da semana de trabalho (a semana vai de segunda a sábado)
+      if (diaSemana !== 0) {
+        // começa semana 1 no primeiro dia do mês e uma nova semana em cada segunda-feira
+        if (dia === 1 || diaSemana === 1) semana += 1;
+      }
       lista.push({
         dia,
         data,
-        semana: Math.floor((dia - 1) / 7) + 1,
+        semana: diaSemana === 0 ? null : semana,
         util: diaSemana >= 1 && diaSemana <= 5 && !feriados.has(data),
         passado: data <= hoje,
       });
@@ -153,20 +166,6 @@ export default function MetaDiaria() {
     [inicio, fim, emAndamento, hoje],
   );
 
-  const semanas = useMemo(() => {
-    const mapa = new Map<number, { valores: ValoresDia; diasUteis: number; total: number }>();
-    for (const d of dias) {
-      const semana = mapa.get(d.semana) ?? { valores: vazio(), diasUteis: 0, total: 0 };
-      const valores = porDia[d.data] ?? vazio();
-      for (const g of GRUPOS) semana.valores[g.chave] += valores[g.chave];
-      semana.total += totalDoDia(valores);
-      // dias úteis da semana (só os que já aconteceram no mês em andamento)
-      if (d.util && (!emAndamento || d.passado)) semana.diasUteis += 1;
-      mapa.set(d.semana, semana);
-    }
-    return mapa;
-  }, [dias, porDia, emAndamento]);
-
   const pct = (valor: number, meta: number) => (meta > 0 ? Math.round((valor / meta) * 1000) / 10 : 0);
 
   const tom = (valor: number, meta: number): string => {
@@ -180,6 +179,7 @@ export default function MetaDiaria() {
   const semanasDetalhadas = useMemo(() => {
     const mapa = new Map<number, { dias: typeof dias; valores: ValoresDia; diasUteis: number; total: number }>();
     for (const d of dias) {
+      if (d.semana == null) continue;
       const item = mapa.get(d.semana) ?? { dias: [], valores: vazio(), diasUteis: 0, total: 0 };
       const valores = porDia[d.data] ?? vazio();
       for (const g of GRUPOS) item.valores[g.chave] += valores[g.chave];
@@ -467,7 +467,9 @@ export default function MetaDiaria() {
                       <span className="ml-1 text-[10px]">({feriados.has(d.data) ? "feriado" : "sem meta"})</span>
                     )}
                   </TableCell>
-                  <TableCell className="text-center text-xs text-muted-foreground">S{d.semana}</TableCell>
+                  <TableCell className="text-center text-xs text-muted-foreground">
+                    {d.semana ? `S${d.semana}` : "—"}
+                  </TableCell>
                   {GRUPOS.map((g) => {
                     const valor = valores[g.chave];
                     const meta = d.util ? metaDoGrupo[g.chave] : 0;
@@ -487,35 +489,6 @@ export default function MetaDiaria() {
                   </TableCell>
                   <TableCell className={`text-center tabular-nums ${metaDia ? tom(total, metaDia) : ""}`}>
                     {metaDia ? `${pct(total, metaDia)}%` : "—"}
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-            {[...semanas.entries()].map(([semana, dados]) => {
-              const metaSemana = metaDiaTotal * dados.diasUteis;
-              return (
-                <TableRow key={`semana-${semana}`} className="bg-secondary/60 font-semibold">
-                  <TableCell>Semana {semana}</TableCell>
-                  <TableCell className="text-center text-xs text-muted-foreground">
-                    {dados.diasUteis} dia(s)
-                  </TableCell>
-                  {GRUPOS.map((g) => {
-                    const valor = dados.valores[g.chave];
-                    const meta = metaDoGrupo[g.chave] * dados.diasUteis;
-                    return (
-                      <TableCell key={g.chave} className="text-center tabular-nums">
-                        <span className="block font-medium">{valor ? formatM3(valor) : "—"}</span>
-                        {valor > 0 && meta > 0 && (
-                          <span className={`block text-[10px] ${tom(valor, meta)}`}>
-                            {pct(valor, meta)}%
-                          </span>
-                        )}
-                      </TableCell>
-                    );
-                  })}
-                  <TableCell className="text-center tabular-nums">{formatM3(dados.total)}</TableCell>
-                  <TableCell className={`text-center tabular-nums ${metaSemana ? tom(dados.total, metaSemana) : ""}`}>
-                    {metaSemana ? `${pct(dados.total, metaSemana)}%` : "—"}
                   </TableCell>
                 </TableRow>
               );
