@@ -200,7 +200,6 @@ export default function MetaDiaria() {
     return [...mapa.entries()].sort((a, b) => a[0] - b[0]);
   }, [dias, porDia, emAndamento]);
 
-  const metaAcumulada = metaDiaTotal * diasUteisMes;
   const mesAnterior = () => {
     const d = new Date(Date.UTC(ano, numeroMes - 2, 1));
     setMes(d.toISOString().slice(0, 7));
@@ -232,7 +231,7 @@ export default function MetaDiaria() {
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         <Card className="card-soft">
           <CardHeader className="pb-2">
             <CardDescription className="font-medium">Total do mês</CardDescription>
@@ -254,17 +253,6 @@ export default function MetaDiaria() {
             </CardTitle>
             <p className="text-xs text-muted-foreground">
               faltam {formatM3(Math.max(0, metaMes - totalMes))} m³
-            </p>
-          </CardHeader>
-        </Card>
-        <Card className="card-soft">
-          <CardHeader className="pb-2">
-            <CardDescription className="font-medium">Metas diárias acumuladas</CardDescription>
-            <CardTitle className="text-3xl">
-              {formatM3(metaAcumulada)} <span className="text-base font-normal text-muted-foreground">m³</span>
-            </CardTitle>
-            <p className="text-xs text-muted-foreground">
-              {diasUteisMes} dia(s) útil(eis) × {formatM3(metaDiaTotal)} m³
             </p>
           </CardHeader>
         </Card>
