@@ -44,6 +44,15 @@ function grupoDoSegmento(segmento: string): ChaveGrupo | null {
 
 const vazio = (): ValoresDia => ({ rollon: 0, poli: 0, pap: 0, terceiro: 0 });
 
+/** cor da célula conforme o atingimento (verde ≥100%, âmbar ≥90%, vermelho abaixo) */
+function classeCelula(valor: number, meta: number): string {
+  if (meta <= 0) return "bg-muted/40 text-muted-foreground";
+  const atingido = (valor / meta) * 100;
+  if (atingido >= 100) return "bg-emerald-600 text-white";
+  if (atingido >= 90) return "bg-amber-500 text-amber-950";
+  return "bg-rose-600 text-white";
+}
+
 /** acompanhamento diário das metas por segmento logístico */
 export default function MetaDiaria() {
   const { state, role, updateSettings } = useData();
@@ -326,8 +335,8 @@ export default function MetaDiaria() {
         </div>
       </div>
 
-      {/* uma semana por quadrante */}
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+      {/* uma semana por quadrante, no formato da planilha */}
+      <div className="space-y-3">
         {semanasDetalhadas.map(([semana, dados]) => {
           const metaSemana = metaDiaTotal * dados.diasUteis;
           const atingido = pct(dados.total, metaSemana);
@@ -341,92 +350,139 @@ export default function MetaDiaria() {
             <Card key={`semana-${semana}`} className="card-soft">
               <CardHeader className="pb-2">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <CardTitle className="text-base">Semana {semana}</CardTitle>
-                  {metaSemana > 0 && (
-                    <Badge
-                      className={
-                        atingido >= 100
-                          ? "bg-primary/10 text-primary"
-                          : atingido >= 90
-                            ? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
-                            : "bg-destructive/10 text-destructive"
-                      }
-                    >
-                      {atingido}% da meta
-                    </Badge>
-                  )}
+                  <div>
+                    <CardTitle className="text-base">Semana {semana}</CardTitle>
+                    <CardDescription>
+                      {periodo} · {dados.diasUteis} dia(s) útil(eis) · meta {formatM3(metaSemana)} m³
+                    </CardDescription>
+                  </div>
+                  <Badge
+                    className={
+                      atingido >= 100
+                        ? "bg-emerald-600 text-white"
+                        : atingido >= 90
+                          ? "bg-amber-500 text-amber-950"
+                          : "bg-rose-600 text-white"
+                    }
+                  >
+                    {atingido}% da meta da semana
+                  </Badge>
                 </div>
-                <CardDescription>
-                  {periodo} · {dados.diasUteis} dia(s) útil(eis) · meta {formatM3(metaSemana)} m³
-                </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-2">
-                <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
-                  <div
-                    className={`h-1.5 rounded-full ${
-                      atingido >= 100 ? "bg-primary" : atingido >= 90 ? "bg-amber-500" : "bg-destructive"
-                    }`}
-                    style={{ width: `${Math.min(100, Math.max(2, atingido))}%` }}
-                  />
-                </div>
-                {GRUPOS.map((g) => {
-                  const valor = dados.valores[g.chave];
-                  const meta = metaDoGrupo[g.chave] * dados.diasUteis;
-                  return (
-                    <div key={g.chave} className="flex items-center justify-between gap-2 text-sm">
-                      <span className="truncate text-muted-foreground">{g.label}</span>
-                      <span className="flex items-baseline gap-2 tabular-nums">
-                        <span className="font-medium">{valor ? formatM3(valor) : "—"}</span>
-                        <span
-                          className={`w-12 text-right text-xs ${
-                            meta > 0 && valor > 0 ? tom(valor, meta) : "text-muted-foreground"
-                          }`}
-                        >
-                          {meta > 0 && valor > 0 ? `${pct(valor, meta)}%` : "—"}
-                        </span>
-                      </span>
-                    </div>
-                  );
-                })}
-                <div className="flex items-baseline justify-between gap-2 border-t pt-2">
-                  <span className="text-sm font-medium">Total da semana</span>
-                  <span className="flex items-baseline gap-2 tabular-nums">
-                    <span className="text-xl font-semibold">{formatM3(dados.total)}</span>
-                    <span className="text-xs text-muted-foreground">m³</span>
-                  </span>
-                </div>
-                <details className="pt-1">
-                  <summary className="cursor-pointer select-none text-xs text-muted-foreground hover:text-foreground">
-                    Ver os dias
-                  </summary>
-                  <ul className="mt-1.5 space-y-1">
-                    {dados.dias.map((d) => {
-                      const valores = porDia[d.data] ?? vazio();
-                      const total = totalDoDia(valores);
-                      const metaDia = d.util ? metaDiaTotal : 0;
-                      return (
-                        <li
+              <CardContent className="overflow-x-auto p-0">
+                <table className="w-full min-w-[760px] border-collapse text-xs">
+                  <thead>
+                    <tr>
+                      <th className="sticky left-0 z-10 bg-primary px-2 py-1.5 text-left font-semibold text-primary-foreground">
+                        Segmento
+                      </th>
+                      {dados.dias.map((d) => (
+                        <th
                           key={d.data}
-                          className={`flex items-baseline justify-between gap-2 rounded px-1 text-xs ${
-                            d.util ? "" : "text-muted-foreground"
+                          className={`px-2 py-1.5 text-center font-semibold ${
+                            d.util
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-muted text-muted-foreground"
                           }`}
                         >
-                          <span className="tabular-nums">
-                            {d.data.slice(8, 10)}/{d.data.slice(5, 7)} ·{" "}
+                          {d.data.slice(8, 10)}/{d.data.slice(5, 7)}
+                          <span className="block text-[9px] font-normal">
                             {DIA_SEMANA[new Date(`${d.data}T00:00:00Z`).getUTCDay()]}
                             {!d.util && (feriados.has(d.data) ? " · feriado" : "")}
                           </span>
-                          <span className="tabular-nums">
-                            {total ? formatM3(total) : "—"}
-                            {metaDia > 0 && total > 0 && (
-                              <span className={`ml-1 ${tom(total, metaDia)}`}>{pct(total, metaDia)}%</span>
+                        </th>
+                      ))}
+                      <th className="bg-primary px-2 py-1.5 text-center font-semibold text-primary-foreground">
+                        Total semana
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {GRUPOS.map((g) => {
+                      const metaDia = metaDoGrupo[g.chave];
+                      const metaTotal = metaDia * dados.diasUteis;
+                      const valorTotal = dados.valores[g.chave];
+                      return (
+                        <tr key={g.chave} className="border-t">
+                          <td className="sticky left-0 z-10 bg-card px-2 py-1 text-left font-medium">
+                            {g.label}
+                          </td>
+                          {dados.dias.map((d) => {
+                            const valor = (porDia[d.data] ?? vazio())[g.chave];
+                            const meta = d.util ? metaDia : 0;
+                            return (
+                              <td
+                                key={d.data}
+                                className={`border-l px-1 py-1 text-center ${classeCelula(valor, meta)}`}
+                              >
+                                <span className="block font-semibold tabular-nums">
+                                  {valor ? formatM3(valor) : "—"}
+                                </span>
+                                {meta > 0 && (
+                                  <span className="block text-[10px] opacity-90">{pct(valor, meta)}%</span>
+                                )}
+                              </td>
+                            );
+                          })}
+                          <td
+                            className={`border-l px-1 py-1 text-center ${classeCelula(valorTotal, metaTotal)}`}
+                          >
+                            <span className="block font-semibold tabular-nums">
+                              {formatM3(valorTotal)}
+                            </span>
+                            {metaTotal > 0 && (
+                              <span className="block text-[10px] opacity-90">
+                                {pct(valorTotal, metaTotal)}%
+                              </span>
                             )}
-                          </span>
-                        </li>
+                          </td>
+                        </tr>
                       );
                     })}
-                  </ul>
-                </details>
+                    <tr className="border-t bg-secondary/40 font-semibold">
+                      <td className="sticky left-0 z-10 bg-secondary/40 px-2 py-1 text-left">
+                        Total do dia
+                      </td>
+                      {dados.dias.map((d) => {
+                        const valores = porDia[d.data] ?? vazio();
+                        const total = totalDoDia(valores);
+                        const meta = d.util ? metaDiaTotal : 0;
+                        return (
+                          <td
+                            key={d.data}
+                            className={`border-l px-1 py-1 text-center ${classeCelula(total, meta)}`}
+                          >
+                            <span className="block font-semibold tabular-nums">
+                              {total ? formatM3(total) : "—"}
+                            </span>
+                            {meta > 0 && (
+                              <span className="block text-[10px] opacity-90">{pct(total, meta)}%</span>
+                            )}
+                          </td>
+                        );
+                      })}
+                      <td
+                        className={`border-l px-1 py-1 text-center ${classeCelula(dados.total, metaSemana)}`}
+                      >
+                        <span className="block font-semibold tabular-nums">{formatM3(dados.total)}</span>
+                        {metaSemana > 0 && (
+                          <span className="block text-[10px] opacity-90">{atingido}%</span>
+                        )}
+                      </td>
+                    </tr>
+                    <tr className="text-[10px] text-muted-foreground">
+                      <td className="sticky left-0 z-10 bg-card px-2 py-1 text-left">Meta do dia</td>
+                      {dados.dias.map((d) => (
+                        <td key={d.data} className="border-l px-1 py-1 text-center tabular-nums">
+                          {d.util ? formatM3(metaDiaTotal) : "—"}
+                        </td>
+                      ))}
+                      <td className="border-l px-1 py-1 text-center tabular-nums">
+                        {formatM3(metaSemana)}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               </CardContent>
             </Card>
           );
