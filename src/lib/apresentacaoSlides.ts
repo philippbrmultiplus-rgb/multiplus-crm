@@ -18,6 +18,14 @@ export type Slide =
       corteEm: string | null;
     }
   | {
+      tipo: "metas";
+      mesNome: string;
+      ano: number;
+      total: number;
+      diasUteis: number;
+      segmentos: { nome: string; dia: number; meta: number }[];
+    }
+  | {
       tipo: "segmentos";
       titulo: string;
       subtitulo: string;
@@ -88,6 +96,15 @@ export function montarSlides(dados: ApresentacaoMensal): Slide[] {
     atingimento: dados.atingimento,
     parcial: dados.parcial,
     corteEm: dados.corteEm,
+  });
+
+  slides.push({
+    tipo: "metas",
+    mesNome: dados.mesNome.toUpperCase(),
+    ano: dados.ano,
+    total: dados.meta,
+    diasUteis: dados.diasUteisMes,
+    segmentos: dados.metasSegmentos,
   });
 
   slides.push({

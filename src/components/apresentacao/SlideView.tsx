@@ -3,6 +3,8 @@ import { CORES, PX, ptPx, type Slide } from "@/lib/apresentacaoSlides";
 import type { SegmentoResumo } from "@/lib/apresentacao";
 import { formatM3 } from "@/lib/geo";
 
+const AZUL_CLARO_TXT = "#2F7DE1";
+
 const FONTE_TITULO = "'Arial Narrow', 'Liberation Sans Narrow', Arial, sans-serif";
 
 /** mede o título com a fonte que o navegador realmente usa, para caber na faixa */
@@ -202,13 +204,14 @@ function Rodape({ texto, topo = 6.3 }: { texto: string; topo?: number }) {
   );
 }
 
-function Logotipo() {
+function Logotipo({ claro = false }: { claro?: boolean }) {
+  const cor = claro ? "#6FA8F5" : CORES.azul;
   return (
-    <Caixa style={{ left: polegada(0.75), top: polegada(6.95), display: "flex", alignItems: "center", gap: polegada(0.06) }}>
-      <div style={{ width: polegada(0.27), height: polegada(0.27), background: "#C3D0E4", borderRadius: polegada(0.06), display: "grid", placeItems: "center", color: CORES.fundo, fontWeight: 700, fontSize: ptPx(12) }}>
+    <Caixa style={{ left: polegada(0.75), top: polegada(7.1), display: "flex", alignItems: "center", gap: polegada(0.05) }}>
+      <div style={{ width: polegada(0.24), height: polegada(0.24), background: cor, borderRadius: polegada(0.05), display: "grid", placeItems: "center", color: CORES.branco, fontWeight: 700, fontSize: ptPx(11) }}>
         M
       </div>
-      <span style={{ color: "#C3D0E4", fontWeight: 700, fontSize: ptPx(10) }}>ultiplus</span>
+      <span style={{ color: cor, fontWeight: 700, fontSize: ptPx(9.5) }}>ultiplus</span>
     </Caixa>
   );
 }
@@ -286,6 +289,81 @@ export function SlideView({ slide }: { slide: Slide }) {
     );
   }
 
+  if (slide.tipo === "metas") {
+    const cards = slide.segmentos.slice(0, 4);
+    const largura = 3.05;
+    const vao = 0.22;
+    const inicio = (13.333 - (cards.length * largura + (cards.length - 1) * vao)) / 2;
+    return (
+      <div style={{ width: "100%", height: "100%", background: CORES.navy, position: "relative", overflow: "hidden" }}>
+        <Caixa
+          style={{
+            left: polegada(0.85),
+            top: polegada(0.75),
+            fontSize: ptPx(11.5),
+            letterSpacing: 1.5,
+            fontWeight: 700,
+            color: "#6FA8F5",
+          }}
+        >
+          — META MENSAL POR SEGMENTO —
+        </Caixa>
+        <Caixa style={{ left: polegada(0.85), top: polegada(1.1), fontSize: ptPx(40), fontWeight: 700, color: CORES.branco }}>
+          {slide.mesNome}
+        </Caixa>
+        <Caixa style={{ left: polegada(0.85), top: polegada(1.95), fontSize: ptPx(20), fontWeight: 700, color: AZUL_CLARO_TXT }}>
+          — {slide.ano} —
+        </Caixa>
+
+        {cards.map((item, i) => (
+          <Caixa
+            key={item.nome}
+            style={{
+              left: polegada(inicio + i * (largura + vao)),
+              top: polegada(3.05),
+              width: polegada(largura),
+              height: polegada(2.15),
+              background: "rgba(255,255,255,0.07)",
+              border: "1px solid rgba(255,255,255,0.16)",
+              borderRadius: polegada(0.2),
+              padding: polegada(0.24),
+            }}
+          >
+            <div style={{ fontSize: ptPx(12.5), fontWeight: 700, color: CORES.branco, letterSpacing: 0.4 }}>
+              {item.nome.toUpperCase()}
+            </div>
+            <div style={{ fontSize: ptPx(10), color: "#9CC0F0", marginTop: polegada(0.06) }}>
+              {formatM3(item.dia)} m³ por dia útil
+            </div>
+            <div style={{ fontSize: ptPx(30), fontWeight: 700, color: CORES.branco, marginTop: polegada(0.45), lineHeight: 1.1 }}>
+              {formatM3(Math.round(item.meta * 10) / 10)}
+            </div>
+            <div style={{ fontSize: ptPx(10), color: "#9CC0F0" }}>m³ no mês</div>
+          </Caixa>
+        ))}
+
+        <Caixa
+          style={{
+            left: polegada(0.85),
+            top: polegada(5.55),
+            display: "flex",
+            alignItems: "baseline",
+            gap: polegada(0.25),
+          }}
+        >
+          <span style={{ fontSize: ptPx(12), fontWeight: 700, letterSpacing: 1.2, color: "#9CC0F0" }}>
+            META DO MÊS
+          </span>
+          <span style={{ fontSize: ptPx(34), fontWeight: 700, color: CORES.dourado }}>
+            {formatM3(Math.round(slide.total * 10) / 10)} m³
+          </span>
+          <span style={{ fontSize: ptPx(11), color: "#9CC0F0" }}>· {slide.diasUteis} dias úteis</span>
+        </Caixa>
+        <Logotipo claro />
+      </div>
+    );
+  }
+
   if (slide.tipo === "segmentos") {
     return (
       <div style={{ width: "100%", height: "100%", background: CORES.fundo, position: "relative" }}>
@@ -330,18 +408,18 @@ export function SlideView({ slide }: { slide: Slide }) {
             }}
           >
             <div style={{ height: polegada(0.12), background: p.cor }} />
-            <img src={p.trofeu} alt="" style={{ height: polegada(0.97), marginTop: polegada(0.14) }} />
-            <div style={{ fontSize: ptPx(12.5), fontWeight: 700, color: CORES.navy, marginTop: polegada(0.1), padding: `0 ${polegada(0.15)}` }}>
+            <img src={p.trofeu} alt="" style={{ height: polegada(0.78), marginTop: polegada(0.08) }} />
+            <div style={{ fontSize: ptPx(12.5), fontWeight: 700, color: CORES.navy, marginTop: polegada(0.04), padding: `0 ${polegada(0.15)}` }}>
               {p.cliente.nome}
             </div>
-            <div style={{ fontSize: ptPx(19), fontWeight: 700, color: CORES.azul, marginTop: polegada(0.04) }}>
+            <div style={{ fontSize: ptPx(19), fontWeight: 700, color: CORES.azul, marginTop: polegada(0.02) }}>
               {formatM3(p.cliente.atual)} m³
             </div>
             <div
               style={{
                 display: "inline-block",
-                marginTop: polegada(0.08),
-                padding: `${polegada(0.04)} ${polegada(0.16)}`,
+                marginTop: polegada(0.05),
+                padding: `${polegada(0.03)} ${polegada(0.16)}`,
                 borderRadius: polegada(0.14),
                 fontSize: ptPx(9.5),
                 fontWeight: 700,
@@ -350,6 +428,9 @@ export function SlideView({ slide }: { slide: Slide }) {
               }}
             >
               {pct(p.cliente.variacao)}
+            </div>
+            <div style={{ marginTop: polegada(0.03), fontSize: ptPx(9.5), fontWeight: 700, color: CORES.cinza }}>
+              {num(p.cliente.participacao)}% do mês
             </div>
           </Caixa>
         ))}
@@ -389,6 +470,7 @@ export function SlideView({ slide }: { slide: Slide }) {
             </Caixa>
           );
         })}
+        <Logotipo />
       </div>
     );
   }

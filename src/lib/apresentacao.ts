@@ -3,7 +3,7 @@
  * cadência e pagamentos) e monta o retrato do mês escolhido.
  */
 import { diasUteisNoMes } from "./calendario";
-import { metaDoAno, metaDoMes } from "./metas";
+import { diasUteisDoMes, metaDoAno, metaDoMes, metasDoMes } from "./metas";
 import { formatDateBR } from "./geo";
 import { toLocalDateKey } from "./geo";
 import type { AppState, Client, MonthlyVolume } from "./types";
@@ -96,6 +96,8 @@ export interface ApresentacaoMensal {
   grupos: GrupoResumo[];
   top10: TopCliente[];
   comparativo: MesComparativo[];
+  /** meta mensal de cada segmento (meta do dia × dias úteis) */
+  metasSegmentos: { nome: string; dia: number; meta: number }[];
   forecast: {
     realizado: number;
     mediaMensal: number;
@@ -139,6 +141,13 @@ function valorEmReais(texto: string | null | undefined): number {
   return inteiro + centavos / 100;
 }
 
+/** nomes de segmento que entram juntos nos slides (Terceiro + carregamento na hora) */
+function normalizarSegmento(segmento: string): string {
+  const seg = (segmento || "").trim();
+  if (seg.startsWith("Terceiro")) return "Terceiro";
+  return seg || "Sem segmento";
+}
+
 function grupoDoSegmento(segmento: string): string | null {
   const seg = (segmento || "").trim();
   if (seg.startsWith("Rollon")) return "Rollon";
@@ -171,7 +180,7 @@ function montarLinhas(volumes: MonthlyVolume[], clients: Client[]): Linha[] {
         chave,
         nome: cliente?.name ?? v.label ?? SEM_CADASTRO,
         cidade: cliente?.city ?? "",
-        segmento: cliente?.segment?.trim() || "Sem segmento",
+        segmento: normalizarSegmento(cliente?.segment ?? ""),
         comercial: cliente?.segmentoComercial?.trim() || "Sem segmento",
         valores: new Map(),
       };
@@ -237,7 +246,19 @@ export function construirApresentacao(state: AppState, mes: string): Apresentaca
   const diasUteisMes = diasUteisNoMes(alvo, null, state.settings.workingDays);
   const diasUteis = diasUteisNoMes(alvo, parcial ? hoje : null, state.settings.workingDays);
 
-  const comerciais = resumirPorCampo(linhas, "comercial", mesesBase, total);
+  const metasDia = metasDoMes(state.metas ?? [], alvo, state.settings);
+  const diasDaMeta = diasUteisDoMes(state.settings, alvo);
+  const metasSegmentos = [
+    { nome: "Rollon", dia: metasDia.rollon, meta: metasDia.rollon * diasDaMeta },
+    { nome: "Poli", dia: metasDia.poli, meta: metasDia.poli * diasDaMeta },
+    { nome: "Porta a Porta", dia: metasDia.pap, meta: metasDia.pap * diasDaMeta },
+    { nome: "Terceiro", dia: metasDia.terceiro, meta: metasDia.terceiro * diasDaMeta },
+  ].filter((m) => m.dia > 0);
+
+  // "Sem segmento" não entra no gráfico de segmentos comercial
+  const comerciais = resumirPorCampo(linhas, "comercial", mesesBase, total).filter(
+    (s) => s.nome !== "Sem segmento",
+  );
   const logisticos = resumirPorCampo(linhas, "segmento", mesesBase, total);
 
   const grupos: GrupoResumo[] = ["Rollon", "Poli", "Porta a Porta", "Terceiro"].map((nome) => {
@@ -249,7 +270,9 @@ export function construirApresentacao(state: AppState, mes: string): Apresentaca
       atual,
       anterior: antes,
       variacao: antes > 0 ? ((atual - antes) / antes) * 100 : atual > 0 ? 100 : 0,
-      segmentos: resumirPorCampo(doGrupo, "comercial", mesesBase, atual).filter((s) => s.atual > 0),
+      segmentos: resumirPorCampo(doGrupo, "comercial", mesesBase, atual).filter((s) =>
+        s.valores.some((v) => v.valor > 0),
+      ),
     };
   });
 
@@ -350,6 +373,7 @@ export function construirApresentacao(state: AppState, mes: string): Apresentaca
     grupos,
     top10,
     comparativo,
+    metasSegmentos,
     forecast: {
       realizado,
       mediaMensal,

@@ -38,10 +38,11 @@ export async function gerarPptx(slides: Slide[], nomeArquivo: string): Promise<v
     return s;
   };
 
-  const logotipo = (s: ReturnType<typeof novoSlide>) => {
-    s.addShape(pptx.ShapeType.roundRect, { x: 0.75, y: 6.95, w: 0.27, h: 0.27, fill: { color: "C3D0E4" }, line: { color: "C3D0E4" }, rectRadius: 0.05 });
-    s.addText("M", { x: 0.75, y: 6.95, w: 0.27, h: 0.27, align: "center", valign: "middle", fontSize: 11, bold: true, color: hex(CORES.fundo) });
-    s.addText("ultiplus", { x: 1.04, y: 6.95, w: 1.6, h: 0.27, valign: "middle", fontSize: 10, bold: true, color: "C3D0E4" });
+  const logotipo = (s: ReturnType<typeof novoSlide>, claro = false) => {
+    const cor = claro ? "6FA8F5" : "1B6FD0";
+    s.addShape(pptx.ShapeType.roundRect, { x: 0.75, y: 7.1, w: 0.24, h: 0.24, fill: { color: cor }, line: { color: cor }, rectRadius: 0.05 });
+    s.addText("M", { x: 0.75, y: 7.1, w: 0.24, h: 0.24, align: "center", valign: "middle", fontSize: 10, bold: true, color: "FFFFFF" });
+    s.addText("ultiplus", { x: 1.01, y: 7.1, w: 1.6, h: 0.24, valign: "middle", fontSize: 9.5, bold: true, color: cor });
   };
 
   const cabecalho = (s: ReturnType<typeof novoSlide>, titulo: string, subtitulo?: string, selo?: string) => {
@@ -139,6 +140,42 @@ export async function gerarPptx(slides: Slide[], nomeArquivo: string): Promise<v
       continue;
     }
 
+    if (slide.tipo === "metas") {
+      const s = novoSlide(CORES.navy);
+      s.addText("— META MENSAL POR SEGMENTO —", {
+        x: 0.85, y: 0.72, w: 8, h: 0.3, fontSize: 11.5, bold: true, color: "6FA8F5", charSpacing: 2,
+      });
+      s.addText(slide.mesNome, { x: 0.85, y: 1.05, w: 8, h: 0.9, fontSize: 40, bold: true, color: "FFFFFF" });
+      s.addText(`— ${slide.ano} —`, { x: 0.85, y: 1.95, w: 6, h: 0.4, fontSize: 20, bold: true, color: "2F7DE1" });
+
+      const cards = slide.segmentos.slice(0, 4);
+      const largura = 3.05;
+      const vao = 0.22;
+      const inicio = (13.333 - (cards.length * largura + (cards.length - 1) * vao)) / 2;
+      cards.forEach((item, i) => {
+        const x = inicio + i * (largura + vao);
+        s.addShape(pptx.ShapeType.roundRect, {
+          x, y: 3.05, w: largura, h: 2.15,
+          fill: { color: "14304F" }, line: { color: "2A4870" }, rectRadius: 0.12,
+        });
+        s.addText(item.nome.toUpperCase(), { x: x + 0.24, y: 3.28, w: largura - 0.48, h: 0.3, fontSize: 12.5, bold: true, color: "FFFFFF" });
+        s.addText(`${num(item.dia)} m³ por dia útil`, { x: x + 0.24, y: 3.58, w: largura - 0.48, h: 0.25, fontSize: 10, color: "9CC0F0" });
+        s.addText(num(Math.round(item.meta * 10) / 10), { x: x + 0.24, y: 3.95, w: largura - 0.48, h: 0.7, fontSize: 30, bold: true, color: "FFFFFF" });
+        s.addText("m³ no mês", { x: x + 0.24, y: 4.68, w: largura - 0.48, h: 0.25, fontSize: 10, color: "9CC0F0" });
+      });
+
+      s.addText(
+        [
+          { text: "META DO MÊS   ", options: { fontSize: 12, bold: true, color: "9CC0F0", charSpacing: 1.2 } },
+          { text: `${num(Math.round(slide.total * 10) / 10)} m³`, options: { fontSize: 34, bold: true, color: hex(CORES.dourado) } },
+          { text: `   · ${slide.diasUteis} dias úteis`, options: { fontSize: 11, color: "9CC0F0" } },
+        ],
+        { x: 0.85, y: 5.5, w: 11.6, h: 0.6, valign: "middle" },
+      );
+      logotipo(s, true);
+      continue;
+    }
+
     if (slide.tipo === "segmentos") {
       const s = novoSlide();
       cabecalho(s, slide.titulo, slide.subtitulo, slide.selo);
@@ -226,14 +263,14 @@ export async function gerarPptx(slides: Slide[], nomeArquivo: string): Promise<v
         const y = 1.22;
         s.addShape(pptx.ShapeType.roundRect, { x, y, w: 3.85, h: 2.35, fill: { color: "FFFFFF" }, line: { color: hex(CORES.linha) }, rectRadius: 0.16 });
         s.addShape(pptx.ShapeType.rect, { x, y, w: 3.85, h: 0.12, fill: { color: hex(p.cor) }, line: { color: hex(p.cor) } });
-        s.addImage({ data: await imagemBase64(p.trofeu), x: x + 1.42, y: y + 0.16, w: 1.0, h: 0.97 });
-        s.addText(p.cliente.nome, { x: x + 0.15, y: y + 1.2, w: 3.55, h: 0.36, align: "center", fontSize: 12.5, bold: true, color: hex(CORES.navy) });
-        s.addText(`${num(p.cliente.atual)} m³`, { x: x + 0.15, y: y + 1.56, w: 3.55, h: 0.42, align: "center", fontSize: 19, bold: true, color: hex(CORES.azul) });
+        s.addImage({ data: await imagemBase64(p.trofeu), x: x + 1.52, y: y + 0.2, w: 0.8, h: 0.78 });
+        s.addText(p.cliente.nome, { x: x + 0.15, y: y + 1.0, w: 3.55, h: 0.3, align: "center", fontSize: 12.5, bold: true, color: hex(CORES.navy) });
+        s.addText(`${num(p.cliente.atual)} m³`, { x: x + 0.15, y: y + 1.3, w: 3.55, h: 0.36, align: "center", fontSize: 19, bold: true, color: hex(CORES.azul) });
         const variacao = p.cliente.variacao;
         const etiqueta = `${variacao > 0 ? "+" : ""}${num(variacao)}%`;
         s.addShape(pptx.ShapeType.roundRect, {
           x: x + 1.925 - (0.115 * etiqueta.length + 0.26) / 2,
-          y: y + 2.02,
+          y: y + 1.7,
           w: 0.115 * etiqueta.length + 0.26,
           h: 0.26,
           fill: { color: variacao >= 0 ? "E6F6EE" : "FCECEE" },
@@ -242,7 +279,7 @@ export async function gerarPptx(slides: Slide[], nomeArquivo: string): Promise<v
         });
         s.addText(etiqueta, {
           x: x + 1.925 - (0.115 * etiqueta.length + 0.26) / 2,
-          y: y + 2.02,
+          y: y + 1.7,
           w: 0.115 * etiqueta.length + 0.26,
           h: 0.26,
           align: "center",
@@ -251,7 +288,18 @@ export async function gerarPptx(slides: Slide[], nomeArquivo: string): Promise<v
           bold: true,
           color: hex(variacao >= 0 ? CORES.verde : CORES.vermelho),
         });
+        s.addText(`${num(p.cliente.participacao)}% do mês`, {
+          x: x + 0.15,
+          y: y + 2.0,
+          w: 3.55,
+          h: 0.22,
+          align: "center",
+          fontSize: 9.5,
+          bold: true,
+          color: hex(CORES.cinza),
+        });
       }
+      logotipo(s);
 
       s.addText("4º AO 10º", { x: 0.72, y: 3.72, w: 3, h: 0.24, fontSize: 8.5, bold: true, color: hex(CORES.cinza) });
       slide.clientes.slice(3).forEach((c, i) => {
