@@ -12,6 +12,7 @@ import {
   LogOut,
   Map as MapIcon,
   MapPin,
+  Presentation,
   Repeat,
   Route as RouteIcon,
   Target,
@@ -84,6 +85,12 @@ const NAV_ITEMS: NavItem[] = [
     label: "Cadência de troca",
     icon: Repeat,
     roles: ["coordenador", "vendedor", "gerente"],
+  },
+  {
+    to: "/apresentacao",
+    label: "Apresentação mensal",
+    icon: Presentation,
+    roles: ["coordenador", "gerente"],
   },
   { to: "/backup", label: "Dados & backup", icon: Database, roles: ["coordenador", "gerente"] },
 ];

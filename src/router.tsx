@@ -17,6 +17,7 @@ const Visitas = lazy(() => import("./pages/Visitas"));
 const Alertas = lazy(() => import("./pages/Alertas"));
 const ComparativoMensal = lazy(() => import("./pages/ComparativoMensal"));
 const MetaDiaria = lazy(() => import("./pages/MetaDiaria"));
+const ApresentacaoMensal = lazy(() => import("./pages/ApresentacaoMensal"));
 const Cadencia = lazy(() => import("./pages/Cadencia"));
 const ProspeccaoInterna = lazy(() => import("./pages/ProspeccaoInterna"));
 const Backup = lazy(() => import("./pages/Backup"));
@@ -98,6 +99,11 @@ export const routers = [
     path: "/cadencia",
     name: "cadencia",
     element: pagina(<Cadencia />),
+  },
+  {
+    path: "/apresentacao",
+    name: "apresentacao",
+    element: pagina(<ApresentacaoMensal />),
   },
   {
     path: "/prospeccao-interna",
