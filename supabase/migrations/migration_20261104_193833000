@@ -1,0 +1,1 @@
+delete from client_monthly_volumes where client_id is null and month >= '2026-01-01' and month <= '2026-06-01';
