@@ -282,7 +282,7 @@ export default function MetaDiaria() {
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <Card className="card-soft">
           <CardHeader className="pb-2">
             <CardDescription className="font-medium">Total do mês</CardDescription>
@@ -318,6 +318,34 @@ export default function MetaDiaria() {
               <span className="text-base font-normal text-muted-foreground">m³</span>
             </CardTitle>
             <p className="text-xs text-muted-foreground">meta diária: {formatM3(metaDiaTotal)} m³</p>
+          </CardHeader>
+        </Card>
+        <Card className="card-soft">
+          <CardHeader className="pb-2">
+            <CardDescription className="flex items-center gap-1.5 font-medium">
+              <Target className="h-3.5 w-3.5 text-primary" /> Meta do mês por segmento
+            </CardDescription>
+            <div className="mt-1 space-y-1">
+              {[
+                { label: "Rollon", dia: metas.rollon },
+                { label: "Poli", dia: metas.poli },
+                { label: "Terceiro", dia: metas.terceiro },
+                ...(metas.pap > 0 ? [{ label: "P. a Porta", dia: metas.pap }] : []),
+              ].map((item) => (
+                <div key={item.label} className="flex items-baseline justify-between gap-2 text-sm">
+                  <span className="text-muted-foreground">
+                    {item.label}
+                    <span className="ml-1 text-[10px]">({formatM3(item.dia)}/dia)</span>
+                  </span>
+                  <span className="font-semibold tabular-nums">
+                    {formatM3(item.dia * diasUteisTotais)}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <p className="pt-1 text-xs text-muted-foreground">
+              {diasUteisTotais} dias úteis · total {formatM3(metaMes)} m³
+            </p>
           </CardHeader>
         </Card>
       </div>
