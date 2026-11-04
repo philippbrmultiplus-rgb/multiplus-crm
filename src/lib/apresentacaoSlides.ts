@@ -21,9 +21,12 @@ export type Slide =
       tipo: "metas";
       mesNome: string;
       ano: number;
+      /** meta do mês (soma dos segmentos) */
       total: number;
+      /** volume realizado no mês */
+      realizado: number;
       diasUteis: number;
-      segmentos: { nome: string; dia: number; meta: number }[];
+      segmentos: { nome: string; dia: number; meta: number; realizado: number }[];
     }
   | {
       tipo: "segmentos";
@@ -103,8 +106,14 @@ export function montarSlides(dados: ApresentacaoMensal): Slide[] {
     mesNome: dados.mesNome.toUpperCase(),
     ano: dados.ano,
     total: dados.meta,
+    realizado: dados.total,
     diasUteis: dados.diasUteisMes,
-    segmentos: dados.metasSegmentos,
+    segmentos: dados.metasSegmentos.map((m) => ({
+      nome: m.nome,
+      dia: m.dia,
+      meta: m.meta,
+      realizado: dados.grupos.find((g) => g.nome === m.nome)?.atual ?? 0,
+    })),
   });
 
   slides.push({

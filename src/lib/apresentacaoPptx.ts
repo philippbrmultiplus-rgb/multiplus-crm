@@ -137,6 +137,7 @@ export async function gerarPptx(slides: Slide[], nomeArquivo: string): Promise<v
       if (slide.parcial && slide.corteEm) {
         s.addText(`Mês em andamento · dados até ${slide.corteEm}`, { x: 0.75, y: 6.95, w: 6, h: 0.3, fontSize: 9, color: "BDD3EE" });
       }
+
       continue;
     }
 
@@ -148,29 +149,48 @@ export async function gerarPptx(slides: Slide[], nomeArquivo: string): Promise<v
       s.addText(slide.mesNome, { x: 0.85, y: 1.05, w: 8, h: 0.9, fontSize: 40, bold: true, color: "FFFFFF" });
       s.addText(`— ${slide.ano} —`, { x: 0.85, y: 1.95, w: 6, h: 0.4, fontSize: 20, bold: true, color: "2F7DE1" });
 
+      // logo branco no canto superior direito, como nas capas
+      s.addShape(pptx.ShapeType.roundRect, { x: 11.45, y: 0.45, w: 0.34, h: 0.34, fill: { color: "FFFFFF" }, line: { color: "FFFFFF" }, rectRadius: 0.06 });
+      s.addText("M", { x: 11.45, y: 0.45, w: 0.34, h: 0.34, align: "center", valign: "middle", fontSize: 15, bold: true, color: hex(CORES.navy) });
+      s.addText("ultiplus", { x: 11.85, y: 0.45, w: 1.3, h: 0.34, valign: "middle", fontSize: 16, bold: true, color: "FFFFFF" });
+
       const cards = slide.segmentos.slice(0, 4);
       const largura = 3.05;
       const vao = 0.22;
-      const inicio = (13.333 - (cards.length * largura + (cards.length - 1) * vao)) / 2;
+      const inicioCards = (13.333 - (cards.length * largura + (cards.length - 1) * vao)) / 2;
       cards.forEach((item, i) => {
-        const x = inicio + i * (largura + vao);
+        const x = inicioCards + i * (largura + vao);
+        const pctv = item.meta > 0 ? (item.realizado / item.meta) * 100 : 0;
+        const cor = pctv >= 100 ? hex(CORES.verde) : pctv >= 90 ? hex(CORES.dourado) : "FF8F9B";
         s.addShape(pptx.ShapeType.roundRect, {
-          x, y: 3.05, w: largura, h: 2.15,
+          x, y: 2.95, w: largura, h: 2.35,
           fill: { color: "14304F" }, line: { color: "2A4870" }, rectRadius: 0.12,
         });
-        s.addText(item.nome.toUpperCase(), { x: x + 0.24, y: 3.28, w: largura - 0.48, h: 0.3, fontSize: 12.5, bold: true, color: "FFFFFF" });
-        s.addText(`${num(item.dia)} m³ por dia útil`, { x: x + 0.24, y: 3.58, w: largura - 0.48, h: 0.25, fontSize: 10, color: "9CC0F0" });
-        s.addText(num(Math.round(item.meta * 10) / 10), { x: x + 0.24, y: 3.95, w: largura - 0.48, h: 0.7, fontSize: 30, bold: true, color: "FFFFFF" });
-        s.addText("m³ no mês", { x: x + 0.24, y: 4.68, w: largura - 0.48, h: 0.25, fontSize: 10, color: "9CC0F0" });
+        s.addText(item.nome.toUpperCase(), { x: x + 0.24, y: 3.15, w: largura - 0.48, h: 0.3, fontSize: 12.5, bold: true, color: "FFFFFF" });
+        s.addText(`${num(item.dia)} m³ por dia útil`, { x: x + 0.24, y: 3.45, w: largura - 0.48, h: 0.25, fontSize: 10, color: "9CC0F0" });
+        s.addText(num(Math.round(item.meta * 10) / 10), { x: x + 0.24, y: 3.78, w: largura - 0.48, h: 0.55, fontSize: 28, bold: true, color: "FFFFFF" });
+        s.addText("m³ de meta no mês", { x: x + 0.24, y: 4.32, w: largura - 0.48, h: 0.22, fontSize: 10, color: "9CC0F0" });
+        s.addText(
+          [
+            { text: "realizado ", options: { fontSize: 9, color: "9CC0F0" } },
+            { text: num(Math.round(item.realizado * 10) / 10), options: { fontSize: 13, bold: true, color: "FFFFFF" } },
+            { text: `  ${num(pctv)}%`, options: { fontSize: 11, bold: true, color: cor } },
+          ],
+          { x: x + 0.24, y: 4.6, w: largura - 0.48, h: 0.3, valign: "middle" },
+        );
       });
 
+      const pctTotal = slide.total > 0 ? (slide.realizado / slide.total) * 100 : 0;
+      const corTotal = pctTotal >= 100 ? hex(CORES.verde) : pctTotal >= 90 ? hex(CORES.dourado) : "FF8F9B";
       s.addText(
         [
           { text: "META DO MÊS   ", options: { fontSize: 12, bold: true, color: "9CC0F0", charSpacing: 1.2 } },
           { text: `${num(Math.round(slide.total * 10) / 10)} m³`, options: { fontSize: 34, bold: true, color: hex(CORES.dourado) } },
+          { text: `   · realizado ${num(Math.round(slide.realizado * 10) / 10)} m³`, options: { fontSize: 12, color: "9CC0F0" } },
+          { text: `   ${num(pctTotal)}%`, options: { fontSize: 15, bold: true, color: corTotal } },
           { text: `   · ${slide.diasUteis} dias úteis`, options: { fontSize: 11, color: "9CC0F0" } },
         ],
-        { x: 0.85, y: 5.5, w: 11.6, h: 0.6, valign: "middle" },
+        { x: 0.85, y: 5.5, w: 11.8, h: 0.6, valign: "middle" },
       );
       logotipo(s, true);
       continue;
