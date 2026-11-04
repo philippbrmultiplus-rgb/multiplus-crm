@@ -152,11 +152,9 @@ export function montarSlides(dados: ApresentacaoMensal): Slide[] {
     tipo: "forecast",
     cards: [
       {
-        rotulo: `REALIZADO ${dados.meses[0]?.nomeCurto?.toUpperCase() ?? ""}–${(
-          dados.meses[dados.meses.length - 1]?.nomeCurto ?? ""
-        ).toUpperCase()}`,
+        rotulo: `REALIZADO ${dados.forecast.mesInicio.toUpperCase()}–${dados.forecast.mesFim.toUpperCase()}`,
         valor: m3(dados.forecast.realizado),
-        detalhe: `${dados.meses.length} meses somados`,
+        detalhe: `${dados.forecast.meses} meses somados`,
       },
       {
         rotulo: "MÉDIA MENSAL",
@@ -174,7 +172,7 @@ export function montarSlides(dados: ApresentacaoMensal): Slide[] {
       { rotulo: "REALIZADO NO PERÍODO", valor: m3(dados.forecast.realizado) },
       { rotulo: "FALTANTE PARA A META", valor: m3(dados.forecast.faltante) },
     ],
-    participacao: dados.comparativo.map((c) => ({ nome: c.nome, valor: c.valor })),
+    participacao: dados.forecast.porMes.map((m) => ({ nome: m.nome.slice(0, 3), valor: m.valor })),
   });
 
   if (dados.filaEspera.length > 0) {

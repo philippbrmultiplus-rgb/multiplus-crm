@@ -102,6 +102,11 @@ export interface ApresentacaoMensal {
     projecao: number;
     metaAnual: number;
     faltante: number;
+    /** período somado no realizado (janeiro até o mês da apresentação) */
+    mesInicio: string;
+    mesFim: string;
+    meses: number;
+    porMes: { nome: string; valor: number }[];
   };
   filaEspera: ClienteVolume[];
   novos: ClienteVolume[];
@@ -281,8 +286,10 @@ export function construirApresentacao(state: AppState, mes: string): Apresentaca
     };
   });
 
-  const realizado = comparativo.reduce((acc, c) => acc + c.valor, 0);
-  const mediaMensal = comparativo.length ? realizado / comparativo.length : 0;
+  // forecast: soma todos os meses do ano até o mês da apresentação
+  const mesesDoAno = todos.filter((m) => m >= `${ano}-01-01` && m <= alvo);
+  const realizado = mesesDoAno.reduce((acc, m) => acc + totalDoMes(m), 0);
+  const mediaMensal = mesesDoAno.length ? realizado / mesesDoAno.length : 0;
   const projecao = mediaMensal * 12;
 
   const filaEspera: ClienteVolume[] = linhas
@@ -349,6 +356,10 @@ export function construirApresentacao(state: AppState, mes: string): Apresentaca
       projecao,
       metaAnual: metaDoAno(state.metas ?? [], ano, state.settings),
       faltante: Math.max(0, metaDoAno(state.metas ?? [], ano, state.settings) - realizado),
+      mesInicio: mesesDoAno.length ? nomeMesCurto(mesesDoAno[0]) : nomeMesCurto(alvo),
+      mesFim: nomeMesCurto(alvo),
+      meses: mesesDoAno.length,
+      porMes: mesesDoAno.map((m) => ({ nome: nomeMesCurto(m), valor: totalDoMes(m) })),
     },
     filaEspera,
     novos,
