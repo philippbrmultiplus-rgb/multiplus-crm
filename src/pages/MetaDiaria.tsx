@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, Loader2, Target, TrendingDown, TrendingUp } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, Target } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
@@ -325,25 +325,47 @@ export default function MetaDiaria() {
             <CardDescription className="flex items-center gap-1.5 font-medium">
               <Target className="h-3.5 w-3.5 text-primary" /> Meta do mês por segmento
             </CardDescription>
-            <div className="mt-1 space-y-1">
+            <div className="mt-1 space-y-0.5">
+              <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-2 text-[9px] uppercase tracking-wide text-muted-foreground">
+                <span>Segmento</span>
+                <span className="text-right">Meta</span>
+                <span className="text-right">Real.</span>
+                <span className="text-right">%</span>
+              </div>
               {[
-                { label: "Rollon", dia: metas.rollon },
-                { label: "Poli", dia: metas.poli },
-                { label: "Terceiro", dia: metas.terceiro },
-                ...(metas.pap > 0 ? [{ label: "P. a Porta", dia: metas.pap }] : []),
-              ].map((item) => (
-                <div key={item.label} className="flex items-baseline justify-between gap-2 text-sm">
-                  <span className="text-muted-foreground">
-                    {item.label}
-                    <span className="ml-1 text-[10px]">({formatM3(item.dia)}/dia)</span>
-                  </span>
-                  <span className="font-semibold tabular-nums">
-                    {formatM3(item.dia * diasUteisTotais)}
-                  </span>
-                </div>
-              ))}
+                { label: "Rollon", chave: "rollon" as const, dia: metas.rollon },
+                { label: "Poli", chave: "poli" as const, dia: metas.poli },
+                { label: "Terceiro", chave: "terceiro" as const, dia: metas.terceiro },
+                ...(metas.pap > 0
+                  ? [{ label: "P. a Porta", chave: "pap" as const, dia: metas.pap }]
+                  : []),
+              ].map((item) => {
+                const meta = item.dia * diasUteisTotais;
+                const atual = porSegmento[item.chave];
+                return (
+                  <div
+                    key={item.label}
+                    title={`${item.label}: meta de ${formatM3(item.dia)} m³ por dia útil`}
+                    className="grid grid-cols-[1fr_auto_auto_auto] items-baseline gap-x-2 text-[11px]"
+                  >
+                    <span className="truncate">
+                      {item.label}
+                      <span className="ml-1 text-[9px] text-muted-foreground">
+                        {formatM3(item.dia)}/d
+                      </span>
+                    </span>
+                    <span className="text-right tabular-nums text-muted-foreground">
+                      {formatM3(meta)}
+                    </span>
+                    <span className="text-right font-semibold tabular-nums">{formatM3(atual)}</span>
+                    <span className={`text-right font-semibold tabular-nums ${tom(atual, meta)}`}>
+                      {pct(atual, meta)}%
+                    </span>
+                  </div>
+                );
+              })}
             </div>
-            <p className="pt-1 text-xs text-muted-foreground">
+            <p className="pt-1 text-[11px] text-muted-foreground">
               {diasUteisTotais} dias úteis · total {formatM3(metaMes)} m³
             </p>
           </CardHeader>
@@ -658,44 +680,6 @@ export default function MetaDiaria() {
         </Table>
         </div>
       </details>
-
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {[
-          { label: "Rollon", valor: porSegmento.rollon, meta: metas.rollon * diasUteisMes },
-          { label: "Poli", valor: porSegmento.poli, meta: metas.poli * diasUteisMes },
-          { label: "Terceiro", valor: porSegmento.terceiro, meta: metas.terceiro * diasUteisMes },
-          { label: "Porta a Porta", valor: porSegmento.pap, meta: metas.pap * diasUteisMes },
-        ].map((item) => {
-          const atingido = pct(item.valor, item.meta);
-          const Icone = item.meta === 0 ? Target : atingido >= 100 ? TrendingUp : TrendingDown;
-          return (
-            <Card key={item.label} className="card-soft">
-              <CardHeader className="pb-2">
-                <CardDescription className="flex items-center justify-between gap-2 font-medium">
-                  {item.label}
-                  <Icone
-                    className={`h-3.5 w-3.5 ${
-                      item.meta === 0
-                        ? "text-muted-foreground"
-                        : atingido >= 100
-                          ? "text-primary"
-                          : "text-destructive"
-                    }`}
-                  />
-                </CardDescription>
-                <CardTitle className="text-2xl">
-                  {formatM3(item.valor)} <span className="text-base font-normal text-muted-foreground">m³</span>
-                </CardTitle>
-                <p className={`text-xs ${item.meta ? tom(item.valor, item.meta) : "text-muted-foreground"}`}>
-                  {item.meta
-                    ? `${atingido}% da meta acumulada (${formatM3(item.meta)} m³)`
-                    : "sem meta definida"}
-                </p>
-              </CardHeader>
-            </Card>
-          );
-        })}
-      </div>
 
       <Card className="card-soft">
         <CardHeader className="pb-2">
