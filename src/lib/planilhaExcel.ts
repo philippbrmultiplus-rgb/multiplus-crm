@@ -80,7 +80,8 @@ export async function lerPlanilhaDeAtualizacao(
   };
   const idxData = colunaDe("DATA") ?? 0;
   const idxCliente = colunaDe("CLIENTE") ?? 1;
-  const idxEndereco = colunaDe("ENDERECO");
+  // a coluna de endereço aparece como "ENDEREÇO", "Tp.End." (planilha da Paulínia) ou "Tipo"
+  const idxEndereco = colunaDe("ENDERECO") ?? colunaDe("TP.END") ?? colunaDe("TP END") ?? colunaDe("TIPO END");
   const idxVolume = colunaDe("VOLUME") ?? (idxEndereco != null ? idxEndereco + 1 : 2);
   const temCabecalho = colunaDe("DATA") != null || colunaDe("CLIENTE") != null;
 
