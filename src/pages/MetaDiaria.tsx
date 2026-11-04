@@ -18,6 +18,7 @@ import {
 import { useData } from "@/lib/DataContext";
 import { carregarPlanilha } from "@/lib/planilha";
 import { diasUteisNoPeriodo, feriadosNoMes } from "@/lib/calendario";
+import { MES_INICIO_META_PAP, metasDoDia } from "@/lib/metas";
 import { formatM3, mesLabel, toLocalDateKey } from "@/lib/geo";
 
 /** grupos do acompanhamento: os tipos de cada segmento entram juntos */
@@ -32,9 +33,6 @@ const GRUPOS = [
 ] as const;
 
 type ChaveGrupo = (typeof GRUPOS)[number]["chave"];
-
-/** a partir deste mês o Porta a Porta passou a ter meta diária */
-const MES_INICIO_META_PAP = "2026-10";
 type ValoresDia = Record<ChaveGrupo, number>;
 
 const DIA_SEMANA = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
@@ -78,13 +76,8 @@ export default function MetaDiaria() {
 
   // o Porta a Porta passou a ter meta a partir de outubro/2026
   const papComMeta = mes >= MES_INICIO_META_PAP;
-  const metas = {
-    rollon: settings.metaDiaRollon ?? 260,
-    poli: settings.metaDiaPoli ?? 60,
-    terceiro: settings.metaDiaTerceiro ?? 8.5,
-    pap: papComMeta ? (settings.metaDiaPap ?? 10) : 0,
-  };
-  const metaDiaTotal = metas.rollon + metas.poli + metas.terceiro + metas.pap;
+  const metas = metasDoDia(settings, mes);
+  const metaDiaTotal = metas.total;
   /** meta diária de cada grupo (Porta a Porta só entra de outubro em diante) */
   const metaDoGrupo: Record<ChaveGrupo, number> = {
     rollon: metas.rollon,
@@ -93,7 +86,6 @@ export default function MetaDiaria() {
     terceiro: metas.terceiro,
     semCadastro: 0,
   };
-  const metaMes = settings.metaMes ?? 6000;
 
   const segmentoPorCliente = useMemo(() => {
     const mapa = new Map<string, string>();
@@ -203,10 +195,17 @@ export default function MetaDiaria() {
     return soma;
   }, [porDia]);
 
+  /** dias úteis já decorridos (para a média diária do mês em andamento) */
   const diasUteisMes = useMemo(
     () => diasUteisNoPeriodo(inicio, emAndamento ? hoje : fim),
     [inicio, fim, emAndamento, hoje],
   );
+
+  /** dias úteis do mês inteiro (base da meta do mês) */
+  const diasUteisTotais = useMemo(() => diasUteisNoPeriodo(inicio, fim), [inicio, fim]);
+
+  /** meta do mês = metas diárias de cada segmento × dias úteis do mês */
+  const metaMes = Math.round(metaDiaTotal * diasUteisTotais * 10) / 10;
 
   const pct = (valor: number, meta: number) => (meta > 0 ? Math.round((valor / meta) * 1000) / 10 : 0);
 
@@ -285,6 +284,9 @@ export default function MetaDiaria() {
               {formatM3(metaMes)} <span className="text-base font-normal text-muted-foreground">m³</span>
             </CardTitle>
             <p className="text-xs text-muted-foreground">
+              {formatM3(metaDiaTotal)} m³/dia × {diasUteisTotais} dias úteis
+            </p>
+            <p className="text-xs text-muted-foreground">
               faltam {formatM3(Math.max(0, metaMes - totalMes))} m³
             </p>
           </CardHeader>
@@ -350,16 +352,10 @@ export default function MetaDiaria() {
           ))}
           <div className="space-y-1">
             <Label className="text-xs">Meta do mês (m³)</Label>
-            {podeEditar ? (
-              <Input
-                type="number"
-                step="100"
-                value={metaMes}
-                onChange={(e) => updateSettings({ metaMes: Number(e.target.value) || 0 })}
-              />
-            ) : (
-              <p className="text-lg font-semibold">{formatM3(metaMes)}</p>
-            )}
+            <p className="text-lg font-semibold">{formatM3(metaMes)}</p>
+            <p className="text-[11px] text-muted-foreground">
+              {formatM3(metaDiaTotal)} m³/dia × {diasUteisTotais} dias úteis
+            </p>
             <p className="text-[11px] text-muted-foreground">
               {papComMeta
                 ? `Porta a Porta: meta de ${formatM3(metas.pap)} m³/dia desde outubro/2026 (${formatM3(

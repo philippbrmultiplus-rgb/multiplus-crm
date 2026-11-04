@@ -3,6 +3,7 @@
  * cadência e pagamentos) e monta o retrato do mês escolhido.
  */
 import { diasUteisNoMes } from "./calendario";
+import { metaDoAno, metaDoMes } from "./metas";
 import { formatDateBR } from "./geo";
 import { toLocalDateKey } from "./geo";
 import type { AppState, Client, MonthlyVolume } from "./types";
@@ -224,7 +225,8 @@ export function construirApresentacao(state: AppState, mes: string): Apresentaca
 
   const total = totalDoMes(alvo);
   const anterior = totalDoMes(anteriores[anteriores.length - 1] ?? "");
-  const meta = state.settings.metaMes ?? 6000;
+  // meta do mês = metas diárias de cada segmento × dias úteis do mês
+  const meta = metaDoMes(state.settings, alvo);
 
   const diasUteisMes = diasUteisNoMes(alvo, null, state.settings.workingDays);
   const diasUteis = diasUteisNoMes(alvo, parcial ? hoje : null, state.settings.workingDays);
@@ -264,6 +266,8 @@ export function construirApresentacao(state: AppState, mes: string): Apresentaca
   const comparativo: MesComparativo[] = mesesBase.map((m) => {
     const emAndamento = m.slice(0, 7) === mesAtual;
     const valor = totalDoMes(m);
+    // cada mês tem a própria meta (os dias úteis mudam e o Porta a Porta entra em outubro)
+    const metaDoPeriodo = metaDoMes(state.settings, m);
     return {
       mes: m,
       nome: nomeMesCurto(m),
@@ -271,8 +275,8 @@ export function construirApresentacao(state: AppState, mes: string): Apresentaca
       diasUteis: diasUteisNoMes(m, emAndamento ? hoje : null, state.settings.workingDays),
       diasUteisMes: diasUteisNoMes(m, null, state.settings.workingDays),
       parcial: emAndamento,
-      atingimento: meta > 0 ? (valor / meta) * 100 : 0,
-      meta,
+      atingimento: metaDoPeriodo > 0 ? (valor / metaDoPeriodo) * 100 : 0,
+      meta: metaDoPeriodo,
     };
   });
 
@@ -342,8 +346,8 @@ export function construirApresentacao(state: AppState, mes: string): Apresentaca
       realizado,
       mediaMensal,
       projecao,
-      metaAnual: meta * 12,
-      faltante: Math.max(0, meta * 12 - realizado),
+      metaAnual: metaDoAno(state.settings, ano),
+      faltante: Math.max(0, metaDoAno(state.settings, ano) - realizado),
     },
     filaEspera,
     novos,

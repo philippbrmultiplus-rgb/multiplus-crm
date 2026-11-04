@@ -140,7 +140,7 @@ export function montarSlides(dados: ApresentacaoMensal): Slide[] {
 
   slides.push({
     tipo: "comparativo",
-    subtitulo: `Realizado x meta de ${formatM3(dados.meta)} m³ por mês · dias úteis de cada mês`,
+    subtitulo: `Realizado x meta de cada mês (metas diárias × dias úteis)`,
     selo: `${formatM3(Math.round(dados.comparativo.reduce((acc, c) => acc + c.valor, 0)))} m³`,
     meses: dados.comparativo,
     nota: `Dias úteis (seg a sex, sem feriados nacionais): ${dados.comparativo
@@ -170,7 +170,7 @@ export function montarSlides(dados: ApresentacaoMensal): Slide[] {
       },
     ],
     barra: [
-      { rotulo: `META ANUAL (${formatM3(dados.meta)} × 12)`, valor: m3(dados.forecast.metaAnual) },
+      { rotulo: "META ANUAL (metas diárias × dias úteis)", valor: m3(dados.forecast.metaAnual) },
       { rotulo: "REALIZADO NO PERÍODO", valor: m3(dados.forecast.realizado) },
       { rotulo: "FALTANTE PARA A META", valor: m3(dados.forecast.faltante) },
     ],
