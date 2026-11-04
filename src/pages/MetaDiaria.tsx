@@ -636,7 +636,7 @@ export default function MetaDiaria() {
           { label: "Rollon", valor: porSegmento.rollon, meta: metas.rollon * diasUteisMes },
           { label: "Poli", valor: porSegmento.poli, meta: metas.poli * diasUteisMes },
           { label: "Terceiro", valor: porSegmento.terceiro, meta: metas.terceiro * diasUteisMes },
-          { label: "Porta a Porta", valor: porSegmento.pap, meta: 0 },
+          { label: "Porta a Porta", valor: porSegmento.pap, meta: metas.pap * diasUteisMes },
         ].map((item) => {
           const atingido = pct(item.valor, item.meta);
           const Icone = item.meta === 0 ? Target : atingido >= 100 ? TrendingUp : TrendingDown;
@@ -674,8 +674,9 @@ export default function MetaDiaria() {
           <CardTitle className="text-base">Como a conta é feita</CardTitle>
           <CardDescription>
             Cada coleta da planilha entra no dia e no segmento do cliente. Rollon soma Rollon +
-            Rollon/Carregamento na hora; Poli soma todos os tipos de Poli; Porta a Porta idem. O
-            percentual abaixo de cada número é o atingimento do dia naquele segmento. Sábados, domingos e
+            Rollon/Carregamento na hora; Poli soma todos os tipos de Poli; Porta a Porta idem (com meta a
+            partir de outubro/2026). O percentual abaixo de cada número é o atingimento do dia naquele
+            segmento. Sábados, domingos e
             feriados nacionais não contam como dia útil, então as metas do dia e da semana só valem para os
             dias úteis. Volumes de outros segmentos não entram nesta tela.
           </CardDescription>
@@ -684,6 +685,7 @@ export default function MetaDiaria() {
           <Badge variant="outline">Meta/dia: Rollon {formatM3(metas.rollon)}</Badge>
           <Badge variant="outline">Poli {formatM3(metas.poli)}</Badge>
           <Badge variant="outline">Terceiro {formatM3(metas.terceiro)}</Badge>
+          {metas.pap > 0 && <Badge variant="outline">P. a Porta {formatM3(metas.pap)}</Badge>}
           <Badge variant="outline">Total {formatM3(metaDiaTotal)} m³/dia útil</Badge>
           <Badge variant="outline">Mês: {formatM3(metaMes)} m³</Badge>
         </CardContent>
