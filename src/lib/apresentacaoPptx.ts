@@ -149,10 +149,8 @@ export async function gerarPptx(slides: Slide[], nomeArquivo: string): Promise<v
       s.addText(slide.mesNome, { x: 0.85, y: 1.05, w: 8, h: 0.9, fontSize: 40, bold: true, color: "FFFFFF" });
       s.addText(`— ${slide.ano} —`, { x: 0.85, y: 1.95, w: 6, h: 0.4, fontSize: 20, bold: true, color: "2F7DE1" });
 
-      // logo branco no canto superior direito, como nas capas
-      s.addShape(pptx.ShapeType.roundRect, { x: 11.45, y: 0.45, w: 0.34, h: 0.34, fill: { color: "FFFFFF" }, line: { color: "FFFFFF" }, rectRadius: 0.06 });
-      s.addText("M", { x: 11.45, y: 0.45, w: 0.34, h: 0.34, align: "center", valign: "middle", fontSize: 15, bold: true, color: hex(CORES.navy) });
-      s.addText("ultiplus", { x: 11.85, y: 0.45, w: 1.3, h: 0.34, valign: "middle", fontSize: 16, bold: true, color: "FFFFFF" });
+      // logo branco no canto superior direito, igual ao das capas
+      s.addImage({ data: await imagemBase64("/apresentacao/logo-branco.png"), x: 7.81, y: 0.45, w: 4.97, h: 1.53 });
 
       const cards = slide.segmentos.slice(0, 4);
       const largura = 3.05;

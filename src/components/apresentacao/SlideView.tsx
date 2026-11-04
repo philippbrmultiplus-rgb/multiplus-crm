@@ -318,33 +318,12 @@ export function SlideView({ slide }: { slide: Slide }) {
           — {slide.ano} —
         </Caixa>
 
-        {/* logo branco no canto superior direito, como nas capas */}
-        <Caixa
-          style={{
-            right: polegada(0.6),
-            top: polegada(0.45),
-            display: "flex",
-            alignItems: "center",
-            gap: polegada(0.07),
-          }}
-        >
-          <div
-            style={{
-              width: polegada(0.34),
-              height: polegada(0.34),
-              background: CORES.branco,
-              borderRadius: polegada(0.07),
-              display: "grid",
-              placeItems: "center",
-              color: CORES.navy,
-              fontWeight: 700,
-              fontSize: ptPx(16),
-            }}
-          >
-            M
-          </div>
-          <span style={{ color: CORES.branco, fontWeight: 700, fontSize: ptPx(17) }}>ultiplus</span>
-        </Caixa>
+        {/* logo branco no canto superior direito, igual ao das capas */}
+        <img
+          src="/apresentacao/logo-branco.png"
+          alt="Multiplus"
+          style={{ position: "absolute", right: polegada(0.55), top: polegada(0.45), width: polegada(4.97) }}
+        />
 
         {cards.map((item, i) => {
           const pctv = item.meta > 0 ? (item.realizado / item.meta) * 100 : 0;
