@@ -216,7 +216,8 @@ export function construirApresentacao(state: AppState, mes: string): Apresentaca
   const [ano, numeroMes] = alvo.split("-").map(Number);
 
   const todos = mesesComVolume(state.volumes);
-  const anteriores = todos.filter((m) => m < alvo).slice(-3);
+  // o comparativo dos slides usa os 3 últimos meses (2 anteriores + o mês da apresentação)
+  const anteriores = todos.filter((m) => m < alvo).slice(-2);
   const mesesBase = [...anteriores, alvo];
   const parcial = alvo.slice(0, 7) === mesAtual;
 
