@@ -18,7 +18,7 @@ import {
 import { useData } from "@/lib/DataContext";
 import { carregarPlanilha } from "@/lib/planilha";
 import { diasUteisNoPeriodo, feriadosNoMes } from "@/lib/calendario";
-import { MES_INICIO_META_PAP, metasDoDia } from "@/lib/metas";
+import { MES_INICIO_META_PAP, metasDoMes } from "@/lib/metas";
 import { formatM3, mesLabel, toLocalDateKey } from "@/lib/geo";
 
 /** grupos do acompanhamento: os tipos de cada segmento entram juntos */
@@ -60,8 +60,8 @@ function classeCelula(valor: number, meta: number): string {
 
 /** acompanhamento diário das metas por segmento logístico */
 export default function MetaDiaria() {
-  const { state, role, updateSettings } = useData();
-  const { settings, clients, volumes } = state;
+  const { state, role, salvarMetaMes } = useData();
+  const { settings, clients, volumes, metas: metasCadastradas } = state;
   const hoje = toLocalDateKey(new Date().toISOString());
   const [mes, setMes] = useState(hoje.slice(0, 7));
   const [porDia, setPorDia] = useState<Record<string, ValoresDia>>({});
@@ -76,8 +76,18 @@ export default function MetaDiaria() {
 
   // o Porta a Porta passou a ter meta a partir de outubro/2026
   const papComMeta = mes >= MES_INICIO_META_PAP;
-  const metas = metasDoDia(settings, mes);
+  // metas do mês escolhido: cada mês tem as suas, editar aqui não muda os outros
+  const metas = metasDoMes(metasCadastradas, mes, settings);
   const metaDiaTotal = metas.total;
+  const salvarMetaDoMes = (patch: Partial<{ rollon: number; poli: number; pap: number; terceiro: number }>) =>
+    salvarMetaMes({
+      mes: inicio,
+      rollon: metas.rollon,
+      poli: metas.poli,
+      pap: metas.pap,
+      terceiro: metas.terceiro,
+      ...patch,
+    });
   /** meta diária de cada grupo (Porta a Porta só entra de outubro em diante) */
   const metaDoGrupo: Record<ChaveGrupo, number> = {
     rollon: metas.rollon,
@@ -308,17 +318,18 @@ export default function MetaDiaria() {
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
           <span className="text-sm font-medium">Metas por dia útil</span>
           <span className="text-xs text-muted-foreground">
-            Rollon junta Rollon + Rollon/Carregamento na hora · Poli junta todos os Poli
+            Editando {mesLabel(inicio)} · Rollon junta Rollon + Rollon/Carregamento na hora · Poli
+            junta todos os Poli
             {papComMeta ? " · Porta a Porta com meta desde outubro/2026" : ""}
           </span>
         </div>
         <div className={`grid gap-3 sm:grid-cols-2 ${papComMeta ? "lg:grid-cols-5" : "lg:grid-cols-4"}`}>
           {[
-            { label: "Rollon", chave: "metaDiaRollon" as const, valor: metas.rollon, atual: porSegmento.rollon },
-            { label: "Poli", chave: "metaDiaPoli" as const, valor: metas.poli, atual: porSegmento.poli },
+            { label: "Rollon", chave: "rollon" as const, valor: metas.rollon, atual: porSegmento.rollon },
+            { label: "Poli", chave: "poli" as const, valor: metas.poli, atual: porSegmento.poli },
             {
               label: "Terceiro",
-              chave: "metaDiaTerceiro" as const,
+              chave: "terceiro" as const,
               valor: metas.terceiro,
               atual: porSegmento.terceiro,
             },
@@ -326,7 +337,7 @@ export default function MetaDiaria() {
               ? [
                   {
                     label: "P. a Porta",
-                    chave: "metaDiaPap" as const,
+                    chave: "pap" as const,
                     valor: metas.pap,
                     atual: porSegmento.pap,
                   },
@@ -340,7 +351,9 @@ export default function MetaDiaria() {
                   type="number"
                   step="0.5"
                   value={item.valor}
-                  onChange={(e) => updateSettings({ [item.chave]: Number(e.target.value) || 0 })}
+                  onChange={(e) =>
+                    salvarMetaDoMes({ [item.chave]: Number(e.target.value) || 0 })
+                  }
                 />
               ) : (
                 <p className="text-lg font-semibold">{formatM3(item.valor)}</p>

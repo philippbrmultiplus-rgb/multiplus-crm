@@ -226,7 +226,7 @@ export function construirApresentacao(state: AppState, mes: string): Apresentaca
   const total = totalDoMes(alvo);
   const anterior = totalDoMes(anteriores[anteriores.length - 1] ?? "");
   // meta do mês = metas diárias de cada segmento × dias úteis do mês
-  const meta = metaDoMes(state.settings, alvo);
+  const meta = metaDoMes(state.metas ?? [], alvo, state.settings);
 
   const diasUteisMes = diasUteisNoMes(alvo, null, state.settings.workingDays);
   const diasUteis = diasUteisNoMes(alvo, parcial ? hoje : null, state.settings.workingDays);
@@ -267,7 +267,7 @@ export function construirApresentacao(state: AppState, mes: string): Apresentaca
     const emAndamento = m.slice(0, 7) === mesAtual;
     const valor = totalDoMes(m);
     // cada mês tem a própria meta (os dias úteis mudam e o Porta a Porta entra em outubro)
-    const metaDoPeriodo = metaDoMes(state.settings, m);
+    const metaDoPeriodo = metaDoMes(state.metas ?? [], m, state.settings);
     return {
       mes: m,
       nome: nomeMesCurto(m),
@@ -346,8 +346,8 @@ export function construirApresentacao(state: AppState, mes: string): Apresentaca
       realizado,
       mediaMensal,
       projecao,
-      metaAnual: metaDoAno(state.settings, ano),
-      faltante: Math.max(0, metaDoAno(state.settings, ano) - realizado),
+      metaAnual: metaDoAno(state.metas ?? [], ano, state.settings),
+      faltante: Math.max(0, metaDoAno(state.metas ?? [], ano, state.settings) - realizado),
     },
     filaEspera,
     novos,

@@ -327,6 +327,16 @@ export interface ClientProspectNote {
   createdAt: string;
 }
 
+/** metas diárias de um mês (cada mês tem as suas; não mexem nos outros) */
+export interface MetaMes {
+  /** primeiro dia do mês (yyyy-mm-01) */
+  mes: string;
+  rollon: number;
+  poli: number;
+  pap: number;
+  terceiro: number;
+}
+
 export interface AppState {
   version: number;
   sessionRole: Role;
@@ -339,6 +349,8 @@ export interface AppState {
   activities: RouteActivity[];
   volumes: MonthlyVolume[];
   payments: ClientPayment[];
+  /** metas diárias por mês */
+  metas: MetaMes[];
   cadence: ClientCadence[];
   internalProspects: InternalProspect[];
   internalProspectNotes: InternalProspectNote[];

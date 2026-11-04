@@ -21,6 +21,7 @@ import type {
   ClientProspectNote,
   InternalProspect,
   InternalProspectNote,
+  MetaMes,
   MonthlyVolume,
   PermissaoUsuario,
   Role,
@@ -330,6 +331,16 @@ function internalProspectNoteFromRow(r: Record<string, any>): InternalProspectNo
   };
 }
 
+function metaMesFromRow(r: Record<string, any>): MetaMes {
+  return {
+    mes: String(r.mes ?? "").slice(0, 10),
+    rollon: Number(r.meta_dia_rollon ?? 0),
+    poli: Number(r.meta_dia_poli ?? 0),
+    pap: Number(r.meta_dia_pap ?? 0),
+    terceiro: Number(r.meta_dia_terceiro ?? 0),
+  };
+}
+
 function emptyState(): AppState {
   return {
     version: 1,
@@ -343,6 +354,7 @@ function emptyState(): AppState {
     activities: [],
     volumes: [],
     payments: [],
+    metas: [],
     cadence: [],
     internalProspects: [],
     internalProspectNotes: [],
@@ -362,12 +374,12 @@ function loadLocalCache(): AppState | null {
           alerts: parsed.alerts ?? [],
           activities: parsed.activities ?? [],
           volumes: parsed.volumes ?? [],
+          metas: parsed.metas ?? [],
           payments: parsed.payments ?? [],
           cadence: parsed.cadence ?? [],
           internalProspects: parsed.internalProspects ?? [],
           internalProspectNotes: parsed.internalProspectNotes ?? [],
           clientProspectNotes: parsed.clientProspectNotes ?? [],
-        clientNotes: parsed.clientNotes ?? [],
           clientNotes: parsed.clientNotes ?? [],
         };
     }
@@ -748,6 +760,8 @@ interface DataContextValue {
   setUserRole: (id: string, role: Role) => Promise<string | null>;
   recomputeTiers: () => void;
   updateSettings: (patch: Partial<Settings>) => void;
+  /** grava as metas diárias de um mês (só daquele mês) */
+  salvarMetaMes: (meta: MetaMes) => void;
   generateRoute: (weekStart: string) => RoutePlanResult;
   createEmptyWeekRoute: (weekStart: string) => RoutePlanResult;
   updateWeekRoute: (weekStart: string) => RoutePlanResult | null;
@@ -1045,6 +1059,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       activitiesRes,
       volumesRes,
       paymentsRes,
+      metasRes,
       cadenceRes,
       internalProspectsRes,
       internalProspectNotesRes,
@@ -1061,6 +1076,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       supabase.from("route_activities").select("*").order("created_at"),
       supabase.from("client_monthly_volumes").select("*").order("month"),
       supabase.from("client_payments").select("*").order("created_at"),
+      supabase.from("metas_mes").select("*").order("mes"),
       supabase.from("client_cadence").select("*").order("media_dias"),
       supabase.from("internal_prospects").select("*").order("created_at", { ascending: false }),
       supabase.from("internal_prospect_notes").select("*").order("created_at"),
@@ -1093,6 +1109,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const payments = (paymentsRes.data ?? []).map((r) =>
       paymentFromRow(r as unknown as Record<string, any>),
     );
+    const metas = (metasRes.data ?? []).map((r) => metaMesFromRow(r as unknown as Record<string, any>));
     const cadence = (cadenceRes.data ?? []).map((r) =>
       cadenceFromRow(r as unknown as Record<string, any>),
     );
@@ -1124,6 +1141,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       activities,
       volumes,
       payments,
+      metas,
       cadence,
       internalProspects,
       internalProspectNotes,
@@ -2072,6 +2090,31 @@ export function DataProvider({ children }: { children: ReactNode }) {
       return { ...prev, settings };
     });
   }, [setAppState]);
+
+  /** metas diárias do mês escolhido (não mexem nas dos outros meses) */
+  const salvarMetaMes = useCallback(
+    (meta: MetaMes) => {
+      const mes = `${meta.mes.slice(0, 7)}-01`;
+      const registro: MetaMes = { ...meta, mes };
+      if (canWriteClientData()) {
+        void supabase.from("metas_mes").upsert({
+          mes,
+          meta_dia_rollon: registro.rollon,
+          meta_dia_poli: registro.poli,
+          meta_dia_pap: registro.pap,
+          meta_dia_terceiro: registro.terceiro,
+          atualizado_em: new Date().toISOString(),
+        });
+      }
+      setAppState((prev) => ({
+        ...prev,
+        metas: prev.metas.some((m) => m.mes === mes)
+          ? prev.metas.map((m) => (m.mes === mes ? registro : m))
+          : [...prev.metas, registro].sort((a, b) => (a.mes < b.mes ? -1 : 1)),
+      }));
+    },
+    [setAppState],
+  );
 
   const generateRoute = useCallback(
     (weekStart: string) => generateWeekRoute(state.clients, state.settings, weekStart, state.routes),
@@ -3633,6 +3676,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setUserRole,
     recomputeTiers,
     updateSettings,
+    salvarMetaMes,
     generateRoute,
     createEmptyWeekRoute,
     updateWeekRoute,

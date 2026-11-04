@@ -3851,6 +3851,33 @@ export type Database = {
         }
         Relationships: []
       }
+      metas_mes: {
+        Row: {
+          atualizado_em: string
+          mes: string
+          meta_dia_pap: number
+          meta_dia_poli: number
+          meta_dia_rollon: number
+          meta_dia_terceiro: number
+        }
+        Insert: {
+          atualizado_em?: string
+          mes: string
+          meta_dia_pap?: number
+          meta_dia_poli?: number
+          meta_dia_rollon?: number
+          meta_dia_terceiro?: number
+        }
+        Update: {
+          atualizado_em?: string
+          mes?: string
+          meta_dia_pap?: number
+          meta_dia_poli?: number
+          meta_dia_rollon?: number
+          meta_dia_terceiro?: number
+        }
+        Relationships: []
+      }
       planilha_lancamentos: {
         Row: {
           collect_date: string
