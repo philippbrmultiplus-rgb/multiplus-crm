@@ -325,46 +325,53 @@ export default function MetaDiaria() {
             <CardDescription className="flex items-center gap-1.5 font-medium">
               <Target className="h-3.5 w-3.5 text-primary" /> Meta do mês por segmento
             </CardDescription>
-            <div className="mt-1 space-y-0.5">
-              <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-2 text-[9px] uppercase tracking-wide text-muted-foreground">
-                <span>Segmento</span>
-                <span className="text-right">Meta</span>
-                <span className="text-right">Real.</span>
-                <span className="text-right">%</span>
-              </div>
-              {[
-                { label: "Rollon", chave: "rollon" as const, dia: metas.rollon },
-                { label: "Poli", chave: "poli" as const, dia: metas.poli },
-                { label: "Terceiro", chave: "terceiro" as const, dia: metas.terceiro },
-                ...(metas.pap > 0
-                  ? [{ label: "P. a Porta", chave: "pap" as const, dia: metas.pap }]
-                  : []),
-              ].map((item) => {
-                const meta = item.dia * diasUteisTotais;
-                const atual = porSegmento[item.chave];
-                return (
-                  <div
-                    key={item.label}
-                    title={`${item.label}: meta de ${formatM3(item.dia)} m³ por dia útil`}
-                    className="grid grid-cols-[1fr_auto_auto_auto] items-baseline gap-x-2 text-[11px]"
-                  >
-                    <span className="truncate">
-                      {item.label}
-                      <span className="ml-1 text-[9px] text-muted-foreground">
-                        {formatM3(item.dia)}/d
-                      </span>
-                    </span>
-                    <span className="text-right tabular-nums text-muted-foreground">
-                      {formatM3(meta)}
-                    </span>
-                    <span className="text-right font-semibold tabular-nums">{formatM3(atual)}</span>
-                    <span className={`text-right font-semibold tabular-nums ${tom(atual, meta)}`}>
-                      {pct(atual, meta)}%
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
+            <table className="mt-1 w-full table-fixed text-[11px]">
+              <thead>
+                <tr className="text-[9px] uppercase tracking-wide text-muted-foreground">
+                  <th className="w-[38%] pb-0.5 text-left font-medium">Segmento</th>
+                  <th className="w-[21%] pb-0.5 text-right font-medium">Meta</th>
+                  <th className="w-[23%] pb-0.5 text-right font-medium">Real.</th>
+                  <th className="w-[18%] pb-0.5 text-right font-medium">%</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  { label: "Rollon", chave: "rollon" as const, dia: metas.rollon },
+                  { label: "Poli", chave: "poli" as const, dia: metas.poli },
+                  { label: "Terceiro", chave: "terceiro" as const, dia: metas.terceiro },
+                  ...(metas.pap > 0
+                    ? [{ label: "P. a Porta", chave: "pap" as const, dia: metas.pap }]
+                    : []),
+                ].map((item) => {
+                  const meta = item.dia * diasUteisTotais;
+                  const atual = porSegmento[item.chave];
+                  return (
+                    <tr key={item.label} title={`${item.label}: ${formatM3(item.dia)} m³ por dia útil`}>
+                      <td className="whitespace-nowrap py-0.5 pr-1">
+                        {item.label}
+                        <span className="ml-1 text-[9px] text-muted-foreground">
+                          {formatM3(item.dia)}/d
+                        </span>
+                      </td>
+                      <td className="whitespace-nowrap py-0.5 text-right tabular-nums text-muted-foreground">
+                        {formatM3(meta)}
+                      </td>
+                      <td className="whitespace-nowrap py-0.5 text-right font-semibold tabular-nums">
+                        {formatM3(atual)}
+                      </td>
+                      <td
+                        className={`whitespace-nowrap py-0.5 text-right font-semibold tabular-nums ${tom(
+                          atual,
+                          meta,
+                        )}`}
+                      >
+                        {pct(atual, meta)}%
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
             <p className="pt-1 text-[11px] text-muted-foreground">
               {diasUteisTotais} dias úteis · total {formatM3(metaMes)} m³
             </p>
