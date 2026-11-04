@@ -4003,6 +4003,7 @@ export type Database = {
           home_lat: number | null
           home_lng: number | null
           id: number
+          meta_dia_pap: number | null
           meta_dia_poli: number | null
           meta_dia_rollon: number | null
           meta_dia_terceiro: number | null
@@ -4036,6 +4037,7 @@ export type Database = {
           home_lat?: number | null
           home_lng?: number | null
           id?: number
+          meta_dia_pap?: number | null
           meta_dia_poli?: number | null
           meta_dia_rollon?: number | null
           meta_dia_terceiro?: number | null
@@ -4069,6 +4071,7 @@ export type Database = {
           home_lat?: number | null
           home_lng?: number | null
           id?: number
+          meta_dia_pap?: number | null
           meta_dia_poli?: number | null
           meta_dia_rollon?: number | null
           meta_dia_terceiro?: number | null

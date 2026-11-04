@@ -94,6 +94,8 @@ export interface Settings {
   metaDiaRollon?: number | null;
   metaDiaPoli?: number | null;
   metaDiaTerceiro?: number | null;
+  /** meta diária do Porta a Porta (vale a partir de outubro/2026) */
+  metaDiaPap?: number | null;
   metaMes?: number | null;
   /** empresa contratada e parâmetros fixos usados na geração dos contratos */
   empresaRazao?: string | null;
