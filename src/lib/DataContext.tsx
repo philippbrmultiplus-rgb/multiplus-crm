@@ -760,8 +760,8 @@ interface DataContextValue {
   setUserRole: (id: string, role: Role) => Promise<string | null>;
   recomputeTiers: () => void;
   updateSettings: (patch: Partial<Settings>) => void;
-  /** grava as metas diárias de um mês (só daquele mês) */
-  salvarMetaMes: (meta: MetaMes) => void;
+  /** grava as metas diárias de um mês (só daquele mês). Devolve o erro, quando houver. */
+  salvarMetaMes: (meta: MetaMes) => Promise<string | null>;
   generateRoute: (weekStart: string) => RoutePlanResult;
   createEmptyWeekRoute: (weekStart: string) => RoutePlanResult;
   updateWeekRoute: (weekStart: string) => RoutePlanResult | null;
@@ -1109,6 +1109,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const payments = (paymentsRes.data ?? []).map((r) =>
       paymentFromRow(r as unknown as Record<string, any>),
     );
+    if (metasRes.error) console.warn("metas por mês:", metasRes.error.message);
     const metas = (metasRes.data ?? []).map((r) => metaMesFromRow(r as unknown as Record<string, any>));
     const cadence = (cadenceRes.data ?? []).map((r) =>
       cadenceFromRow(r as unknown as Record<string, any>),
@@ -2093,25 +2094,59 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   /** metas diárias do mês escolhido (não mexem nas dos outros meses) */
   const salvarMetaMes = useCallback(
-    (meta: MetaMes) => {
+    async (meta: MetaMes): Promise<string | null> => {
       const mes = `${meta.mes.slice(0, 7)}-01`;
       const registro: MetaMes = { ...meta, mes };
-      if (canWriteClientData()) {
-        void supabase.from("metas_mes").upsert({
-          mes,
-          meta_dia_rollon: registro.rollon,
-          meta_dia_poli: registro.poli,
-          meta_dia_pap: registro.pap,
-          meta_dia_terceiro: registro.terceiro,
-          atualizado_em: new Date().toISOString(),
-        });
-      }
+
+      // atualiza a tela na hora (o valor digitado não "volta")
       setAppState((prev) => ({
         ...prev,
         metas: prev.metas.some((m) => m.mes === mes)
           ? prev.metas.map((m) => (m.mes === mes ? registro : m))
           : [...prev.metas, registro].sort((a, b) => (a.mes < b.mes ? -1 : 1)),
       }));
+
+      if (!canWriteClientData()) {
+        return "Só o coordenador pode alterar as metas.";
+      }
+
+      const { error } = await supabase.from("metas_mes").upsert(
+        {
+          mes,
+          meta_dia_rollon: registro.rollon,
+          meta_dia_poli: registro.poli,
+          meta_dia_pap: registro.pap,
+          meta_dia_terceiro: registro.terceiro,
+          atualizado_em: new Date().toISOString(),
+        },
+        { onConflict: "mes" },
+      );
+      if (error) {
+        console.error("salvar metas do mês:", error.message);
+        // não deixa a tela mostrando um valor que não foi gravado
+        const { data } = await supabase.from("metas_mes").select("*").order("mes");
+        if (data) {
+          const doBanco = data.map((r) => metaMesFromRow(r as unknown as Record<string, any>));
+          setAppState((prev) => ({ ...prev, metas: doBanco }));
+        }
+        return error.message;
+      }
+
+      // confere no banco o que ficou gravado (evita ficar só na tela)
+      const { data, error: erroLeitura } = await supabase
+        .from("metas_mes")
+        .select("*")
+        .eq("mes", mes)
+        .maybeSingle();
+      if (erroLeitura) console.warn("conferir metas do mês:", erroLeitura.message);
+      if (data) {
+        const gravado = metaMesFromRow(data as unknown as Record<string, any>);
+        setAppState((prev) => ({
+          ...prev,
+          metas: prev.metas.map((m) => (m.mes === mes ? gravado : m)),
+        }));
+      }
+      return null;
     },
     [setAppState],
   );

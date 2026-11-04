@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Loader2, Target, TrendingDown, TrendingUp } from "lucide-react";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -66,6 +67,7 @@ export default function MetaDiaria() {
   const [mes, setMes] = useState(hoje.slice(0, 7));
   const [porDia, setPorDia] = useState<Record<string, ValoresDia>>({});
   const [carregando, setCarregando] = useState(false);
+  const [salvoEm, setSalvoEm] = useState<string | null>(null);
   const podeEditar = role === "coordenador";
 
   const inicio = `${mes}-01`;
@@ -79,15 +81,22 @@ export default function MetaDiaria() {
   // metas do mês escolhido: cada mês tem as suas, editar aqui não muda os outros
   const metas = metasDoMes(metasCadastradas, mes, settings);
   const metaDiaTotal = metas.total;
-  const salvarMetaDoMes = (patch: Partial<{ rollon: number; poli: number; pap: number; terceiro: number }>) =>
-    salvarMetaMes({
+  const salvarMetaDoMes = (patch: Partial<{ rollon: number; poli: number; pap: number; terceiro: number }>) => {
+    void salvarMetaMes({
       mes: inicio,
       rollon: metas.rollon,
       poli: metas.poli,
       pap: metas.pap,
       terceiro: metas.terceiro,
       ...patch,
+    }).then((erro) => {
+      if (erro) {
+        toast.error("Não foi possível salvar as metas do mês", { description: erro });
+        return;
+      }
+      setSalvoEm(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }));
     });
+  };
   /** meta diária de cada grupo (Porta a Porta só entra de outubro em diante) */
   const metaDoGrupo: Record<ChaveGrupo, number> = {
     rollon: metas.rollon,
@@ -321,6 +330,9 @@ export default function MetaDiaria() {
             Editando {mesLabel(inicio)} · Rollon junta Rollon + Rollon/Carregamento na hora · Poli
             junta todos os Poli
             {papComMeta ? " · Porta a Porta com meta desde outubro/2026" : ""}
+            {salvoEm && (
+              <span className="ml-1 font-medium text-primary">· metas de {mesLabel(inicio)} salvas {salvoEm}</span>
+            )}
           </span>
         </div>
         <div className={`grid gap-3 sm:grid-cols-2 ${papComMeta ? "lg:grid-cols-5" : "lg:grid-cols-4"}`}>
