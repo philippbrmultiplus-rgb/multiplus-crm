@@ -34,8 +34,8 @@ export function metasDoMes(metas: MetaMes[], mes: string, settings: Settings): M
   const rollon = settings.metaDiaRollon ?? 260;
   const poli = settings.metaDiaPoli ?? 60;
   const terceiro = settings.metaDiaTerceiro ?? 8.5;
-  const pap =
-    referencia >= MES_INICIO_META_PAP ? (settings.metaDiaPap ?? 10) : 0;
+  // o Porta a Porta é definido mês a mês; sem metas cadastradas no mês, começa em zero
+  const pap = 0;
   return { rollon, poli, pap, terceiro, total: rollon + poli + pap + terceiro };
 }
 

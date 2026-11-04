@@ -19,7 +19,7 @@ import {
 import { useData } from "@/lib/DataContext";
 import { carregarPlanilha } from "@/lib/planilha";
 import { diasUteisNoPeriodo, feriadosNoMes } from "@/lib/calendario";
-import { MES_INICIO_META_PAP, metasDoMes } from "@/lib/metas";
+import { metasDoMes } from "@/lib/metas";
 import { formatM3, mesLabel, toLocalDateKey } from "@/lib/geo";
 
 /** grupos do acompanhamento: os tipos de cada segmento entram juntos */
@@ -76,8 +76,6 @@ export default function MetaDiaria() {
   const fim = `${mes}-${String(ultimoDia).padStart(2, "0")}`;
   const emAndamento = mes === hoje.slice(0, 7);
 
-  // o Porta a Porta passou a ter meta a partir de outubro/2026
-  const papComMeta = mes >= MES_INICIO_META_PAP;
   // metas do mês escolhido: cada mês tem as suas, editar aqui não muda os outros
   const metas = metasDoMes(metasCadastradas, mes, settings);
   const metaDiaTotal = metas.total;
@@ -386,13 +384,12 @@ export default function MetaDiaria() {
           <span className="text-xs text-muted-foreground">
             Editando {mesLabel(inicio)} · Rollon junta Rollon + Rollon/Carregamento na hora · Poli
             junta todos os Poli
-            {papComMeta ? " · Porta a Porta com meta desde outubro/2026" : ""}
             {salvoEm && (
               <span className="ml-1 font-medium text-primary">· metas de {mesLabel(inicio)} salvas {salvoEm}</span>
             )}
           </span>
         </div>
-        <div className={`grid gap-3 sm:grid-cols-2 ${papComMeta ? "lg:grid-cols-5" : "lg:grid-cols-4"}`}>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           {[
             { label: "Rollon", chave: "rollon" as const, valor: metas.rollon, atual: porSegmento.rollon },
             { label: "Poli", chave: "poli" as const, valor: metas.poli, atual: porSegmento.poli },
@@ -402,16 +399,12 @@ export default function MetaDiaria() {
               valor: metas.terceiro,
               atual: porSegmento.terceiro,
             },
-            ...(papComMeta
-              ? [
-                  {
-                    label: "P. a Porta",
-                    chave: "pap" as const,
-                    valor: metas.pap,
-                    atual: porSegmento.pap,
-                  },
-                ]
-              : []),
+            {
+              label: "P. a Porta",
+              chave: "pap" as const,
+              valor: metas.pap,
+              atual: porSegmento.pap,
+            },
           ].map((item) => (
             <div key={item.label} className="space-y-1">
               <Label className="text-xs">{item.label} (m³/dia)</Label>
@@ -439,11 +432,11 @@ export default function MetaDiaria() {
               {formatM3(metaDiaTotal)} m³/dia × {diasUteisTotais} dias úteis
             </p>
             <p className="text-[11px] text-muted-foreground">
-              {papComMeta
-                ? `Porta a Porta: meta de ${formatM3(metas.pap)} m³/dia desde outubro/2026 (${formatM3(
+              {metas.pap > 0
+                ? `Porta a Porta: meta de ${formatM3(metas.pap)} m³/dia (${formatM3(
                     porSegmento.pap,
                   )} m³ no mês)`
-                : `Porta a Porta: sem meta (${formatM3(porSegmento.pap)} m³ no mês)`}
+                : `Porta a Porta: sem meta neste mês (${formatM3(porSegmento.pap)} m³ realizado)`}
             </p>
             {porSegmento.semCadastro > 0 && (
               <p className="text-[11px] text-muted-foreground">
