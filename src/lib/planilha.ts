@@ -45,6 +45,8 @@ export interface DadosPlanilha {
   ultimaColeta: Record<string, string>;
   /** nomes da planilha que não têm cliente vinculado na carteira */
   semCadastro: string[];
+  /** volume diário por nome da planilha (serve para separar o que não tem cadastro) */
+  porNome: { nome: string; data: string; volume: number }[];
   versao: string | null;
   periodo: [string, string] | null;
   totalColetas: number;
@@ -140,6 +142,7 @@ export function calcularDados(
   const coletas: ColetaPlanilha[] = [];
   const ultimaColeta: Record<string, string> = {};
   const semCadastro: string[] = [];
+  const porNome: { nome: string; data: string; volume: number }[] = [];
   let totalColetas = 0;
 
   // nome da planilha -> cliente do cadastro (a planilha base já vem resolvida; nomes
@@ -195,6 +198,14 @@ export function calcularDados(
       });
     }
 
+    for (const [dia, valor] of grupo.dias) {
+      porNome.push({
+        nome: grupo.nome,
+        data: dia,
+        volume: Math.round(valor.volume * 100) / 100,
+      });
+    }
+
     cadence.push({
       clientId: grupo.cliente,
       nomePlanilha: grupo.nome,
@@ -218,6 +229,7 @@ export function calcularDados(
     coletas,
     ultimaColeta,
     semCadastro,
+    porNome,
     versao: arquivo.versao ?? null,
     periodo: arquivo.periodo ?? null,
     totalColetas,

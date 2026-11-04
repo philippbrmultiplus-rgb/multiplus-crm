@@ -16,6 +16,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useData } from "@/lib/DataContext";
+import { carregarPlanilha } from "@/lib/planilha";
 import { diasUteisNoPeriodo, feriadosNoMes } from "@/lib/calendario";
 import { formatM3, mesLabel, toLocalDateKey } from "@/lib/geo";
 
@@ -25,6 +26,9 @@ const GRUPOS = [
   { chave: "poli", label: "Poli", prefixo: "Poli", meta: "metaDiaPoli" as const },
   { chave: "pap", label: "P. a Porta", prefixo: "Porta a Porta", meta: null },
   { chave: "terceiro", label: "Terceiro", prefixo: "Terceiro", meta: "metaDiaTerceiro" as const },
+  // lançamentos da planilha sem cliente vinculado: entram no total (como no comparativo),
+  // mas não têm meta porque não pertencem a um segmento logístico
+  { chave: "semCadastro", label: "Sem cadastro", prefixo: "", meta: null },
 ] as const;
 
 type ChaveGrupo = (typeof GRUPOS)[number]["chave"];
@@ -42,7 +46,7 @@ function grupoDoSegmento(segmento: string): ChaveGrupo | null {
   return null;
 }
 
-const vazio = (): ValoresDia => ({ rollon: 0, poli: 0, pap: 0, terceiro: 0 });
+const vazio = (): ValoresDia => ({ rollon: 0, poli: 0, pap: 0, terceiro: 0, semCadastro: 0 });
 
 /** cor da célula conforme o atingimento (verde ≥100%, âmbar ≥90%, vermelho abaixo) */
 function classeCelula(valor: number, meta: number): string {
@@ -56,7 +60,7 @@ function classeCelula(valor: number, meta: number): string {
 /** acompanhamento diário das metas por segmento logístico */
 export default function MetaDiaria() {
   const { state, role, updateSettings } = useData();
-  const { settings, clients } = state;
+  const { settings, clients, volumes } = state;
   const hoje = toLocalDateKey(new Date().toISOString());
   const [mes, setMes] = useState(hoje.slice(0, 7));
   const [porDia, setPorDia] = useState<Record<string, ValoresDia>>({});
@@ -81,6 +85,7 @@ export default function MetaDiaria() {
     poli: metas.poli,
     pap: 0,
     terceiro: metas.terceiro,
+    semCadastro: 0,
   };
   const metaMes = settings.metaMes ?? 6000;
 
@@ -92,11 +97,14 @@ export default function MetaDiaria() {
 
   const carregar = useCallback(async () => {
     setCarregando(true);
-    const { data, error } = await supabase
-      .from("coletas")
-      .select("client_id, collect_date, volume_m3")
-      .gte("collect_date", inicio)
-      .lte("collect_date", fim);
+    const [{ data, error }, planilha] = await Promise.all([
+      supabase
+        .from("coletas")
+        .select("client_id, collect_date, volume_m3")
+        .gte("collect_date", inicio)
+        .lte("collect_date", fim),
+      carregarPlanilha(clients),
+    ]);
     if (error) {
       console.error("acompanhamento diário:", error.message);
       setPorDia({});
@@ -114,9 +122,28 @@ export default function MetaDiaria() {
       valores[grupo] += Number(row.volume_m3 ?? 0);
       acumulado[dia] = valores;
     }
+
+    // o comparativo mensal soma TODAS as linhas da planilha, inclusive as que não têm
+    // cliente vinculado ("sem cadastro"). Aqui elas entram num grupo próprio, sem meta,
+    // para o total do mês fechar com o comparativo.
+    const semCadastro = new Set(
+      volumes
+        .filter((v) => v.month === inicio && !v.clientId && v.label)
+        .map((v) => v.label as string),
+    );
+    if (planilha && semCadastro.size > 0) {
+      for (const item of planilha.porNome) {
+        if (!semCadastro.has(item.nome)) continue;
+        if (item.data < inicio || item.data > fim) continue;
+        const valores = acumulado[item.data] ?? vazio();
+        valores.semCadastro += item.volume;
+        acumulado[item.data] = valores;
+      }
+    }
+
     setPorDia(acumulado);
     setCarregando(false);
-  }, [inicio, fim, segmentoPorCliente]);
+  }, [inicio, fim, segmentoPorCliente, volumes, clients]);
 
   useEffect(() => {
     void carregar();
@@ -155,7 +182,7 @@ export default function MetaDiaria() {
   }, [mes, ultimoDia, feriados, hoje]);
 
   const totalDoDia = (valores: ValoresDia | undefined) =>
-    valores ? valores.rollon + valores.poli + valores.pap + valores.terceiro : 0;
+    valores ? GRUPOS.reduce((acc, g) => acc + valores[g.chave], 0) : 0;
 
   const totalMes = useMemo(
     () => Object.values(porDia).reduce((acc, v) => acc + totalDoDia(v), 0),
@@ -216,7 +243,7 @@ export default function MetaDiaria() {
           <h1 className="text-2xl font-bold tracking-tight">Acompanhamento Meta</h1>
           <p className="text-sm text-muted-foreground">
             Volume coletado por dia e por semana, comparado com a meta de cada segmento
-            {emAndamento && " (mês em andamento)"}
+            {emAndamento && " (mês em andamento)"} · o total do mês fecha com o comparativo mensal
           </p>
         </div>
         <div className="flex items-center gap-1">
@@ -319,6 +346,11 @@ export default function MetaDiaria() {
             <p className="text-[11px] text-muted-foreground">
               Porta a Porta: sem meta ({formatM3(porSegmento.pap)} m³ no mês)
             </p>
+            {porSegmento.semCadastro > 0 && (
+              <p className="text-[11px] text-muted-foreground">
+                Sem cadastro: {formatM3(porSegmento.semCadastro)} m³ no mês (entra no total, não na meta)
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -491,6 +523,7 @@ export default function MetaDiaria() {
               <TableHead className="text-center">Poli</TableHead>
               <TableHead className="text-center">P. a Porta</TableHead>
               <TableHead className="text-center">Terceiro</TableHead>
+              <TableHead className="text-center">Sem cadastro</TableHead>
               <TableHead className="text-center">Total dia</TableHead>
               <TableHead className="text-center">% meta dia</TableHead>
             </TableRow>
