@@ -50,7 +50,20 @@ export function feriadosNacionais(ano: number): string[] {
 }
 
 /**
- * Conta os dias úteis de um mês (`yyyy-mm-01`) pelo calendário nacional:
+ * Feriados estaduais de São Paulo que a operação segue (a base e os clientes são de SP).
+ * 9 de julho — Revolução Constitucionalista.
+ */
+export function feriadosEstaduaisSP(ano: number): string[] {
+  return [`${ano}-07-09`];
+}
+
+/** feriados considerados na operação: nacionais + estaduais de SP */
+export function feriadosDaOperacao(ano: number): string[] {
+  return [...feriadosNacionais(ano), ...feriadosEstaduaisSP(ano)];
+}
+
+/**
+ * Conta os dias úteis de um mês (`yyyy-mm-01`) pelo calendário da operação:
  * de segunda a sexta, sem os feriados nacionais. Sábados e domingos nunca contam,
  * mesmo que existam lançamentos de coleta nesses dias.
  * Quando `ate` cai dentro desse mês, conta só até essa data (mês em andamento).
@@ -67,7 +80,7 @@ export function diasUteisNoMes(
   const limite =
     ate && ate.slice(0, 7) === mes.slice(0, 7) ? Math.min(Number(ate.slice(8, 10)), ultimoDia) : ultimoDia;
   const dias = new Set(diasDaSemana);
-  const feriados = new Set(considerarFeriados ? feriadosNacionais(ano) : []);
+  const feriados = new Set(considerarFeriados ? feriadosDaOperacao(ano) : []);
   let total = 0;
   for (let dia = 1; dia <= limite; dia++) {
     const data = new Date(Date.UTC(ano, numeroMes - 1, dia));
@@ -78,11 +91,11 @@ export function diasUteisNoMes(
   return total;
 }
 
-/** feriados nacionais que caíram em dia útil no mês (para mostrar na tela) */
+/** feriados (nacionais e estaduais de SP) que caíram em dia útil no mês */
 export function feriadosNoMes(mes: string): string[] {
   const [ano, numeroMes] = mes.slice(0, 7).split("-").map(Number);
   if (!ano || !numeroMes) return [];
-  return feriadosNacionais(ano).filter((data) => {
+  return feriadosDaOperacao(ano).filter((data) => {
     if (Number(data.slice(5, 7)) !== numeroMes) return false;
     const diaDaSemana = new Date(`${data}T00:00:00Z`).getUTCDay();
     return diaDaSemana >= 1 && diaDaSemana <= 5;
@@ -90,7 +103,7 @@ export function feriadosNoMes(mes: string): string[] {
 }
 
 /**
- * Dias úteis entre duas datas (yyyy-mm-dd), inclusive, pelo calendário nacional:
+ * Dias úteis entre duas datas (yyyy-mm-dd), inclusive, pelo calendário da operação:
  * segunda a sexta, sem feriados. Sábados e domingos nunca contam.
  */
 export function diasUteisNoPeriodo(inicio: string, fim: string): number {
@@ -98,9 +111,11 @@ export function diasUteisNoPeriodo(inicio: string, fim: string): number {
   let total = 0;
   const cursor = new Date(`${inicio}T00:00:00Z`);
   const limite = new Date(`${fim}T00:00:00Z`).getTime();
-  const feriados = new Set(feriadosNacionais(cursor.getUTCFullYear()).concat(
-    feriadosNacionais(cursor.getUTCFullYear() + 1),
-  ));
+  const feriados = new Set(
+    feriadosDaOperacao(cursor.getUTCFullYear()).concat(
+      feriadosDaOperacao(cursor.getUTCFullYear() + 1),
+    ),
+  );
   while (cursor.getTime() <= limite) {
     const diaSemana = cursor.getUTCDay();
     if (diaSemana >= 1 && diaSemana <= 5 && !feriados.has(iso(cursor))) total += 1;
