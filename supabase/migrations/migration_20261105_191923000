@@ -1,0 +1,4 @@
+insert into user_permissoes (user_id, editar_clientes, gerir_rota, atualizar_planilha, atualizado_em)
+values ('242eac6a-d134-4fd6-a44d-94385dd238a8', true, true, true, now())
+on conflict (user_id) do update
+  set editar_clientes = true, gerir_rota = true, atualizar_planilha = true, atualizado_em = now();
