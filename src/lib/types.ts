@@ -337,6 +337,33 @@ export interface MetaMes {
   terceiro: number;
 }
 
+/** distribuição de caçambas de um tipo (Rollon 26 m³ ou Poli 5 m³) */
+export interface CacambasTipo {
+  total: number;
+  clientes: number;
+  estoques: number;
+  manutencao: number;
+  caminhoes: number;
+  segmentos: { nome: string; qtd: number }[];
+}
+
+/** caçambas preenchidas à mão para um mês */
+export interface CacambasMes {
+  mes: string;
+  rollon: CacambasTipo;
+  poli: CacambasTipo;
+}
+
+/** linha da fila de espera de caçambas preenchida à mão */
+export interface FilaCliente {
+  id: string;
+  mes: string;
+  cliente: string;
+  cidade: string;
+  volume: number;
+  posicao: number;
+}
+
 export interface AppState {
   version: number;
   sessionRole: Role;
@@ -351,6 +378,9 @@ export interface AppState {
   payments: ClientPayment[];
   /** metas diárias por mês */
   metas: MetaMes[];
+  /** caçambas e fila de espera preenchidas à mão na apresentação */
+  cacambas: CacambasMes[];
+  fila: FilaCliente[];
   cadence: ClientCadence[];
   internalProspects: InternalProspect[];
   internalProspectNotes: InternalProspectNote[];

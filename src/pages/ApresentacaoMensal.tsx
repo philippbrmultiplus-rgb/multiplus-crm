@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SlideFrame, SlideView } from "@/components/apresentacao/SlideView";
+import { CacambasEditor } from "@/components/apresentacao/CacambasEditor";
+import { FilaEditor } from "@/components/apresentacao/FilaEditor";
 import { useData } from "@/lib/DataContext";
 import { construirApresentacao, mesesComVolume, nomeMesCurto } from "@/lib/apresentacao";
 import { montarSlides } from "@/lib/apresentacaoSlides";
@@ -73,6 +75,9 @@ export default function ApresentacaoMensal() {
           Monta a apresentação do mês com os números do app, no formato usado nos relatórios da diretoria.
         </p>
       </div>
+
+      <CacambasEditor mes={mes} nomeMes={mesLabel(mes)} />
+      <FilaEditor mes={mes} nomeMes={mesLabel(mes)} />
 
       <Card className="card-soft">
         <CardHeader className="pb-3">

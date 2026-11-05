@@ -50,6 +50,18 @@ export type Slide =
       nota: string;
     }
   | {
+      tipo: "cacambas";
+      titulo: string;
+      subtitulo: string;
+      tipoNome: string;
+      total: number;
+      clientes: number;
+      estoques: number;
+      manutencao: number;
+      caminhoes: number;
+      segmentos: { nome: string; qtd: number }[];
+    }
+  | {
       tipo: "comparativoAnual";
       subtitulo: string;
       meses: ApresentacaoMensal["comparativoAnual"]["meses"];
@@ -62,6 +74,13 @@ export type Slide =
       cards: { rotulo: string; valor: string; detalhe: string }[];
       barra: { rotulo: string; valor: string }[];
       participacao: { nome: string; valor: number }[];
+    }
+  | {
+      tipo: "filaCacambas";
+      titulo: string;
+      subtitulo: string;
+      linhas: { cliente: string; cidade: string; volume: number; distanciaKm: number | null }[];
+      total: number;
     }
   | {
       tipo: "tabela";
@@ -208,7 +227,38 @@ export function montarSlides(dados: ApresentacaoMensal): Slide[] {
     participacao: dados.forecast.porMes.map((m) => ({ nome: m.nome.slice(0, 3), valor: m.valor })),
   });
 
-  if (dados.filaEspera.length > 0) {
+  if (dados.cacambas && (dados.cacambas.rollon.total > 0 || dados.cacambas.poli.total > 0)) {
+    const tipos = [
+      { chave: "rollon" as const, nome: "Rollon 26 m³", rotulo: "Rollon" },
+      { chave: "poli" as const, nome: "Poli 5 m³", rotulo: "Poli" },
+    ];
+    for (const t of tipos) {
+      const d = dados.cacambas[t.chave];
+      if (d.total <= 0) continue;
+      slides.push({
+        tipo: "cacambas",
+        titulo: `Distribuição de caçamba por segmento - ${t.rotulo}`,
+        subtitulo: `${t.nome} · quantidades de ${dados.mesNome}`,
+        tipoNome: t.nome,
+        total: d.total,
+        clientes: d.clientes,
+        estoques: d.estoques,
+        manutencao: d.manutencao,
+        caminhoes: d.caminhoes,
+        segmentos: d.segmentos,
+      });
+    }
+  }
+
+  if (dados.filaManual.length > 0) {
+    slides.push({
+      tipo: "filaCacambas",
+      titulo: "Fila de espera - caçamba de 26 m³",
+      subtitulo: `Clientes aguardando caçamba · ${dados.mesNome}`,
+      linhas: dados.filaManual,
+      total: dados.filaManual.reduce((acc, l) => acc + l.volume, 0),
+    });
+  } else if (dados.filaEspera.length > 0) {
     slides.push({
       tipo: "tabela",
       titulo: "Fila de espera",

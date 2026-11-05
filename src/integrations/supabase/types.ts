@@ -3360,6 +3360,57 @@ export type Database = {
   }
   public: {
     Tables: {
+      apresentacao_cacambas: {
+        Row: {
+          atualizado_em: string
+          mes: string
+          poli: Json
+          rollon: Json
+        }
+        Insert: {
+          atualizado_em?: string
+          mes: string
+          poli?: Json
+          rollon?: Json
+        }
+        Update: {
+          atualizado_em?: string
+          mes?: string
+          poli?: Json
+          rollon?: Json
+        }
+        Relationships: []
+      }
+      apresentacao_fila: {
+        Row: {
+          atualizado_em: string
+          cidade: string
+          cliente: string
+          id: string
+          mes: string
+          posicao: number
+          volume: number
+        }
+        Insert: {
+          atualizado_em?: string
+          cidade?: string
+          cliente: string
+          id?: string
+          mes: string
+          posicao?: number
+          volume?: number
+        }
+        Update: {
+          atualizado_em?: string
+          cidade?: string
+          cliente?: string
+          id?: string
+          mes?: string
+          posicao?: number
+          volume?: number
+        }
+        Relationships: []
+      }
       client_alerts: {
         Row: {
           client_id: string
@@ -4341,39 +4392,6 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_11_01: {
-        Row: {
-          event: string | null
-          extension: string
-          id: string
-          inserted_at: string
-          payload: Json | null
-          private: boolean | null
-          topic: string
-          updated_at: string
-        }
-        Insert: {
-          event?: string | null
-          extension: string
-          id?: string
-          inserted_at?: string
-          payload?: Json | null
-          private?: boolean | null
-          topic: string
-          updated_at?: string
-        }
-        Update: {
-          event?: string | null
-          extension?: string
-          id?: string
-          inserted_at?: string
-          payload?: Json | null
-          private?: boolean | null
-          topic?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       messages_2026_11_02: {
         Row: {
           event: string | null
@@ -4540,6 +4558,39 @@ export type Database = {
         Relationships: []
       }
       messages_2026_11_07: {
+        Row: {
+          event: string | null
+          extension: string
+          id: string
+          inserted_at: string
+          payload: Json | null
+          private: boolean | null
+          topic: string
+          updated_at: string
+        }
+        Insert: {
+          event?: string | null
+          extension: string
+          id?: string
+          inserted_at?: string
+          payload?: Json | null
+          private?: boolean | null
+          topic: string
+          updated_at?: string
+        }
+        Update: {
+          event?: string | null
+          extension?: string
+          id?: string
+          inserted_at?: string
+          payload?: Json | null
+          private?: boolean | null
+          topic?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      messages_2026_11_08: {
         Row: {
           event: string | null
           extension: string

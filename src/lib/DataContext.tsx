@@ -331,6 +331,40 @@ function internalProspectNoteFromRow(r: Record<string, any>): InternalProspectNo
   };
 }
 
+function cacambasTipo(valor: unknown): CacambasTipo {
+  const v = (valor ?? {}) as Record<string, any>;
+  const segmentos = Array.isArray(v.segmentos)
+    ? v.segmentos.map((s: any) => ({ nome: String(s?.nome ?? ""), qtd: Number(s?.qtd ?? 0) }))
+    : [];
+  return {
+    total: Number(v.total ?? 0),
+    clientes: Number(v.clientes ?? 0),
+    estoques: Number(v.estoques ?? 0),
+    manutencao: Number(v.manutencao ?? 0),
+    caminhoes: Number(v.caminhoes ?? 0),
+    segmentos,
+  };
+}
+
+function cacambasFromRow(r: Record<string, any>): CacambasMes {
+  return {
+    mes: String(r.mes ?? "").slice(0, 10),
+    rollon: cacambasTipo(r.rollon),
+    poli: cacambasTipo(r.poli),
+  };
+}
+
+function filaFromRow(r: Record<string, any>): FilaCliente {
+  return {
+    id: String(r.id),
+    mes: String(r.mes ?? "").slice(0, 10),
+    cliente: String(r.cliente ?? ""),
+    cidade: String(r.cidade ?? ""),
+    volume: Number(r.volume ?? 0),
+    posicao: Number(r.posicao ?? 0),
+  };
+}
+
 function metaMesFromRow(r: Record<string, any>): MetaMes {
   return {
     mes: String(r.mes ?? "").slice(0, 10),
@@ -355,6 +389,8 @@ function emptyState(): AppState {
     volumes: [],
     payments: [],
     metas: [],
+    cacambas: [],
+    fila: [],
     cadence: [],
     internalProspects: [],
     internalProspectNotes: [],
@@ -375,6 +411,8 @@ function loadLocalCache(): AppState | null {
           activities: parsed.activities ?? [],
           volumes: parsed.volumes ?? [],
           metas: parsed.metas ?? [],
+          cacambas: parsed.cacambas ?? [],
+          fila: parsed.fila ?? [],
           payments: parsed.payments ?? [],
           cadence: parsed.cadence ?? [],
           internalProspects: parsed.internalProspects ?? [],
@@ -762,6 +800,10 @@ interface DataContextValue {
   updateSettings: (patch: Partial<Settings>) => void;
   /** grava as metas diárias de um mês (só daquele mês). Devolve o erro, quando houver. */
   salvarMetaMes: (meta: MetaMes) => Promise<string | null>;
+  /** grava a distribuição de caçambas do mês (preenchida à mão) */
+  salvarCacambas: (registro: CacambasMes) => Promise<string | null>;
+  /** substitui a fila de espera de caçambas do mês */
+  salvarFila: (mes: string, linhas: { cliente: string; cidade: string; volume: number }[]) => Promise<string | null>;
   generateRoute: (weekStart: string) => RoutePlanResult;
   createEmptyWeekRoute: (weekStart: string) => RoutePlanResult;
   updateWeekRoute: (weekStart: string) => RoutePlanResult | null;
@@ -1060,6 +1102,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       volumesRes,
       paymentsRes,
       metasRes,
+      cacambasRes,
+      filaRes,
       cadenceRes,
       internalProspectsRes,
       internalProspectNotesRes,
@@ -1077,6 +1121,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       supabase.from("client_monthly_volumes").select("*").order("month"),
       supabase.from("client_payments").select("*").order("created_at"),
       supabase.from("metas_mes").select("*").order("mes"),
+      supabase.from("apresentacao_cacambas").select("*").order("mes"),
+      supabase.from("apresentacao_fila").select("*").order("posicao"),
       supabase.from("client_cadence").select("*").order("media_dias"),
       supabase.from("internal_prospects").select("*").order("created_at", { ascending: false }),
       supabase.from("internal_prospect_notes").select("*").order("created_at"),
@@ -1111,6 +1157,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
     );
     if (metasRes.error) console.warn("metas por mês:", metasRes.error.message);
     const metas = (metasRes.data ?? []).map((r) => metaMesFromRow(r as unknown as Record<string, any>));
+    if (cacambasRes.error) console.warn("caçambas da apresentação:", cacambasRes.error.message);
+    const cacambas = (cacambasRes.data ?? []).map((r) => cacambasFromRow(r as unknown as Record<string, any>));
+    if (filaRes.error) console.warn("fila de espera:", filaRes.error.message);
+    const fila = (filaRes.data ?? []).map((r) => filaFromRow(r as unknown as Record<string, any>));
     const cadence = (cadenceRes.data ?? []).map((r) =>
       cadenceFromRow(r as unknown as Record<string, any>),
     );
@@ -1143,6 +1193,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       volumes,
       payments,
       metas,
+      cacambas,
+      fila,
       cadence,
       internalProspects,
       internalProspectNotes,
@@ -2146,6 +2198,79 @@ export function DataProvider({ children }: { children: ReactNode }) {
           metas: prev.metas.map((m) => (m.mes === mes ? gravado : m)),
         }));
       }
+      return null;
+    },
+    [setAppState],
+  );
+
+  const salvarCacambas = useCallback(
+    async (registro: CacambasMes): Promise<string | null> => {
+      const mes = `${registro.mes.slice(0, 7)}-01`;
+      const salvo: CacambasMes = { ...registro, mes };
+
+      setAppState((prev) => ({
+        ...prev,
+        cacambas: prev.cacambas.some((c) => c.mes === mes)
+          ? prev.cacambas.map((c) => (c.mes === mes ? salvo : c))
+          : [...prev.cacambas, salvo].sort((a, b) => (a.mes < b.mes ? -1 : 1)),
+      }));
+
+      if (!canWriteClientData()) return "Só o coordenador pode alterar as caçambas.";
+
+      const { error } = await supabase.from("apresentacao_cacambas").upsert(
+        {
+          mes,
+          rollon: salvo.rollon,
+          poli: salvo.poli,
+          atualizado_em: new Date().toISOString(),
+        },
+        { onConflict: "mes" },
+      );
+      if (error) {
+        console.error("salvar caçambas:", error.message);
+        return error.message;
+      }
+      return null;
+    },
+    [setAppState],
+  );
+
+  const salvarFila = useCallback(
+    async (
+      mesBase: string,
+      linhas: { cliente: string; cidade: string; volume: number }[],
+    ): Promise<string | null> => {
+      const mes = `${mesBase.slice(0, 7)}-01`;
+      if (!canWriteClientData()) return "Só o coordenador pode alterar a fila de espera.";
+
+      const { error: erroDelete } = await supabase.from("apresentacao_fila").delete().eq("mes", mes);
+      if (erroDelete) {
+        console.error("limpar fila:", erroDelete.message);
+        return erroDelete.message;
+      }
+
+      if (linhas.length > 0) {
+        const { error } = await supabase.from("apresentacao_fila").insert(
+          linhas.map((l, i) => ({
+            mes,
+            cliente: l.cliente,
+            cidade: l.cidade,
+            volume: l.volume,
+            posicao: i,
+          })),
+        );
+        if (error) {
+          console.error("salvar fila:", error.message);
+          return error.message;
+        }
+      }
+
+      const { data } = await supabase.from("apresentacao_fila").select("*").eq("mes", mes).order("posicao");
+      const doBanco = (data ?? []).map((r) => filaFromRow(r as unknown as Record<string, any>));
+      setAppState((prev) => ({
+        ...prev,
+        fila: [...prev.fila.filter((f) => f.mes !== mes), ...doBanco],
+      }));
       return null;
     },
     [setAppState],
@@ -3712,6 +3837,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
     recomputeTiers,
     updateSettings,
     salvarMetaMes,
+    salvarCacambas,
+    salvarFila,
     generateRoute,
     createEmptyWeekRoute,
     updateWeekRoute,

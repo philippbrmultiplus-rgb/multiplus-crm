@@ -1,0 +1,37 @@
+create table if not exists apresentacao_cacambas (
+  mes date primary key,
+  rollon jsonb not null default '{"total":0,"clientes":0,"estoques":0,"manutencao":0,"caminhoes":0,"segmentos":[]}'::jsonb,
+  poli jsonb not null default '{"total":0,"clientes":0,"estoques":0,"manutencao":0,"caminhoes":0,"segmentos":[]}'::jsonb,
+  atualizado_em timestamptz not null default now()
+);
+
+alter table apresentacao_cacambas enable row level security;
+create policy cac_select on apresentacao_cacambas for select using (true);
+create policy cac_write on apresentacao_cacambas for insert with check (is_coordenador());
+create policy cac_update on apresentacao_cacambas for update using (is_coordenador()) with check (is_coordenador());
+
+create table if not exists apresentacao_fila (
+  id uuid primary key default gen_random_uuid(),
+  mes date not null,
+  cliente text not null,
+  cidade text not null default '',
+  volume numeric not null default 0,
+  posicao integer not null default 0,
+  atualizado_em timestamptz not null default now()
+);
+
+create index if not exists apresentacao_fila_mes_idx on apresentacao_fila (mes);
+
+alter table apresentacao_fila enable row level security;
+create policy fila_select on apresentacao_fila for select using (true);
+create policy fila_write on apresentacao_fila for insert with check (is_coordenador());
+create policy fila_update on apresentacao_fila for update using (is_coordenador()) with check (is_coordenador());
+create policy fila_delete on apresentacao_fila for delete using (is_coordenador());
+
+insert into apresentacao_cacambas (mes, rollon, poli) values (
+  '2026-10-01',
+  '{"total":83,"clientes":71,"estoques":4,"manutencao":1,"caminhoes":7,"segmentos":[{"nome":"ATT","qtd":41},{"nome":"Indústria","qtd":12},{"nome":"Obra","qtd":7},{"nome":"Gesseiro","qtd":6},{"nome":"Ecoponto","qtd":5}]}'::jsonb,
+  '{"total":79,"clientes":77,"estoques":0,"manutencao":0,"caminhoes":2,"segmentos":[{"nome":"Caçambeiro","qtd":24},{"nome":"Gesseiro","qtd":22},{"nome":"Ecoponto","qtd":20},{"nome":"Indústria","qtd":10},{"nome":"Construtora","qtd":1}]}'::jsonb
+) on conflict (mes) do nothing;
+
+notify pgrst, 'reload schema';

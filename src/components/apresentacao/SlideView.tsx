@@ -569,6 +569,159 @@ export function SlideView({ slide }: { slide: Slide }) {
     );
   }
 
+  if (slide.tipo === "cacambas") {
+    const maior = Math.max(1, ...slide.segmentos.map((x) => x.qtd));
+    const status = [
+      { rotulo: "Em clientes", valor: slide.clientes },
+      { rotulo: "Em estoques", valor: slide.estoques },
+      { rotulo: "Em manutenção", valor: slide.manutencao },
+      { rotulo: "Em caminhões", valor: slide.caminhoes },
+    ];
+    return (
+      <div style={{ width: "100%", height: "100%", background: CORES.fundo, position: "relative" }}>
+        <Titulo texto={slide.titulo} subtitulo={slide.subtitulo} />
+        <Selo texto={`${slide.total} caçambas`} />
+
+        <Caixa
+          style={{
+            left: polegada(0.75),
+            top: polegada(1.45),
+            width: polegada(4.05),
+            height: polegada(4.85),
+            background: `linear-gradient(160deg, ${CORES.navy} 0%, #123B72 55%, ${CORES.azul} 100%)`,
+            borderRadius: polegada(0.24),
+            padding: polegada(0.34),
+            overflow: "hidden",
+          }}
+        >
+          <div style={{ fontSize: ptPx(9), letterSpacing: 1.6, fontWeight: 700, color: "#9CC0F0" }}>
+            TOTAL DE CAÇAMBAS
+          </div>
+          <div style={{ fontSize: ptPx(64), fontWeight: 700, color: CORES.branco, lineHeight: 1, marginTop: polegada(0.1) }}>
+            {slide.total}
+          </div>
+          <div style={{ fontSize: ptPx(11), color: "#CBD9EC", marginTop: polegada(0.04) }}>{slide.tipoNome}</div>
+
+          <div style={{ marginTop: polegada(0.36), display: "flex", flexDirection: "column", gap: polegada(0.12) }}>
+            {status.map((item) => (
+              <div
+                key={item.rotulo}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  background: "rgba(255,255,255,0.10)",
+                  borderRadius: polegada(0.12),
+                  padding: `${polegada(0.08)} ${polegada(0.14)}`,
+                }}
+              >
+                <span style={{ fontSize: ptPx(10), color: "#DCE7F6" }}>{item.rotulo}</span>
+                <span style={{ fontSize: ptPx(16), fontWeight: 700, color: CORES.branco }}>{item.valor}</span>
+              </div>
+            ))}
+          </div>
+        </Caixa>
+
+        <Caixa style={{ left: polegada(5.15), top: polegada(1.5), width: polegada(7.4) }}>
+          <div style={{ fontSize: ptPx(9), letterSpacing: 1.4, fontWeight: 700, color: CORES.cinza, marginBottom: polegada(0.12) }}>
+            POR SEGMENTO
+          </div>
+          {slide.segmentos.map((seg, i) => (
+            <div key={seg.nome} style={{ marginBottom: polegada(0.2) }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: polegada(0.05) }}>
+                <span style={{ fontSize: ptPx(11), fontWeight: 700, color: CORES.navy }}>{seg.nome}</span>
+                <span style={{ fontSize: ptPx(13), fontWeight: 700, color: CORES.azul }}>{seg.qtd}</span>
+              </div>
+              <div style={{ height: polegada(0.2), background: "#E7EEF9", borderRadius: polegada(0.1) }}>
+                <div
+                  style={{
+                    width: `${Math.max(3, (seg.qtd / maior) * 100)}%`,
+                    height: "100%",
+                    borderRadius: polegada(0.1),
+                    background: ["#0B3D91", "#1B6FD0", "#3B8BEA", "#6FA8F5", "#A9C8F2", "#CBD9EC"][i % 6],
+                  }}
+                />
+              </div>
+            </div>
+          ))}
+        </Caixa>
+        <Logotipo />
+      </div>
+    );
+  }
+
+  if (slide.tipo === "filaCacambas") {
+    const linhas = slide.linhas.slice(0, 11);
+    return (
+      <div style={{ width: "100%", height: "100%", background: CORES.fundo, position: "relative" }}>
+        <Titulo texto={slide.titulo} subtitulo={slide.subtitulo} />
+        <Selo texto={`${slide.linhas.length} clientes`} />
+
+        <Caixa style={{ left: polegada(0.75), top: polegada(1.45), width: polegada(11.8) }}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "2.6fr 1.6fr 1.2fr 1.5fr",
+              background: CORES.navy3,
+              color: CORES.branco,
+              fontSize: ptPx(9.5),
+              fontWeight: 700,
+              padding: `${polegada(0.1)} ${polegada(0.16)}`,
+              borderRadius: `${polegada(0.12)} ${polegada(0.12)} 0 0`,
+            }}
+          >
+            <span>Cliente</span>
+            <span>Cidade</span>
+            <span style={{ textAlign: "right" }}>Distância</span>
+            <span style={{ textAlign: "right" }}>Volume/mês (m³)</span>
+          </div>
+          {linhas.map((l, i) => (
+            <div
+              key={`${l.cliente}-${i}`}
+              style={{
+                display: "grid",
+                gridTemplateColumns: "2.6fr 1.6fr 1.2fr 1.5fr",
+                alignItems: "center",
+                background: i % 2 === 0 ? CORES.branco : "#F1F5FB",
+                padding: `${polegada(0.112)} ${polegada(0.16)}`,
+                borderBottom: `1px solid ${CORES.linha}`,
+                fontSize: ptPx(10),
+              }}
+            >
+              <span style={{ fontWeight: 700, color: CORES.tinta }}>{l.cliente}</span>
+              <span style={{ color: CORES.cinza }}>{l.cidade || "—"}</span>
+              <span style={{ textAlign: "right", color: CORES.azul, fontWeight: 700 }}>
+                {l.distanciaKm == null ? "—" : `${formatM3(Math.round(l.distanciaKm))} km`}
+              </span>
+              <span style={{ textAlign: "right", fontWeight: 700, color: CORES.navy }}>
+                {formatM3(Math.round(l.volume * 10) / 10)}
+              </span>
+            </div>
+          ))}
+        </Caixa>
+
+        <Caixa
+          style={{
+            left: polegada(0.75),
+            top: polegada(5.75),
+            width: polegada(11.8),
+            display: "flex",
+            alignItems: "baseline",
+            justifyContent: "space-between",
+          }}
+        >
+          <span style={{ fontSize: ptPx(10), color: CORES.cinza }}>
+            {slide.linhas.length} cliente(s) · distância calculada a partir do ponto base
+          </span>
+          <span style={{ fontSize: ptPx(14), fontWeight: 700, color: CORES.navy }}>
+            Volume estimado total: <span style={{ color: CORES.azul }}>{formatM3(Math.round(slide.total * 10) / 10)} m³/mês</span>
+          </span>
+        </Caixa>
+        <Logotipo />
+      </div>
+    );
+  }
+
   if (slide.tipo === "comparativoAnual") {
     const topo = Math.max(
       1,

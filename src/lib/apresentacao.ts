@@ -5,7 +5,7 @@
 import { diasUteisNoMes } from "./calendario";
 import { diasUteisDoMes, metaDoAno, metaDoMes, metasDoMes } from "./metas";
 import { formatDateBR } from "./geo";
-import { toLocalDateKey } from "./geo";
+import { BASE_LAT, BASE_LNG, roadKm, toLocalDateKey } from "./geo";
 import type { AppState, Client, MonthlyVolume } from "./types";
 
 export const NOMES_MES = [
@@ -112,6 +112,10 @@ export interface ApresentacaoMensal {
   comparativo: MesComparativo[];
   /** meta mensal de cada segmento (meta do dia × dias úteis) */
   metasSegmentos: { nome: string; dia: number; meta: number }[];
+  /** caçambas preenchidas à mão no mês (null quando o mês não tem nada) */
+  cacambas: { rollon: CacambasTipo; poli: CacambasTipo } | null;
+  /** fila de espera de caçambas preenchida à mão (com a distância da base) */
+  filaManual: { cliente: string; cidade: string; volume: number; distanciaKm: number | null }[];
   /** comparativo de 2025 (modelo antigo) com 2026 (dados do app) */
   comparativoAnual: {
     meses: MesComparativoAno[];
@@ -140,6 +144,23 @@ export interface ApresentacaoMensal {
     aReceber: number;
     clientesAReceber: number;
   };
+}
+
+/** distância rodoviária aproximada (km) da base até a cidade, usando as coordenadas dos clientes */
+export function distanciaDaCidade(
+  cidade: string,
+  clients: Client[],
+  settings: { homeLat?: number | null; homeLng?: number | null },
+): number | null {
+  const alvo = (cidade || "").trim().toUpperCase();
+  if (!alvo) return null;
+  const cliente = clients.find(
+    (c) => c.lat != null && c.lng != null && (c.city || "").trim().toUpperCase() === alvo,
+  );
+  if (!cliente || cliente.lat == null || cliente.lng == null) return null;
+  const baseLat = settings.homeLat ?? BASE_LAT;
+  const baseLng = settings.homeLng ?? BASE_LNG;
+  return roadKm(baseLat, baseLng, cliente.lat, cliente.lng);
 }
 
 /** meses com lançamento, do mais antigo para o mais novo (yyyy-mm-01) */
@@ -332,6 +353,29 @@ export function construirApresentacao(state: AppState, mes: string): Apresentaca
 
   // forecast: soma todos os meses do ano até o mês da apresentação
   const mesesDoAno = todos.filter((m) => m >= `${ano}-01-01` && m <= alvo);
+  // caçambas e fila de espera: vêm do preenchimento manual do mês
+  const registroCacambas = (state.cacambas ?? []).find((c) => c.mes === alvo) ?? null;
+  const baseLat = state.settings.homeLat ?? BASE_LAT;
+  const baseLng = state.settings.homeLng ?? BASE_LNG;
+  const coordDaCidade = new Map<string, { lat: number; lng: number }>();
+  for (const c of state.clients) {
+    if (c.lat == null || c.lng == null || !c.city) continue;
+    const chave = c.city.trim().toUpperCase();
+    if (!coordDaCidade.has(chave)) coordDaCidade.set(chave, { lat: c.lat, lng: c.lng });
+  }
+  const filaManual = (state.fila ?? [])
+    .filter((f) => f.mes === alvo)
+    .sort((a, b) => a.posicao - b.posicao)
+    .map((f) => {
+      const coord = coordDaCidade.get(f.cidade.trim().toUpperCase());
+      return {
+        cliente: f.cliente,
+        cidade: f.cidade,
+        volume: f.volume,
+        distanciaKm: coord ? roadKm(baseLat, baseLng, coord.lat, coord.lng) : null,
+      };
+    });
+
   const comparativoAnual = {
     meses: VOLUME_2025.map((v2025, i) => {
       const mes = `${ano}-${String(i + 1).padStart(2, "0")}-01`;
@@ -420,6 +464,8 @@ export function construirApresentacao(state: AppState, mes: string): Apresentaca
     top10,
     comparativo,
     metasSegmentos,
+    cacambas: registroCacambas ? { rollon: registroCacambas.rollon, poli: registroCacambas.poli } : null,
+    filaManual,
     comparativoAnual,
     forecast: {
       realizado,

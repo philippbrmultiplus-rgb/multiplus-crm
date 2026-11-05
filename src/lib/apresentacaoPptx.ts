@@ -429,6 +429,94 @@ export async function gerarPptx(slides: Slide[], nomeArquivo: string): Promise<v
       continue;
     }
 
+    if (slide.tipo === "cacambas") {
+      const s = novoSlide();
+      cabecalho(s, slide.titulo, slide.subtitulo, `${slide.total} caçambas`);
+
+      s.addShape(pptx.ShapeType.roundRect, {
+        x: 0.75, y: 1.45, w: 4.05, h: 4.85,
+        fill: { color: "0B1F3A" }, line: { color: "123B72" }, rectRadius: 0.16,
+      });
+      s.addText("TOTAL DE CAÇAMBAS", { x: 1.09, y: 1.75, w: 3.4, h: 0.26, fontSize: 9, bold: true, color: "9CC0F0", charSpacing: 2 });
+      s.addText(String(slide.total), { x: 1.09, y: 2.02, w: 3.4, h: 1.0, fontSize: 64, bold: true, color: "FFFFFF" });
+      s.addText(slide.tipoNome, { x: 1.09, y: 3.0, w: 3.4, h: 0.28, fontSize: 11, color: "CBD9EC" });
+
+      [
+        { rotulo: "Em clientes", valor: slide.clientes },
+        { rotulo: "Em estoques", valor: slide.estoques },
+        { rotulo: "Em manutenção", valor: slide.manutencao },
+        { rotulo: "Em caminhões", valor: slide.caminhoes },
+      ].forEach((item, i) => {
+        const y = 3.45 + i * 0.6;
+        s.addShape(pptx.ShapeType.roundRect, {
+          x: 1.09, y, w: 3.37, h: 0.48,
+          fill: { color: "17375C" }, line: { color: "17375C" }, rectRadius: 0.08,
+        });
+        s.addText(item.rotulo, { x: 1.22, y, w: 2.3, h: 0.48, valign: "middle", fontSize: 10, color: "DCE7F6" });
+        s.addText(String(item.valor), { x: 3.4, y, w: 0.9, h: 0.48, align: "right", valign: "middle", fontSize: 16, bold: true, color: "FFFFFF" });
+      });
+
+      s.addText("POR SEGMENTO", { x: 5.15, y: 1.5, w: 4, h: 0.26, fontSize: 9, bold: true, color: hex(CORES.cinza), charSpacing: 1.4 });
+      const maior = Math.max(1, ...slide.segmentos.map((x) => x.qtd));
+      const cores = ["0B3D91", "1B6FD0", "3B8BEA", "6FA8F5", "A9C8F2", "CBD9EC"];
+      slide.segmentos.forEach((seg, i) => {
+        const y = 1.9 + i * 0.72;
+        s.addText(seg.nome, { x: 5.15, y, w: 4.2, h: 0.28, fontSize: 11, bold: true, color: hex(CORES.navy) });
+        s.addText(String(seg.qtd), { x: 11.0, y, w: 1.5, h: 0.28, align: "right", fontSize: 13, bold: true, color: hex(CORES.azul) });
+        s.addShape(pptx.ShapeType.roundRect, {
+          x: 5.15, y: y + 0.32, w: 7.35, h: 0.2,
+          fill: { color: "E7EEF9" }, line: { color: "E7EEF9" }, rectRadius: 0.1,
+        });
+        s.addShape(pptx.ShapeType.roundRect, {
+          x: 5.15, y: y + 0.32, w: Math.max(0.12, 7.35 * (seg.qtd / maior)), h: 0.2,
+          fill: { color: cores[i % cores.length] }, line: { color: cores[i % cores.length] }, rectRadius: 0.1,
+        });
+      });
+      logotipo(s);
+      continue;
+    }
+
+    if (slide.tipo === "filaCacambas") {
+      const s = novoSlide();
+      cabecalho(s, slide.titulo, slide.subtitulo, `${slide.linhas.length} clientes`);
+      const celula = (texto: string, opcoes: Record<string, unknown> = {}) => ({ text: texto, options: opcoes });
+      const linhas = [
+        ["Cliente", "Cidade", "Distância", "Volume/mês (m³)"].map((t, i) =>
+          celula(t, { bold: true, color: "FFFFFF", fill: { color: hex(CORES.navy3) }, fontSize: 9.5, align: i < 2 ? "left" : "right" }),
+        ),
+        ...slide.linhas.slice(0, 11).map((l, i) => [
+          celula(l.cliente, { bold: true, color: hex(CORES.tinta), fontSize: 10, fill: { color: i % 2 === 0 ? "FFFFFF" : "F1F5FB" } }),
+          celula(l.cidade || "—", { color: hex(CORES.cinza), fontSize: 10, fill: { color: i % 2 === 0 ? "FFFFFF" : "F1F5FB" } }),
+          celula(l.distanciaKm == null ? "—" : `${num(Math.round(l.distanciaKm))} km`, {
+            bold: true, color: hex(CORES.azul), fontSize: 10, align: "right", fill: { color: i % 2 === 0 ? "FFFFFF" : "F1F5FB" },
+          }),
+          celula(num(Math.round(l.volume * 10) / 10), {
+            bold: true, color: hex(CORES.navy), fontSize: 10, align: "right", fill: { color: i % 2 === 0 ? "FFFFFF" : "F1F5FB" },
+          }),
+        ]),
+      ];
+      s.addTable(linhas as never, {
+        x: 0.75, y: 1.45, w: 11.8,
+        colW: [5.1, 3.1, 1.8, 1.8],
+        border: { type: "solid", color: "E2E8F0", pt: 0.5 },
+        rowH: 0.34,
+        valign: "middle",
+        margin: 0.06,
+      });
+      s.addText(`${slide.linhas.length} cliente(s) · distância calculada a partir do ponto base`, {
+        x: 0.75, y: 5.85, w: 7, h: 0.3, fontSize: 10, color: hex(CORES.cinza),
+      });
+      s.addText(
+        [
+          { text: "Volume estimado total: ", options: { fontSize: 12, color: hex(CORES.navy) } },
+          { text: `${num(Math.round(slide.total * 10) / 10)} m³/mês`, options: { fontSize: 14, bold: true, color: hex(CORES.azul) } },
+        ],
+        { x: 7.2, y: 5.85, w: 5.35, h: 0.3, align: "right" },
+      );
+      logotipo(s);
+      continue;
+    }
+
     if (slide.tipo === "comparativoAnual") {
       const s = novoSlide();
       cabecalho(s, "Comparativo de volume mensal 2025 x 2026", slide.subtitulo);
