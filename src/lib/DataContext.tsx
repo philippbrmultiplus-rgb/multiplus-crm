@@ -358,6 +358,7 @@ function filaFromRow(r: Record<string, any>): FilaCliente {
   return {
     id: String(r.id),
     mes: String(r.mes ?? "").slice(0, 10),
+    tipo: r.tipo === "poli" ? "poli" : "rollon",
     cliente: String(r.cliente ?? ""),
     cidade: String(r.cidade ?? ""),
     volume: Number(r.volume ?? 0),
@@ -803,7 +804,11 @@ interface DataContextValue {
   /** grava a distribuição de caçambas do mês (preenchida à mão) */
   salvarCacambas: (registro: CacambasMes) => Promise<string | null>;
   /** substitui a fila de espera de caçambas do mês */
-  salvarFila: (mes: string, linhas: { cliente: string; cidade: string; volume: number }[]) => Promise<string | null>;
+  salvarFila: (
+    mes: string,
+    tipo: "rollon" | "poli",
+    linhas: { cliente: string; cidade: string; volume: number }[],
+  ) => Promise<string | null>;
   generateRoute: (weekStart: string) => RoutePlanResult;
   createEmptyWeekRoute: (weekStart: string) => RoutePlanResult;
   updateWeekRoute: (weekStart: string) => RoutePlanResult | null;
@@ -2238,12 +2243,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const salvarFila = useCallback(
     async (
       mesBase: string,
+      tipo: "rollon" | "poli",
       linhas: { cliente: string; cidade: string; volume: number }[],
     ): Promise<string | null> => {
       const mes = `${mesBase.slice(0, 7)}-01`;
       if (!canWriteClientData()) return "Só o coordenador pode alterar a fila de espera.";
 
-      const { error: erroDelete } = await supabase.from("apresentacao_fila").delete().eq("mes", mes);
+      const { error: erroDelete } = await supabase
+        .from("apresentacao_fila")
+        .delete()
+        .eq("mes", mes)
+        .eq("tipo", tipo);
       if (erroDelete) {
         console.error("limpar fila:", erroDelete.message);
         return erroDelete.message;
@@ -2253,6 +2263,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const { error } = await supabase.from("apresentacao_fila").insert(
           linhas.map((l, i) => ({
             mes,
+            tipo,
             cliente: l.cliente,
             cidade: l.cidade,
             volume: l.volume,
@@ -2265,11 +2276,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      const { data } = await supabase.from("apresentacao_fila").select("*").eq("mes", mes).order("posicao");
+      const { data } = await supabase
+        .from("apresentacao_fila")
+        .select("*")
+        .eq("mes", mes)
+        .eq("tipo", tipo)
+        .order("posicao");
       const doBanco = (data ?? []).map((r) => filaFromRow(r as unknown as Record<string, any>));
       setAppState((prev) => ({
         ...prev,
-        fila: [...prev.fila.filter((f) => f.mes !== mes), ...doBanco],
+        fila: [...prev.fila.filter((f) => !(f.mes === mes && f.tipo === tipo)), ...doBanco],
       }));
       return null;
     },

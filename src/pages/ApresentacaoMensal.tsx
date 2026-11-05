@@ -77,7 +77,8 @@ export default function ApresentacaoMensal() {
       </div>
 
       <CacambasEditor mes={mes} nomeMes={mesLabel(mes)} />
-      <FilaEditor mes={mes} nomeMes={mesLabel(mes)} />
+      <FilaEditor mes={mes} nomeMes={mesLabel(mes)} tipo="rollon" />
+      <FilaEditor mes={mes} nomeMes={mesLabel(mes)} tipo="poli" />
 
       <Card className="card-soft">
         <CardHeader className="pb-3">

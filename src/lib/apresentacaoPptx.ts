@@ -684,30 +684,65 @@ export async function gerarPptx(slides: Slide[], nomeArquivo: string): Promise<v
       continue;
     }
 
-    // resultado comercial
+    // resultado comercial — destaque azul
     const s = novoSlide();
     cabecalho(s, "Resultado comercial do mês", slide.subtitulo);
-    slide.cards.forEach((c, i) => cartao(s, 0.75 + i * 4, 1.6, c.rotulo, c.valor, c.detalhe, [CORES.azul, CORES.dourado, CORES.navy3][i]));
+
+    const hero = slide.cards[2];
+    const percentual = Math.max(0, Math.min(100, slide.percentual));
+
+    s.addShape(pptx.ShapeType.roundRect, {
+      x: 0.75, y: 1.45, w: 5.1, h: 3.35,
+      fill: { color: "0B1F3A" }, line: { color: "123B72" }, rectRadius: 0.16,
+    });
+    s.addText(hero.rotulo, { x: 1.09, y: 1.72, w: 4.4, h: 0.26, fontSize: 9, bold: true, color: "9CC0F0", charSpacing: 2 });
+    s.addText(hero.valor, { x: 1.09, y: 2.0, w: 4.4, h: 0.9, fontSize: 44, bold: true, color: "FFFFFF" });
+    s.addText(hero.detalhe, { x: 1.09, y: 2.92, w: 4.4, h: 0.28, fontSize: 10.5, color: "CBD9EC" });
+
+    s.addShape(pptx.ShapeType.roundRect, { x: 1.09, y: 3.45, w: 4.4, h: 0.2, fill: { color: "28496F" }, line: { color: "28496F" }, rectRadius: 0.1 });
+    s.addShape(pptx.ShapeType.roundRect, {
+      x: 1.09, y: 3.45, w: Math.max(0.1, 4.4 * (percentual / 100)), h: 0.2,
+      fill: { color: hex(CORES.dourado) }, line: { color: hex(CORES.dourado) }, rectRadius: 0.1,
+    });
+    s.addText(`${num(slide.percentual)}% da meta do mês`, { x: 1.09, y: 3.7, w: 4.4, h: 0.26, fontSize: 9, color: "CBD9EC" });
+
+    slide.cards.slice(0, 2).forEach((c, i) => {
+      const y = 1.45 + i * 1.72;
+      s.addShape(pptx.ShapeType.roundRect, {
+        x: 6.15, y, w: 6.4, h: 1.55,
+        fill: { color: "FFFFFF" }, line: { color: hex(CORES.linha) }, rectRadius: 0.14,
+      });
+      s.addShape(pptx.ShapeType.rect, {
+        x: 6.15, y, w: 0.1, h: 1.55,
+        fill: { color: hex(i === 0 ? CORES.azul : CORES.dourado) }, line: { color: hex(i === 0 ? CORES.azul : CORES.dourado) },
+      });
+      s.addText(c.rotulo, { x: 6.45, y: y + 0.18, w: 5.8, h: 0.26, fontSize: 8.5, bold: true, color: hex(CORES.cinza), charSpacing: 1.4 });
+      s.addText(c.valor, { x: 6.45, y: y + 0.45, w: 5.8, h: 0.55, fontSize: 26, bold: true, color: hex(CORES.navy) });
+      s.addText(c.detalhe, { x: 6.45, y: y + 1.05, w: 5.8, h: 0.3, fontSize: 9.5, color: hex(CORES.cinza) });
+    });
 
     const totalSeg = slide.segmentos.reduce((acc, seg) => acc + seg.atual, 0) || 1;
-    s.addText("PARTICIPAÇÃO DOS SEGMENTOS", { x: 0.75, y: 3.95, w: 6, h: 0.26, fontSize: 8.5, bold: true, color: hex(CORES.cinza) });
+    s.addText("PARTICIPAÇÃO DOS SEGMENTOS", { x: 0.75, y: 5.15, w: 6, h: 0.26, fontSize: 8.5, bold: true, color: hex(CORES.cinza), charSpacing: 1.2 });
+    let cursor = 0.75;
+    const larguraTotal = 11.8;
+    const cores = ["0B3D91", "1B6FD0", "4B5CF5", "5ED2D8", "8FA8E8", "C9D6EE"];
     slide.segmentos.forEach((seg, i) => {
-      const y = 4.28 + i * 0.32;
-      const fatia = (seg.atual / totalSeg) * 100;
-      s.addShape(pptx.ShapeType.roundRect, { x: 0.75, y, w: 7.6, h: 0.24, fill: { color: "E7ECF4" }, line: { color: "E7ECF4" }, rectRadius: 0.1 });
-      s.addShape(pptx.ShapeType.roundRect, {
-        x: 0.75,
-        y,
-        w: Math.max(0.05, 7.6 * (fatia / 100)),
-        h: 0.24,
-        fill: { color: hex(["0B3D91", "1B6FD0", "4B5CF5", "5ED2D8", "8FA8E8", "C9D6EE"][i % 6]) },
-        line: { color: hex(["0B3D91", "1B6FD0", "4B5CF5", "5ED2D8", "8FA8E8", "C9D6EE"][i % 6]) },
-        rectRadius: 0.1,
+      const largura = Math.max(0.12, larguraTotal * (seg.atual / totalSeg));
+      s.addShape(pptx.ShapeType.rect, {
+        x: cursor, y: 5.5, w: largura, h: 0.34,
+        fill: { color: cores[i % 6] }, line: { color: cores[i % 6] },
       });
-      s.addText(seg.nome, { x: 8.5, y: y - 0.03, w: 2.6, h: 0.3, fontSize: 10, bold: true, color: hex(CORES.tinta) });
-      s.addText(`${num(seg.atual)} m³ · ${Math.round(fatia)}%`, { x: 11.0, y: y - 0.03, w: 1.6, h: 0.3, align: "right", fontSize: 10, bold: true, color: hex(CORES.navy) });
+      const fatia = Math.round((seg.atual / totalSeg) * 100);
+      if (fatia >= 8) {
+        s.addText(`${fatia}%`, { x: cursor, y: 5.5, w: largura, h: 0.34, align: "center", valign: "middle", fontSize: 8.5, bold: true, color: "FFFFFF" });
+      }
+      cursor += largura;
     });
-    s.addText(slide.nota, { x: 0.75, y: 6.3, w: 11.8, h: 0.35, fontSize: 9.5, bold: true, color: hex(CORES.cinza) });
+    s.addText(
+      slide.segmentos.map((seg) => `${seg.nome} ${Math.round((seg.atual / totalSeg) * 100)}%`).join("   ·   "),
+      { x: 0.75, y: 5.95, w: 11.8, h: 0.3, fontSize: 8.5, color: hex(CORES.cinza) },
+    );
+    s.addText(slide.nota, { x: 0.75, y: 6.4, w: 11.8, h: 0.35, fontSize: 9.5, bold: true, color: hex(CORES.cinza) });
     logotipo(s);
   }
 

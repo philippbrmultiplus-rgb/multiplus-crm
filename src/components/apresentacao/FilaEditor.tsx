@@ -15,29 +15,38 @@ interface Linha {
 }
 
 /** fila de espera de caçambas preenchida à mão, com a distância calculada da base */
-export function FilaEditor({ mes, nomeMes }: { mes: string; nomeMes: string }) {
+export function FilaEditor({
+  mes,
+  nomeMes,
+  tipo,
+}: {
+  mes: string;
+  nomeMes: string;
+  tipo: "rollon" | "poli";
+}) {
+  const rotulo = tipo === "rollon" ? "Rollon 26 m³" : "Poli 5 m³";
   const { state, salvarFila } = useData();
   const [linhas, setLinhas] = useState<Linha[]>([]);
   const [salvando, setSalvando] = useState(false);
 
   useEffect(() => {
     const doBanco = state.fila
-      .filter((f) => f.mes.slice(0, 7) === mes.slice(0, 7))
+      .filter((f) => f.mes.slice(0, 7) === mes.slice(0, 7) && f.tipo === tipo)
       .sort((a, b) => a.posicao - b.posicao);
     setLinhas(
       doBanco.length > 0
         ? doBanco.map((f) => ({ cliente: f.cliente, cidade: f.cidade, volume: f.volume }))
         : [{ cliente: "", cidade: "", volume: 0 }],
     );
-  }, [state.fila, mes]);
+  }, [state.fila, mes, tipo]);
 
   const salvar = async () => {
     const validas = linhas.filter((l) => l.cliente.trim());
     setSalvando(true);
-    const erro = await salvarFila(mes, validas);
+    const erro = await salvarFila(mes, tipo, validas);
     setSalvando(false);
     if (erro) toast.error("Não foi possível salvar a fila de espera", { description: erro });
-    else toast.success(`Fila de espera de ${nomeMes} salva`);
+    else toast.success(`Fila de espera (${rotulo}) de ${nomeMes} salva`);
   };
 
   const total = linhas.reduce((acc, l) => acc + (Number(l.volume) || 0), 0);
@@ -45,10 +54,10 @@ export function FilaEditor({ mes, nomeMes }: { mes: string; nomeMes: string }) {
   return (
     <Card className="card-soft">
       <CardHeader className="pb-3">
-        <CardTitle className="text-base">Fila de espera de caçambas (preenchimento manual)</CardTitle>
+        <CardTitle className="text-base">Fila de espera · caçamba de {rotulo}</CardTitle>
         <CardDescription>
           Clientes que entram no slide de fila de espera de {nomeMes} · a distância sai do ponto base até a
-          cidade.
+          cidade. Sem linhas, o slide não é gerado.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-2">

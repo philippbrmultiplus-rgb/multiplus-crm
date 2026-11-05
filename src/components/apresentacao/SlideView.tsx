@@ -916,35 +916,108 @@ export function SlideView({ slide }: { slide: Slide }) {
     );
   }
 
-  // resultado comercial
+  // resultado comercial — destaque azul
   const total = slide.segmentos.reduce((acc, s) => acc + s.atual, 0) || 1;
+  const cores = ["#0B3D91", "#1B6FD0", "#4B5CF5", "#5ED2D8", "#8FA8E8", "#C9D6EE"];
+  const hero = slide.cards[2];
+  const percentual = Math.max(0, Math.min(100, slide.percentual));
   return (
     <div style={{ width: "100%", height: "100%", background: CORES.fundo, position: "relative" }}>
       <Titulo texto="Resultado comercial do mês" subtitulo={slide.subtitulo} />
-      {slide.cards.map((c, i) => (
-        <Cartao key={c.rotulo} x={0.75 + i * 4} y={1.6} rotulo={c.rotulo} valor={c.valor} detalhe={c.detalhe} cor={[CORES.azul, CORES.dourado, CORES.navy3][i]} />
+
+      <Caixa
+        style={{
+          left: polegada(0.75),
+          top: polegada(1.45),
+          width: polegada(5.1),
+          height: polegada(3.35),
+          background: `linear-gradient(150deg, ${CORES.navy} 0%, #123B72 60%, ${CORES.azul} 100%)`,
+          borderRadius: polegada(0.24),
+          padding: polegada(0.34),
+          overflow: "hidden",
+        }}
+      >
+        <div style={{ fontSize: ptPx(9), letterSpacing: 1.6, fontWeight: 700, color: "#9CC0F0" }}>
+          {hero.rotulo}
+        </div>
+        <div style={{ display: "flex", alignItems: "baseline", gap: polegada(0.12), marginTop: polegada(0.12) }}>
+          <span style={{ fontSize: ptPx(44), fontWeight: 700, color: CORES.branco, lineHeight: 1 }}>{hero.valor}</span>
+        </div>
+        <div style={{ fontSize: ptPx(10.5), color: "#CBD9EC", marginTop: polegada(0.08) }}>{hero.detalhe}</div>
+
+        <div style={{ marginTop: polegada(0.34) }}>
+          <div style={{ height: polegada(0.2), background: "rgba(255,255,255,0.18)", borderRadius: polegada(0.1) }}>
+            <div
+              style={{
+                width: `${percentual}%`,
+                height: "100%",
+                borderRadius: polegada(0.1),
+                background: CORES.dourado,
+              }}
+            />
+          </div>
+          <div style={{ marginTop: polegada(0.1), fontSize: ptPx(9), color: "#CBD9EC" }}>
+            {num(slide.percentual)}% da meta do mês
+          </div>
+        </div>
+      </Caixa>
+
+      {slide.cards.slice(0, 2).map((c, i) => (
+        <Caixa
+          key={c.rotulo}
+          style={{
+            left: polegada(6.15),
+            top: polegada(1.45 + i * 1.72),
+            width: polegada(6.4),
+            height: polegada(1.55),
+            background: CORES.branco,
+            border: `1px solid ${CORES.linha}`,
+            borderRadius: polegada(0.2),
+            padding: polegada(0.26),
+          }}
+        >
+          <div style={{ position: "absolute", left: 0, top: 0, width: polegada(0.1), height: "100%", background: i === 0 ? CORES.azul : CORES.dourado }} />
+          <div style={{ fontSize: ptPx(8.5), letterSpacing: 1.2, fontWeight: 700, color: CORES.cinza }}>{c.rotulo}</div>
+          <div style={{ fontSize: ptPx(26), fontWeight: 700, color: CORES.navy, marginTop: polegada(0.08), lineHeight: 1.1 }}>
+            {c.valor}
+          </div>
+          <div style={{ fontSize: ptPx(9.5), color: CORES.cinza, marginTop: polegada(0.04) }}>{c.detalhe}</div>
+        </Caixa>
       ))}
-      <Caixa style={{ left: polegada(0.75), top: polegada(4.0), width: polegada(11.8) }}>
-        <div style={{ fontSize: ptPx(8.5), fontWeight: 700, color: CORES.cinza, marginBottom: polegada(0.12) }}>PARTICIPAÇÃO DOS SEGMENTOS</div>
-        <div style={{ display: "flex", height: polegada(0.34), borderRadius: polegada(0.17), overflow: "hidden" }}>
+
+      <Caixa style={{ left: polegada(0.75), top: polegada(5.15), width: polegada(11.8) }}>
+        <div style={{ fontSize: ptPx(8.5), fontWeight: 700, color: CORES.cinza, marginBottom: polegada(0.12), letterSpacing: 1 }}>
+          PARTICIPAÇÃO DOS SEGMENTOS
+        </div>
+        <div style={{ display: "flex", height: polegada(0.4), borderRadius: polegada(0.2), overflow: "hidden" }}>
           {slide.segmentos.map((s, i) => (
             <div
               key={s.nome}
-              style={{ width: `${(s.atual / total) * 100}%`, background: ["#0B3D91", "#1B6FD0", "#4B5CF5", "#5ED2D8", "#8FA8E8", "#C9D6EE"][i % 6], display: "flex", alignItems: "center", justifyContent: "center", color: CORES.branco, fontSize: ptPx(8), fontWeight: 700 }}
+              style={{
+                width: `${(s.atual / total) * 100}%`,
+                background: cores[i % 6],
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: CORES.branco,
+                fontSize: ptPx(8.5),
+                fontWeight: 700,
+              }}
             >
-              {(s.atual / total) * 100 > 8 ? `${s.nome} ${Math.round((s.atual / total) * 100)}%` : ""}
+              {(s.atual / total) * 100 > 8 ? `${Math.round((s.atual / total) * 100)}%` : ""}
             </div>
           ))}
         </div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: polegada(0.2), marginTop: polegada(0.12), fontSize: ptPx(8.5), color: CORES.cinza }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: polegada(0.22), marginTop: polegada(0.12), fontSize: ptPx(8.5), color: CORES.cinza }}>
           {slide.segmentos.map((s, i) => (
             <span key={s.nome}>
-              <span style={{ color: ["#0B3D91", "#1B6FD0", "#4B5CF5", "#5ED2D8", "#8FA8E8", "#C9D6EE"][i % 6], fontWeight: 700 }}>■</span> {s.nome}
+              <span style={{ color: cores[i % 6], fontWeight: 700 }}>&#9632;</span> {s.nome}{" "}
+              <strong style={{ color: CORES.navy }}>{Math.round((s.atual / total) * 100)}%</strong>
             </span>
           ))}
         </div>
       </Caixa>
-      <Rodape texto={slide.nota} topo={6.2} />
+      <Rodape texto={slide.nota} topo={6.35} />
       <Logotipo />
     </div>
   );

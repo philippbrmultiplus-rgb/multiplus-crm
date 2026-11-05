@@ -1,0 +1,2 @@
+alter table apresentacao_fila add column if not exists tipo text not null default 'rollon';
+notify pgrst, 'reload schema';

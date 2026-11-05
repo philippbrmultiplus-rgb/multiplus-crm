@@ -97,6 +97,8 @@ export type Slide =
       cards: { rotulo: string; valor: string; detalhe: string }[];
       segmentos: SegmentoResumo[];
       nota: string;
+      /** % do volume do mês sobre a meta */
+      percentual: number;
     }
   | { tipo: "obrigado" };
 
@@ -250,30 +252,14 @@ export function montarSlides(dados: ApresentacaoMensal): Slide[] {
     }
   }
 
-  if (dados.filaManual.length > 0) {
+  for (const fila of dados.filas) {
+    if (fila.linhas.length === 0) continue;
     slides.push({
       tipo: "filaCacambas",
-      titulo: "Fila de espera - caçamba de 26 m³",
+      titulo: fila.titulo,
       subtitulo: `Clientes aguardando caçamba · ${dados.mesNome}`,
-      linhas: dados.filaManual,
-      total: dados.filaManual.reduce((acc, l) => acc + l.volume, 0),
-    });
-  } else if (dados.filaEspera.length > 0) {
-    slides.push({
-      tipo: "tabela",
-      titulo: "Fila de espera",
-      subtitulo: `Clientes que coletaram em ${rotuloAnterior} e não tiveram coleta em ${mesRef}`,
-      colunas: ["Cliente", "Cidade", "Segmento", `Volume ${rotuloAnterior} (m³)`],
-      linhas: dados.filaEspera
-        .slice(0, 12)
-        .map((c) => [c.nome, c.cidade || "—", c.segmento || "—", formatM3(Math.round(c.volume * 10) / 10)]),
-      rodape: `Total de ${dados.filaEspera.length} cliente(s) · ${formatM3(
-        Math.round(dados.filaEspera.reduce((acc, c) => acc + c.volume, 0) * 10) / 10,
-      )} m³ no mês anterior`,
-      nota:
-        dados.filaEspera.length > 12
-          ? `Listando os 12 maiores volumes de ${dados.filaEspera.length} clientes.`
-          : undefined,
+      linhas: fila.linhas,
+      total: fila.total,
     });
   }
 
@@ -316,6 +302,7 @@ export function montarSlides(dados: ApresentacaoMensal): Slide[] {
       },
     ],
     segmentos: dados.comerciais.slice(0, 6),
+    percentual: dados.atingimento,
     nota: `A receber no cadastro: ${dados.resultado.aReceber.toLocaleString("pt-BR", {
       style: "currency",
       currency: "BRL",

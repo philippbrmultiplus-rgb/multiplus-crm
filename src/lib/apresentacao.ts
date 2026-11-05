@@ -114,8 +114,13 @@ export interface ApresentacaoMensal {
   metasSegmentos: { nome: string; dia: number; meta: number }[];
   /** caçambas preenchidas à mão no mês (null quando o mês não tem nada) */
   cacambas: { rollon: CacambasTipo; poli: CacambasTipo } | null;
-  /** fila de espera de caçambas preenchida à mão (com a distância da base) */
-  filaManual: { cliente: string; cidade: string; volume: number; distanciaKm: number | null }[];
+  /** filas de espera de caçambas preenchidas à mão (uma para cada tipo) */
+  filas: {
+    tipo: "rollon" | "poli";
+    titulo: string;
+    linhas: { cliente: string; cidade: string; volume: number; distanciaKm: number | null }[];
+    total: number;
+  }[];
   /** comparativo de 2025 (modelo antigo) com 2026 (dados do app) */
   comparativoAnual: {
     meses: MesComparativoAno[];
@@ -363,18 +368,26 @@ export function construirApresentacao(state: AppState, mes: string): Apresentaca
     const chave = c.city.trim().toUpperCase();
     if (!coordDaCidade.has(chave)) coordDaCidade.set(chave, { lat: c.lat, lng: c.lng });
   }
-  const filaManual = (state.fila ?? [])
-    .filter((f) => f.mes === alvo)
-    .sort((a, b) => a.posicao - b.posicao)
-    .map((f) => {
-      const coord = coordDaCidade.get(f.cidade.trim().toUpperCase());
-      return {
-        cliente: f.cliente,
-        cidade: f.cidade,
-        volume: f.volume,
-        distanciaKm: coord ? roadKm(baseLat, baseLng, coord.lat, coord.lng) : null,
-      };
-    });
+  const filas = (["rollon", "poli"] as const).map((tipo) => {
+    const linhas = (state.fila ?? [])
+      .filter((f) => f.mes === alvo && f.tipo === tipo)
+      .sort((a, b) => a.posicao - b.posicao)
+      .map((f) => {
+        const coord = coordDaCidade.get(f.cidade.trim().toUpperCase());
+        return {
+          cliente: f.cliente,
+          cidade: f.cidade,
+          volume: f.volume,
+          distanciaKm: coord ? roadKm(baseLat, baseLng, coord.lat, coord.lng) : null,
+        };
+      });
+    return {
+      tipo,
+      titulo: tipo === "rollon" ? "Fila de espera - caçamba de 26 m³" : "Fila de espera - caçamba de 5 m³",
+      linhas,
+      total: linhas.reduce((acc, l) => acc + l.volume, 0),
+    };
+  });
 
   const comparativoAnual = {
     meses: VOLUME_2025.map((v2025, i) => {
@@ -465,7 +478,7 @@ export function construirApresentacao(state: AppState, mes: string): Apresentaca
     comparativo,
     metasSegmentos,
     cacambas: registroCacambas ? { rollon: registroCacambas.rollon, poli: registroCacambas.poli } : null,
-    filaManual,
+    filas,
     comparativoAnual,
     forecast: {
       realizado,

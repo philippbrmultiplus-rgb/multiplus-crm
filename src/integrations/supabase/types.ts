@@ -3389,6 +3389,7 @@ export type Database = {
           id: string
           mes: string
           posicao: number
+          tipo: string
           volume: number
         }
         Insert: {
@@ -3398,6 +3399,7 @@ export type Database = {
           id?: string
           mes: string
           posicao?: number
+          tipo?: string
           volume?: number
         }
         Update: {
@@ -3407,6 +3409,7 @@ export type Database = {
           id?: string
           mes?: string
           posicao?: number
+          tipo?: string
           volume?: number
         }
         Relationships: []

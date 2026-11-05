@@ -358,6 +358,8 @@ export interface CacambasMes {
 export interface FilaCliente {
   id: string;
   mes: string;
+  /** rollon (caçamba de 26 m³) ou poli (5 m³) */
+  tipo: "rollon" | "poli";
   cliente: string;
   cidade: string;
   volume: number;
