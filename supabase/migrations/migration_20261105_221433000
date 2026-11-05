@@ -1,0 +1,14 @@
+alter table public.tmp_carteira_poa add column match_id text;
+
+with alvo as (
+  select c.id,
+         regexp_replace(lower(translate(c.name,'áàâãäéèêëíìîïóòôõöúùûüçñ','aaaaaeeeeiiiiooooouuuucn')),'[^a-z0-9]','','g') as k
+  from public.clients c
+), dup as (
+  select k, count(*) as n, min(id) as id from alvo group by k
+)
+update public.tmp_carteira_poa t
+set match_id = d.id
+from dup d
+where d.k = regexp_replace(lower(translate(t.nome,'áàâãäéèêëíìîïóòôõöúùûüçñ','aaaaaeeeeiiiiooooouuuucn')),'[^a-z0-9]','','g')
+  and d.n = 1;

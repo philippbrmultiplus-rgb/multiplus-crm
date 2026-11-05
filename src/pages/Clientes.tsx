@@ -93,6 +93,7 @@ import { ClientPaymentsDialog } from "@/components/clients/ClientPaymentsDialog"
 import type { Client, Visit } from "@/lib/types";
 
 const PROSPECTA = "__prospecao__";
+const SEM_SEGMENTO_COMERCIAL = "(sem segmento comercial)";
 
 /** coluna Pago: "Não" quando não há condição registrada; "Sim" abre os detalhes */
 function PagamentoCell({ tem, onOpen }: { tem: boolean; onOpen: () => void }) {
@@ -163,6 +164,8 @@ export default function Clientes() {
   );
   const [dist, setDist] = useStickyState<string[]>("rs-clientes-dist-v2", []);
   const [pago, setPago] = useStickyState<string[]>("rs-clientes-pago-v2", []);
+  // segmento comercial (ATT, Gesseiro, Caçambeiro, Construtora…) — vazio = todos
+  const [segCom, setSegCom] = useStickyState<string[]>("rs-clientes-segcom-v1", []);
   const [sortBy, setSortBy] = useStickyState<ClientSort>("rs-clientes-ordem", "nome");
   const [onlyActive, setOnlyActive] = useStickyState("rs-clientes-apenas-ativos", true);
   const [editing, setEditing] = useState<Client | null>(null);
@@ -186,7 +189,7 @@ export default function Clientes() {
 
   // confere se o cliente passa em TODOS os filtros atuais, exceto o informado em "ignore"
   const matchOutros = useCallback(
-    (c: Client, ignore: "cidade" | "segmento" | "grupo") => {
+    (c: Client, ignore: "cidade" | "segmento" | "grupo" | "comercial") => {
       // as prospecções ficam separadas da lista normal de clientes
       if (segment.includes(PROSPECTA)) {
         if (!c.isProspecao) return false;
@@ -206,6 +209,12 @@ export default function Clientes() {
       )
         return false;
       if (ignore !== "grupo" && tier.length > 0 && !tier.includes(c.tier)) return false;
+      if (
+        ignore !== "comercial" &&
+        segCom.length > 0 &&
+        !segCom.includes(c.segmentoComercial?.trim() || SEM_SEGMENTO_COMERCIAL)
+      )
+        return false;
       if (onlyActive && !c.active) return false;
       if (situ.length > 0) {
         const atrasada = isColetaOverdue(c);
@@ -228,7 +237,7 @@ export default function Clientes() {
       }
       return true;
     },
-    [city, segment, tier, onlyActive, situ, situVisita],
+    [city, segment, tier, onlyActive, situ, situVisita, segCom],
   );
 
   // cidades em ordem alfabética, agrupando grafias que só diferem por maiúscula/minúscula
@@ -245,6 +254,16 @@ export default function Clientes() {
     for (const c of clients) {
       if (!matchOutros(c, "segmento")) continue;
       const k = c.segment || "(sem segmento)";
+      map.set(k, (map.get(k) ?? 0) + 1);
+    }
+    return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0], "pt-BR"));
+  }, [clients, matchOutros]);
+
+  const segmentosComerciais = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const c of clients) {
+      if (!matchOutros(c, "comercial")) continue;
+      const k = c.segmentoComercial?.trim() || SEM_SEGMENTO_COMERCIAL;
       map.set(k, (map.get(k) ?? 0) + 1);
     }
     return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0], "pt-BR"));
@@ -324,6 +343,11 @@ export default function Clientes() {
           (situVisita.includes("sem_ou_atrasada") && (atrasada || semVisita))
         );
       })
+      .filter((c) =>
+        segCom.length === 0
+          ? true
+          : segCom.includes(c.segmentoComercial?.trim() || SEM_SEGMENTO_COMERCIAL),
+      )
       .filter((c) => (dist.length === 0 ? true : dist.includes(distanciaFaixa(c))))
       .filter((c) =>
         pago.length === 0
@@ -331,7 +355,11 @@ export default function Clientes() {
           : pago.some((p) => (p === "sim" ? comPagamento.has(c.id) : !comPagamento.has(c.id))),
       )
       .filter((c) =>
-        q ? `${c.name} ${c.address} ${c.city} ${c.segment}`.toLowerCase().includes(q) : true,
+        q
+          ? `${c.name} ${c.address} ${c.city} ${c.segment} ${c.segmentoComercial ?? ""}`
+              .toLowerCase()
+              .includes(q)
+          : true,
       )
       .sort((a, b) => {
         // a ordem escolhida manda: nome A–Z sempre alfabético
@@ -350,7 +378,7 @@ export default function Clientes() {
         }
         return compareClients(a, b, sortBy);
       });
-  }, [clients, search, city, tier, segment, situ, situVisita, dist, pago, sortBy, onlyActive, comPagamento]);
+  }, [clients, search, city, tier, segment, situ, situVisita, segCom, dist, pago, sortBy, onlyActive, comPagamento]);
 
   /** a lista é longa: mostra até 300, mas o total filtrado continua contando todos */
   const filtered = useMemo(() => matching.slice(0, 300), [matching]);
@@ -366,7 +394,8 @@ export default function Clientes() {
     situ.length > 0 ||
     situVisita.length > 0 ||
     dist.length > 0 ||
-    pago.length > 0;
+    pago.length > 0 ||
+    segCom.length > 0;
 
   const resetFilters = () => {
     setSearch("");
@@ -377,6 +406,7 @@ export default function Clientes() {
     setSituVisita([]);
     setDist([]);
     setPago([]);
+    setSegCom([]);
   };
 
   const pendingGeocode = clients.filter((c) => c.lat == null || c.geocodeStatus !== "ok").length;
@@ -401,11 +431,14 @@ export default function Clientes() {
     const rows = filtered.map((c) => ({
       Nome: c.name,
       Segmento: c.segment || "",
+      "Segmento comercial": c.segmentoComercial || "",
       Cidade: c.city || "",
       "Distância da base (km)": distanciaClienteKm(c) != null ? Number(distanciaClienteKm(c)!.toFixed(1)) : "",
       Endereço: c.address || "",
       Contato: c.contato ?? "",
       Responsável: c.responsavel ?? "",
+      "E-mail": c.email ?? "",
+      CNPJ: c.cnpj ?? "",
       Grupo: c.tier,
       Cadência: cadenceLabel(c.freqMonth),
       "Frequência (visitas/mês)": c.freqMonth,
@@ -522,7 +555,7 @@ export default function Clientes() {
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             className="pl-8"
-            placeholder="Buscar por nome, endereço, cidade ou segmento…"
+            placeholder="Buscar por nome, endereço, cidade, segmento ou e-mail…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -547,6 +580,14 @@ export default function Clientes() {
               : []),
             ...segments.map(([name, n]) => ({ value: name, label: name, count: n })),
           ]}
+        />
+        <MultiSelect
+          values={segCom}
+          onChange={setSegCom}
+          placeholder="Todos os seg. comerciais"
+          allLabel="Todos os seg. comerciais"
+          widthClass="w-56"
+          options={segmentosComerciais.map(([name, n]) => ({ value: name, label: name, count: n }))}
         />
         <MultiSelect
           values={tier}
@@ -692,6 +733,10 @@ export default function Clientes() {
                   <span className="block text-[11px] text-muted-foreground">Segmento</span>
                   <span className="block truncate">{c.segment || "—"}</span>
                 </div>
+                <div className="min-w-0">
+                  <span className="block text-[11px] text-muted-foreground">Segmento comercial</span>
+                  <span className="block truncate">{c.segmentoComercial || "—"}</span>
+                </div>
                 <div>
                   <span className="block text-[11px] text-muted-foreground">Grupo</span>
                   <TierBadge tier={c.tier} />
@@ -758,15 +803,16 @@ export default function Clientes() {
         <div className="card-soft overflow-x-auto">
           <Table className="table-fixed [&_th]:px-2 [&_th]:py-1.5 [&_td]:px-2 [&_td]:py-1.5 [&_thead_tr]:bg-primary [&_thead_th]:font-semibold [&_thead_th]:text-primary-foreground">
             <colgroup>
-              <col className="w-[18%]" />
+              <col className="w-[16%]" />
+              <col className="w-[7%]" />
               <col className="w-[8%]" />
-              <col className="w-[10%]" />
-              <col className="w-[11%]" />
-              <col className="w-[6%]" />
-              <col className="w-[19%]" />
               <col className="w-[9%]" />
               <col className="w-[8%]" />
-              <col className="w-[11%]" />
+              <col className="w-[5%]" />
+              <col className="w-[17%]" />
+              <col className="w-[8%]" />
+              <col className="w-[6%]" />
+              <col className="w-[16%]" />
             </colgroup>
             <TableHeader>
               <TableRow>
@@ -774,6 +820,7 @@ export default function Clientes() {
                 <TableHead>Cidade</TableHead>
                 <TableHead>Distância da base</TableHead>
                 <TableHead>Segmento</TableHead>
+                <TableHead>Segmento comercial</TableHead>
                 <TableHead>Grupo</TableHead>
                 <TableHead>Últ. troca / dias</TableHead>
                 <TableHead>Últ. visita</TableHead>
@@ -809,6 +856,15 @@ export default function Clientes() {
                       </Badge>
                     ) : (
                       "—"
+                    )}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    {c.segmentoComercial ? (
+                      <Badge variant="secondary" className="max-w-full truncate">
+                        {c.segmentoComercial}
+                      </Badge>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
                     )}
                   </TableCell>
                   <TableCell>
@@ -885,7 +941,7 @@ export default function Clientes() {
               ))}
               {filtered.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={9} className="py-8 text-center text-muted-foreground">
+                  <TableCell colSpan={10} className="py-8 text-center text-muted-foreground">
                     Nenhum cliente encontrado com os filtros atuais.
                   </TableCell>
                 </TableRow>
@@ -974,6 +1030,9 @@ function EditClientDialog({
   const [segmentoComercial, setSegmentoComercial] = useState(client?.segmentoComercial ?? "");
   const [visitaAgendada, setVisitaAgendada] = useState(client?.visitaAgendada ?? "");
   const [contato, setContato] = useState(client?.contato ?? "");
+  const [responsavel, setResponsavel] = useState(client?.responsavel ?? "");
+  const [email, setEmail] = useState(client?.email ?? "");
+  const [cnpj, setCnpj] = useState(client?.cnpj ?? "");
   const [active, setActive] = useState(client?.active ?? true);
   const [isProsp, setIsProsp] = useState(client?.isProspecao ?? false);
   const [lat, setLat] = useState<number | null>(client?.lat ?? null);
@@ -1069,6 +1128,9 @@ function EditClientDialog({
       segmentoComercial: segmentoComercial.trim() || null,
       visitaAgendada: visitaAgendada || null,
       contato: contato.trim() || null,
+      responsavel: responsavel.trim() || null,
+      email: email.trim() || null,
+      cnpj: cnpj.trim() || null,
       active,
       isProspecao: isProsp,
       lat,
@@ -1115,14 +1177,43 @@ function EditClientDialog({
           <div className="space-y-2">
             <Label>Segmento comercial</Label>
             <Input
+              list="segmentos-comerciais"
               value={segmentoComercial}
               onChange={(e) => setSegmentoComercial(e.target.value)}
-              placeholder="Ex.: construtora, gesseiro, entulho…"
+              placeholder="Ex.: Gesseiro, Caçambeiro, Construtora…"
+            />
+            <datalist id="segmentos-comerciais">
+              {[...new Set(state.clients.map((c) => c.segmentoComercial).filter(Boolean))].map(
+                (s) => (
+                  <option key={s as string} value={s as string} />
+                ),
+              )}
+            </datalist>
+          </div>
+          <div className="space-y-2">
+            <Label>Contato / telefone</Label>
+            <Input value={contato} onChange={(e) => setContato(e.target.value)} placeholder="(51) 9 9999-9999" />
+          </div>
+          <div className="space-y-2">
+            <Label>Responsável</Label>
+            <Input
+              value={responsavel}
+              onChange={(e) => setResponsavel(e.target.value)}
+              placeholder="Nome do contato principal"
             />
           </div>
           <div className="space-y-2">
-            <Label>Contato</Label>
-            <Input value={contato} onChange={(e) => setContato(e.target.value)} placeholder="(51) 9 9999-9999" />
+            <Label>E-mail</Label>
+            <Input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="contato@empresa.com.br"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>CNPJ / CPF</Label>
+            <Input value={cnpj} onChange={(e) => setCnpj(e.target.value)} placeholder="00.000.000/0000-00" />
           </div>
           <div className="space-y-2">
             <Label>

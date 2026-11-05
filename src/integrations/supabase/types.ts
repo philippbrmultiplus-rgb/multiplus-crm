@@ -3612,8 +3612,10 @@ export type Database = {
           address: string | null
           avg_monthly: number | null
           city: string | null
+          cnpj: string | null
           contato: string | null
           created_at: string
+          email: string | null
           freq_month: number | null
           geo_aproximado: boolean
           geocode_status: string | null
@@ -3642,8 +3644,10 @@ export type Database = {
           address?: string | null
           avg_monthly?: number | null
           city?: string | null
+          cnpj?: string | null
           contato?: string | null
           created_at?: string
+          email?: string | null
           freq_month?: number | null
           geo_aproximado?: boolean
           geocode_status?: string | null
@@ -3672,8 +3676,10 @@ export type Database = {
           address?: string | null
           avg_monthly?: number | null
           city?: string | null
+          cnpj?: string | null
           contato?: string | null
           created_at?: string
+          email?: string | null
           freq_month?: number | null
           geo_aproximado?: boolean
           geocode_status?: string | null

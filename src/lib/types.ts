@@ -36,6 +36,10 @@ export interface Client {
   contato?: string | null;
   /** nome do responsável (contato principal) */
   responsavel?: string | null;
+  /** e-mail do cliente */
+  email?: string | null;
+  /** CNPJ/CPF do cliente */
+  cnpj?: string | null;
   /** situação da prospecção (só para clientes de prospecção) */
   prospeccaoStatus?: ProspeccaoStatus | null;
   /** justificativa escrita quando a proposta é recusada */

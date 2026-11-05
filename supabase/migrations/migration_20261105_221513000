@@ -1,0 +1,12 @@
+alter table public.clients add column if not exists email text;
+alter table public.clients add column if not exists cnpj text;
+
+update public.tmp_carteira_poa set match_id = 'cli-entrada-5' where nome = 'BELMAIS';
+update public.tmp_carteira_poa set match_id = 'cli-53' where nome = 'CASA DO GESSO';
+update public.tmp_carteira_poa set match_id = 'cli-11' where nome = 'ECOPONTO CACHOEIRINHA';
+update public.tmp_carteira_poa set match_id = 'cli-1790337841725-rvrc' where nome = 'Hasti gesso';
+update public.tmp_carteira_poa set match_id = 'cli-7' where nome = 'MASTERWALL';
+update public.tmp_carteira_poa set match_id = 'cli-63' where nome = 'MULTI RESIDUOS';
+update public.tmp_carteira_poa set match_id = 'cli-79' where nome = 'PARIS GESSO';
+update public.tmp_carteira_poa set match_id = 'cli-37' where nome = 'SELAU ENTULHOS';
+update public.tmp_carteira_poa set match_id = 'cli-229' where nome = 'SF GESSO';

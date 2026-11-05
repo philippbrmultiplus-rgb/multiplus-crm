@@ -1,0 +1,32 @@
+update public.clients c
+set segmento_comercial = case upper(trim(t.seg_com))
+      when 'ATT' then 'ATT'
+      when 'CAÇAMBEIRO' then 'Caçambeiro'
+      when 'GESSEIRO' then 'Gesseiro'
+      when 'CONSTRUTORA' then 'Construtora'
+      when 'INDÚSTRIA' then 'Indústria'
+      when 'ECOPONTO' then 'Ecoponto'
+      else nullif(trim(t.seg_com), '')
+    end,
+    contato = case
+      when t.contato is not null and t.contato <> '-' and t.contato ~ '[0-9]{4}' then trim(t.contato)
+      else c.contato
+    end,
+    responsavel = case
+      when t.responsavel is not null and t.responsavel <> '-' then trim(t.responsavel)
+      else c.responsavel
+    end,
+    email = coalesce(nullif(t.email, '')::text, c.email),
+    cnpj = coalesce(nullif(t.cnpj, '')::text, c.cnpj),
+    address = case
+      when c.address is null or trim(c.address) = '' or c.address = '0'
+        then coalesce(nullif(trim(t.endereco), ''), c.address)
+      else c.address
+    end,
+    city = case
+      when c.city is null or trim(c.city) = '' then coalesce(nullif(trim(t.cidade), ''), c.city)
+      else c.city
+    end,
+    updated_at = now()
+from public.tmp_carteira_poa t
+where t.match_id = c.id;

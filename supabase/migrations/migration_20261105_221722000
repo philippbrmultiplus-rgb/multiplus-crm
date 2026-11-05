@@ -1,0 +1,2 @@
+update public.clients set email = null where email is not null and email not ilike '%@%';
+update public.clients set email = lower(trim(email)) where email is not null and email <> lower(trim(email));
