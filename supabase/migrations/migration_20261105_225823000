@@ -1,0 +1,5 @@
+update public.clients
+set lat = -29.9178, lng = -51.1839, geo_aproximado = true, geocode_status = 'ok', updated_at = now()
+where upper(trim(city)) in ('CAMOAS', 'CAMOAS ')
+  and lat is not null
+  and (6371 * acos(least(1, cos(radians(-30.0346)) * cos(radians(lat)) * cos(radians(lng) - radians(-51.2177)) + sin(radians(-30.0346)) * sin(radians(lat))))) > 300;

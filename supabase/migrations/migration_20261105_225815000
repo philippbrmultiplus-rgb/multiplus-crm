@@ -1,0 +1,23 @@
+with cidades(cidade, lat, lng) as (
+  values
+    ('NOVA PETROPOLIS', -29.3759836::double precision, -51.1123342::double precision),
+    ('MARAVILHA', -29.7656387, -50.0333940),
+    ('POA', -30.1009166, -51.1887882),
+    ('FARROUPILHA', -29.2264700, -51.3468188),
+    ('GRAMADO', -29.3792858, -50.8737019),
+    ('URUGUAIANA', -29.7560726, -57.0867546),
+    ('SAPIRANGA', -29.6392382, -51.0068586),
+    ('GARIBALDI', -29.2562253, -51.5269167),
+    ('TERRA DE AREIA', -29.5789455, -50.0633600),
+    ('SOLEDADE', -28.8272467, -52.5109157),
+    ('VIAMÃO', -30.0819338, -51.0261927),
+    ('GUAPORÉ', -28.8471928, -51.8907881),
+    ('TRÊS COROAS', -29.5155023, -50.7770635),
+    ('NOVO HAMBURGO', -29.6875, -51.1326)
+)
+update public.clients c
+set lat = cid.lat, lng = cid.lng, geo_aproximado = true, geocode_status = 'ok', updated_at = now()
+from cidades cid
+where upper(trim(c.city)) = cid.cidade
+  and c.lat is not null and c.lng is not null
+  and (6371 * acos(least(1, cos(radians(-30.0346)) * cos(radians(c.lat)) * cos(radians(c.lng) - radians(-51.2177)) + sin(radians(-30.0346)) * sin(radians(c.lat))))) > 600;
