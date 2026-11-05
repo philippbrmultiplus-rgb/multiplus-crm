@@ -366,6 +366,16 @@ function filaFromRow(r: Record<string, any>): FilaCliente {
   };
 }
 
+function faturamentoFromRow(r: Record<string, any>): FaturamentoCliente {
+  return {
+    id: String(r.id),
+    mes: String(r.mes ?? "").slice(0, 10),
+    cliente: String(r.cliente ?? ""),
+    valor: Number(r.valor ?? 0),
+    posicao: Number(r.posicao ?? 0),
+  };
+}
+
 function metaMesFromRow(r: Record<string, any>): MetaMes {
   return {
     mes: String(r.mes ?? "").slice(0, 10),
@@ -392,6 +402,7 @@ function emptyState(): AppState {
     metas: [],
     cacambas: [],
     fila: [],
+    faturamento: [],
     cadence: [],
     internalProspects: [],
     internalProspectNotes: [],
@@ -414,6 +425,7 @@ function loadLocalCache(): AppState | null {
           metas: parsed.metas ?? [],
           cacambas: parsed.cacambas ?? [],
           fila: parsed.fila ?? [],
+          faturamento: parsed.faturamento ?? [],
           payments: parsed.payments ?? [],
           cadence: parsed.cadence ?? [],
           internalProspects: parsed.internalProspects ?? [],
@@ -803,6 +815,11 @@ interface DataContextValue {
   salvarMetaMes: (meta: MetaMes) => Promise<string | null>;
   /** grava a distribuição de caçambas do mês (preenchida à mão) */
   salvarCacambas: (registro: CacambasMes) => Promise<string | null>;
+  /** substitui o faturamento do mês */
+  salvarFaturamento: (
+    mes: string,
+    linhas: { cliente: string; valor: number }[],
+  ) => Promise<string | null>;
   /** substitui a fila de espera de caçambas do mês */
   salvarFila: (
     mes: string,
@@ -1109,6 +1126,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       metasRes,
       cacambasRes,
       filaRes,
+      faturamentoRes,
       cadenceRes,
       internalProspectsRes,
       internalProspectNotesRes,
@@ -1128,6 +1146,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       supabase.from("metas_mes").select("*").order("mes"),
       supabase.from("apresentacao_cacambas").select("*").order("mes"),
       supabase.from("apresentacao_fila").select("*").order("posicao"),
+      supabase.from("apresentacao_faturamento").select("*").order("posicao"),
       supabase.from("client_cadence").select("*").order("media_dias"),
       supabase.from("internal_prospects").select("*").order("created_at", { ascending: false }),
       supabase.from("internal_prospect_notes").select("*").order("created_at"),
@@ -1166,6 +1185,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const cacambas = (cacambasRes.data ?? []).map((r) => cacambasFromRow(r as unknown as Record<string, any>));
     if (filaRes.error) console.warn("fila de espera:", filaRes.error.message);
     const fila = (filaRes.data ?? []).map((r) => filaFromRow(r as unknown as Record<string, any>));
+    if (faturamentoRes.error) console.warn("faturamento:", faturamentoRes.error.message);
+    const faturamento = (faturamentoRes.data ?? []).map((r) =>
+      faturamentoFromRow(r as unknown as Record<string, any>),
+    );
     const cadence = (cadenceRes.data ?? []).map((r) =>
       cadenceFromRow(r as unknown as Record<string, any>),
     );
@@ -1200,6 +1223,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       metas,
       cacambas,
       fila,
+      faturamento,
       cadence,
       internalProspects,
       internalProspectNotes,
@@ -2286,6 +2310,39 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setAppState((prev) => ({
         ...prev,
         fila: [...prev.fila.filter((f) => !(f.mes === mes && f.tipo === tipo)), ...doBanco],
+      }));
+      return null;
+    },
+    [setAppState],
+  );
+
+  const salvarFaturamento = useCallback(
+    async (mesBase: string, linhas: { cliente: string; valor: number }[]): Promise<string | null> => {
+      const mes = `${mesBase.slice(0, 7)}-01`;
+      if (!canWriteClientData()) return "Só o coordenador pode alterar o faturamento.";
+
+      const { error: erroDelete } = await supabase.from("apresentacao_faturamento").delete().eq("mes", mes);
+      if (erroDelete) return erroDelete.message;
+
+      if (linhas.length > 0) {
+        const { error } = await supabase.from("apresentacao_faturamento").insert(
+          linhas.map((l, i) => ({ mes, cliente: l.cliente, valor: l.valor, posicao: i })),
+        );
+        if (error) {
+          console.error("salvar faturamento:", error.message);
+          return error.message;
+        }
+      }
+
+      const { data } = await supabase
+        .from("apresentacao_faturamento")
+        .select("*")
+        .eq("mes", mes)
+        .order("posicao");
+      const doBanco = (data ?? []).map((r) => faturamentoFromRow(r as unknown as Record<string, any>));
+      setAppState((prev) => ({
+        ...prev,
+        faturamento: [...prev.faturamento.filter((f) => f.mes !== mes), ...doBanco],
       }));
       return null;
     },
@@ -3855,6 +3912,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     salvarMetaMes,
     salvarCacambas,
     salvarFila,
+    salvarFaturamento,
     generateRoute,
     createEmptyWeekRoute,
     updateWeekRoute,

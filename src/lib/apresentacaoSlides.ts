@@ -99,6 +99,15 @@ export type Slide =
       nota: string;
       /** % do volume do mês sobre a meta */
       percentual: number;
+      faturamento: { linhas: { cliente: string; valor: number }[]; total: number };
+    }
+  | {
+      tipo: "novos";
+      titulo: string;
+      subtitulo: string;
+      mesNome: string;
+      clientes: { nome: string; cidade: string; segmento: string; volume: number }[];
+      total: number;
     }
   | { tipo: "obrigado" };
 
@@ -265,17 +274,17 @@ export function montarSlides(dados: ApresentacaoMensal): Slide[] {
 
   if (dados.novos.length > 0) {
     slides.push({
-      tipo: "tabela",
+      tipo: "novos",
       titulo: `Clientes que começaram a coletar em ${mesRef}`,
       subtitulo: "Primeira coleta registrada no mês",
-      colunas: ["Cliente", "Cidade", "Segmento", "Volume no mês (m³)"],
-      linhas: dados.novos
-        .slice(0, 12)
-        .map((c) => [c.nome, c.cidade || "—", c.segmento || "—", formatM3(Math.round(c.volume * 10) / 10)]),
-      rodape: `${dados.novos.length} cliente(s) novo(s) · ${formatM3(
-        Math.round(dados.novos.reduce((acc, c) => acc + c.volume, 0) * 10) / 10,
-      )} m³`,
-      nota: dados.novos.length > 12 ? `Listando os 12 maiores de ${dados.novos.length} clientes.` : undefined,
+      mesNome: dados.mesNome,
+      clientes: dados.novos.slice(0, 10).map((c) => ({
+        nome: c.nome,
+        cidade: c.cidade || "—",
+        segmento: c.segmento || "—",
+        volume: c.volume,
+      })),
+      total: dados.novos.reduce((acc, c) => acc + c.volume, 0),
     });
   }
 
@@ -291,7 +300,7 @@ export function montarSlides(dados: ApresentacaoMensal): Slide[] {
       {
         rotulo: "CLIENTES ATENDIDOS",
         valor: `${dados.resultado.clientesAtendidos}`,
-        detalhe: `${dados.resultado.clientesAReceber} com valor a receber`,
+        detalhe: "",
       },
       {
         rotulo: "VOLUME DO MÊS",
@@ -303,6 +312,7 @@ export function montarSlides(dados: ApresentacaoMensal): Slide[] {
     ],
     segmentos: dados.comerciais.slice(0, 6),
     percentual: dados.atingimento,
+    faturamento: dados.faturamento,
     nota: `A receber no cadastro: ${dados.resultado.aReceber.toLocaleString("pt-BR", {
       style: "currency",
       currency: "BRL",

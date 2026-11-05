@@ -3381,6 +3381,33 @@ export type Database = {
         }
         Relationships: []
       }
+      apresentacao_faturamento: {
+        Row: {
+          atualizado_em: string
+          cliente: string
+          id: string
+          mes: string
+          posicao: number
+          valor: number
+        }
+        Insert: {
+          atualizado_em?: string
+          cliente: string
+          id?: string
+          mes: string
+          posicao?: number
+          valor?: number
+        }
+        Update: {
+          atualizado_em?: string
+          cliente?: string
+          id?: string
+          mes?: string
+          posicao?: number
+          valor?: number
+        }
+        Relationships: []
+      }
       apresentacao_fila: {
         Row: {
           atualizado_em: string

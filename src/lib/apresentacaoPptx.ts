@@ -625,24 +625,96 @@ export async function gerarPptx(slides: Slide[], nomeArquivo: string): Promise<v
     if (slide.tipo === "forecast") {
       const s = novoSlide();
       cabecalho(s, "Forecast — 2026", "Realizado no período, média mensal e projeção do ano");
-      slide.cards.forEach((c, i) => cartao(s, 0.75 + i * 4, 1.6, c.rotulo, c.valor, c.detalhe, [CORES.azul, CORES.navy3, CORES.dourado][i]));
-      s.addShape(pptx.ShapeType.roundRect, { x: 0.75, y: 4.0, w: 11.8, h: 1.1, fill: { color: "FFFFFF" }, line: { color: hex(CORES.linha) }, rectRadius: 0.16 });
-      slide.barra.forEach((b, i) => {
-        s.addText(b.rotulo, { x: 1.0 + i * 3.9, y: 4.18, w: 3.6, h: 0.26, fontSize: 8.5, bold: true, color: hex(CORES.cinza) });
-        s.addText(b.valor, { x: 1.0 + i * 3.9, y: 4.45, w: 3.6, h: 0.4, fontSize: 16, bold: true, color: hex(i === 2 ? CORES.vermelho : CORES.navy) });
+      const [realizado, media, projecao] = slide.cards;
+      const metaAnual = slide.barra[0]?.valor ?? "";
+      const falta = slide.barra[2]?.valor ?? "";
+      const numero = (t: string) => Number(String(t).replace(/\./g, "").replace(",", ".").replace(/[^\d.]/g, ""));
+      const percentual = Math.min(100, (numero(realizado?.valor ?? "0") / (numero(metaAnual) || 1)) * 100);
+
+      s.addShape(pptx.ShapeType.roundRect, {
+        x: 0.75, y: 1.45, w: 5.2, h: 3.5,
+        fill: { color: "0B1F3A" }, line: { color: "123B72" }, rectRadius: 0.16,
       });
-      const total = slide.participacao.reduce((acc, p) => acc + p.valor, 0) || 1;
-      s.addShape(pptx.ShapeType.roundRect, { x: 0.75, y: 5.4, w: 11.8, h: 0.42, fill: { color: "F1F5FB" }, line: { color: "F1F5FB" }, rectRadius: 0.2 });
+      s.addText(realizado?.rotulo ?? "REALIZADO", { x: 1.09, y: 1.72, w: 4.5, h: 0.26, fontSize: 9, bold: true, color: "9CC0F0", charSpacing: 2 });
+      s.addText(realizado?.valor ?? "—", { x: 1.09, y: 2.0, w: 4.5, h: 0.8, fontSize: 40, bold: true, color: "FFFFFF" });
+      s.addText(realizado?.detalhe ?? "", { x: 1.09, y: 2.82, w: 4.5, h: 0.28, fontSize: 10.5, color: "CBD9EC" });
+
+      s.addShape(pptx.ShapeType.roundRect, { x: 1.09, y: 3.35, w: 4.5, h: 0.2, fill: { color: "28496F" }, line: { color: "28496F" }, rectRadius: 0.1 });
+      s.addShape(pptx.ShapeType.roundRect, {
+        x: 1.09, y: 3.35, w: Math.max(0.1, 4.5 * (percentual / 100)), h: 0.2,
+        fill: { color: hex(CORES.dourado) }, line: { color: hex(CORES.dourado) }, rectRadius: 0.1,
+      });
+      s.addText(`${percentual.toFixed(1).replace(".", ",")}% da meta anual`, { x: 1.09, y: 3.6, w: 3.0, h: 0.26, fontSize: 9, color: "CBD9EC" });
+      s.addText(metaAnual, { x: 4.0, y: 3.6, w: 1.6, h: 0.26, align: "right", fontSize: 9, color: "CBD9EC" });
       s.addText(
         [
-          { text: "PARTICIPAÇÃO NO REALIZADO   ", options: { fontSize: 7.5, bold: true, color: hex(CORES.cinza) } },
-          {
-            text: slide.participacao.map((p) => `${p.nome} ${Math.round((p.valor / total) * 100)}%`).join(" · "),
-            options: { fontSize: 8.3, bold: true, color: hex(CORES.navy) },
-          },
+          { text: "faltante para a meta: ", options: { fontSize: 9, color: "9CC0F0" } },
+          { text: falta, options: { fontSize: 9, bold: true, color: "FFFFFF" } },
         ],
-        { x: 0.95, y: 5.4, w: 11.4, h: 0.42, valign: "middle" },
+        { x: 1.09, y: 4.05, w: 4.5, h: 0.28 },
       );
+
+      [media, projecao].forEach((c, i) => {
+        const y = 1.45 + i * 1.8;
+        s.addShape(pptx.ShapeType.roundRect, {
+          x: 6.25, y, w: 6.3, h: 1.7,
+          fill: { color: "FFFFFF" }, line: { color: hex(CORES.linha) }, rectRadius: 0.14,
+        });
+        s.addShape(pptx.ShapeType.rect, {
+          x: 6.25, y, w: 0.1, h: 1.7,
+          fill: { color: hex(i === 0 ? CORES.azul : CORES.dourado) }, line: { color: hex(i === 0 ? CORES.azul : CORES.dourado) },
+        });
+        s.addText(c?.rotulo ?? "", { x: 6.55, y: y + 0.2, w: 5.7, h: 0.26, fontSize: 8.5, bold: true, color: hex(CORES.cinza), charSpacing: 1.4 });
+        s.addText(c?.valor ?? "—", { x: 6.55, y: y + 0.48, w: 5.7, h: 0.55, fontSize: 28, bold: true, color: hex(CORES.navy) });
+        s.addText(c?.detalhe ?? "", { x: 6.55, y: y + 1.12, w: 5.7, h: 0.3, fontSize: 9.5, color: hex(CORES.cinza) });
+      });
+
+      const total = slide.participacao.reduce((acc, p) => acc + p.valor, 0) || 1;
+      s.addText("PARTICIPAÇÃO NO REALIZADO", { x: 0.75, y: 5.2, w: 6, h: 0.26, fontSize: 8.5, bold: true, color: hex(CORES.cinza), charSpacing: 1.2 });
+      const passo = 11.8 / Math.max(1, slide.participacao.length);
+      slide.participacao.forEach((p, i) => {
+        const altura = Math.max(0.12, (p.valor / total) * 1.1);
+        const x = 0.75 + i * passo + 0.12;
+        s.addText(`${Math.round((p.valor / total) * 100)}%`, { x, y: 5.5 + (1.1 - altura) - 0.24, w: passo - 0.24, h: 0.22, align: "center", fontSize: 8, bold: true, color: hex(CORES.navy) });
+        s.addShape(pptx.ShapeType.rect, {
+          x, y: 5.5 + (1.1 - altura), w: passo - 0.24, h: altura,
+          fill: { color: hex(["0B3D91", "1B6FD0", "3B8BEA", "6FA8F5", "A9C8F2", "CBD9EC"][i % 6]) },
+          line: { color: hex(["0B3D91", "1B6FD0", "3B8BEA", "6FA8F5", "A9C8F2", "CBD9EC"][i % 6]) },
+        });
+        s.addText(p.nome, { x, y: 6.65, w: passo - 0.24, h: 0.24, align: "center", fontSize: 8.5, color: hex(CORES.cinza) });
+      });
+      logotipo(s);
+      continue;
+    }
+
+    if (slide.tipo === "novos") {
+      const s = novoSlide();
+      cabecalho(s, slide.titulo, slide.subtitulo, `${slide.clientes.length} novos`);
+
+      s.addShape(pptx.ShapeType.roundRect, {
+        x: 0.75, y: 1.45, w: 3.6, h: 4.8,
+        fill: { color: "0B1F3A" }, line: { color: "123B72" }, rectRadius: 0.16,
+      });
+      s.addText("CLIENTES NOVOS", { x: 1.07, y: 1.75, w: 3.0, h: 0.26, fontSize: 9, bold: true, color: "9CC0F0", charSpacing: 2 });
+      s.addText(String(slide.clientes.length), { x: 1.07, y: 2.02, w: 3.0, h: 0.9, fontSize: 54, bold: true, color: "FFFFFF" });
+      s.addText(`primeira coleta em ${slide.mesNome.toLowerCase()}`, { x: 1.07, y: 2.92, w: 3.0, h: 0.26, fontSize: 10, color: "CBD9EC" });
+      s.addText("VOLUME TRAZIDO", { x: 1.07, y: 3.45, w: 3.0, h: 0.26, fontSize: 9, bold: true, color: "9CC0F0", charSpacing: 2 });
+      s.addText(`${num(Math.round(slide.total * 10) / 10)} m³`, { x: 1.07, y: 3.72, w: 3.0, h: 0.5, fontSize: 26, bold: true, color: hex(CORES.dourado) });
+
+      s.addText("CLIENTES E VOLUME DO MÊS", { x: 4.75, y: 1.5, w: 6, h: 0.26, fontSize: 9, bold: true, color: hex(CORES.cinza), charSpacing: 1.4 });
+      const maior = Math.max(1, ...slide.clientes.map((c) => c.volume));
+      const cores = ["0B3D91", "1B6FD0", "3B8BEA", "6FA8F5", "A9C8F2"];
+      slide.clientes.forEach((c, i) => {
+        const y = 1.92 + i * 0.54;
+        s.addText(c.nome, { x: 4.75, y, w: 4.6, h: 0.24, fontSize: 10.5, bold: true, color: hex(CORES.navy) });
+        s.addText(`${c.cidade} · ${c.segmento}`, { x: 9.3, y: y + 0.02, w: 2.0, h: 0.22, fontSize: 8.5, color: hex(CORES.cinza) });
+        s.addText(`${num(Math.round(c.volume * 10) / 10)} m³`, { x: 11.0, y, w: 1.55, h: 0.24, align: "right", fontSize: 11, bold: true, color: hex(CORES.azul) });
+        s.addShape(pptx.ShapeType.roundRect, { x: 4.75, y: y + 0.28, w: 7.8, h: 0.14, fill: { color: "E7EEF9" }, line: { color: "E7EEF9" }, rectRadius: 0.07 });
+        s.addShape(pptx.ShapeType.roundRect, {
+          x: 4.75, y: y + 0.28, w: Math.max(0.1, 7.8 * (c.volume / maior)), h: 0.14,
+          fill: { color: cores[i % 5] }, line: { color: cores[i % 5] }, rectRadius: 0.07,
+        });
+      });
       logotipo(s);
       continue;
     }
@@ -692,7 +764,7 @@ export async function gerarPptx(slides: Slide[], nomeArquivo: string): Promise<v
     const percentual = Math.max(0, Math.min(100, slide.percentual));
 
     s.addShape(pptx.ShapeType.roundRect, {
-      x: 0.75, y: 1.45, w: 5.1, h: 3.35,
+      x: 0.75, y: 1.45, w: 4.45, h: 3.35,
       fill: { color: "0B1F3A" }, line: { color: "123B72" }, rectRadius: 0.16,
     });
     s.addText(hero.rotulo, { x: 1.09, y: 1.72, w: 4.4, h: 0.26, fontSize: 9, bold: true, color: "9CC0F0", charSpacing: 2 });
@@ -707,19 +779,42 @@ export async function gerarPptx(slides: Slide[], nomeArquivo: string): Promise<v
     s.addText(`${num(slide.percentual)}% da meta do mês`, { x: 1.09, y: 3.7, w: 4.4, h: 0.26, fontSize: 9, color: "CBD9EC" });
 
     slide.cards.slice(0, 2).forEach((c, i) => {
-      const y = 1.45 + i * 1.72;
+      const y = 1.45 + i * 1.42;
       s.addShape(pptx.ShapeType.roundRect, {
-        x: 6.15, y, w: 6.4, h: 1.55,
+        x: 5.5, y, w: 3.05, h: 1.28,
         fill: { color: "FFFFFF" }, line: { color: hex(CORES.linha) }, rectRadius: 0.14,
       });
       s.addShape(pptx.ShapeType.rect, {
-        x: 6.15, y, w: 0.1, h: 1.55,
+        x: 5.5, y, w: 0.1, h: 1.28,
         fill: { color: hex(i === 0 ? CORES.azul : CORES.dourado) }, line: { color: hex(i === 0 ? CORES.azul : CORES.dourado) },
       });
-      s.addText(c.rotulo, { x: 6.45, y: y + 0.18, w: 5.8, h: 0.26, fontSize: 8.5, bold: true, color: hex(CORES.cinza), charSpacing: 1.4 });
-      s.addText(c.valor, { x: 6.45, y: y + 0.45, w: 5.8, h: 0.55, fontSize: 26, bold: true, color: hex(CORES.navy) });
-      s.addText(c.detalhe, { x: 6.45, y: y + 1.05, w: 5.8, h: 0.3, fontSize: 9.5, color: hex(CORES.cinza) });
+      s.addText(c.rotulo, { x: 5.78, y: y + 0.14, w: 2.7, h: 0.24, fontSize: 8, bold: true, color: hex(CORES.cinza), charSpacing: 1.2 });
+      s.addText(c.valor, { x: 5.78, y: y + 0.4, w: 2.7, h: 0.5, fontSize: 24, bold: true, color: hex(CORES.navy) });
+      if (c.detalhe) {
+        s.addText(c.detalhe, { x: 5.78, y: y + 0.92, w: 2.7, h: 0.26, fontSize: 9, color: hex(CORES.cinza) });
+      }
     });
+
+    // faturamento em destaque
+    s.addShape(pptx.ShapeType.roundRect, {
+      x: 8.85, y: 1.45, w: 3.7, h: 2.7,
+      fill: { color: "0B1F3A" }, line: { color: "16427C" }, rectRadius: 0.16,
+    });
+    s.addText("FATURAMENTO DO MÊS", { x: 9.13, y: 1.73, w: 3.2, h: 0.26, fontSize: 8.5, bold: true, color: "9CC0F0", charSpacing: 1.6 });
+    s.addText(
+      slide.faturamento.total.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 2 }),
+      { x: 9.13, y: 1.98, w: 3.2, h: 0.5, fontSize: 22, bold: true, color: hex(CORES.dourado) },
+    );
+    slide.faturamento.linhas.slice(0, 5).forEach((linha, i) => {
+      const y = 2.55 + i * 0.3;
+      s.addText(linha.cliente, { x: 9.13, y, w: 2.0, h: 0.24, fontSize: 9, color: "DCE7F6" });
+      s.addText(linha.valor.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }), {
+        x: 11.1, y, w: 1.2, h: 0.24, align: "right", fontSize: 9, bold: true, color: "FFFFFF",
+      });
+    });
+    if (slide.faturamento.linhas.length === 0) {
+      s.addText("sem lançamentos no mês", { x: 9.13, y: 2.55, w: 3.2, h: 0.24, fontSize: 9, color: "9CC0F0" });
+    }
 
     const totalSeg = slide.segmentos.reduce((acc, seg) => acc + seg.atual, 0) || 1;
     s.addText("PARTICIPAÇÃO DOS SEGMENTOS", { x: 0.75, y: 5.15, w: 6, h: 0.26, fontSize: 8.5, bold: true, color: hex(CORES.cinza), charSpacing: 1.2 });

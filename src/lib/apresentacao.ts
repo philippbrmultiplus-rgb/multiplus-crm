@@ -114,6 +114,8 @@ export interface ApresentacaoMensal {
   metasSegmentos: { nome: string; dia: number; meta: number }[];
   /** caçambas preenchidas à mão no mês (null quando o mês não tem nada) */
   cacambas: { rollon: CacambasTipo; poli: CacambasTipo } | null;
+  /** faturamento do mês preenchido à mão */
+  faturamento: { linhas: { cliente: string; valor: number }[]; total: number };
   /** filas de espera de caçambas preenchidas à mão (uma para cada tipo) */
   filas: {
     tipo: "rollon" | "poli";
@@ -368,6 +370,15 @@ export function construirApresentacao(state: AppState, mes: string): Apresentaca
     const chave = c.city.trim().toUpperCase();
     if (!coordDaCidade.has(chave)) coordDaCidade.set(chave, { lat: c.lat, lng: c.lng });
   }
+  const faturamentoLinhas = (state.faturamento ?? [])
+    .filter((f) => f.mes === alvo)
+    .sort((a, b) => a.posicao - b.posicao)
+    .map((f) => ({ cliente: f.cliente, valor: f.valor }));
+  const faturamento = {
+    linhas: faturamentoLinhas,
+    total: faturamentoLinhas.reduce((acc, l) => acc + l.valor, 0),
+  };
+
   const filas = (["rollon", "poli"] as const).map((tipo) => {
     const linhas = (state.fila ?? [])
       .filter((f) => f.mes === alvo && f.tipo === tipo)
@@ -478,6 +489,7 @@ export function construirApresentacao(state: AppState, mes: string): Apresentaca
     comparativo,
     metasSegmentos,
     cacambas: registroCacambas ? { rollon: registroCacambas.rollon, poli: registroCacambas.poli } : null,
+    faturamento,
     filas,
     comparativoAnual,
     forecast: {

@@ -366,6 +366,15 @@ export interface FilaCliente {
   posicao: number;
 }
 
+/** valor faturado no mês, por cliente (preenchido à mão) */
+export interface FaturamentoCliente {
+  id: string;
+  mes: string;
+  cliente: string;
+  valor: number;
+  posicao: number;
+}
+
 export interface AppState {
   version: number;
   sessionRole: Role;
@@ -383,6 +392,7 @@ export interface AppState {
   /** caçambas e fila de espera preenchidas à mão na apresentação */
   cacambas: CacambasMes[];
   fila: FilaCliente[];
+  faturamento: FaturamentoCliente[];
   cadence: ClientCadence[];
   internalProspects: InternalProspect[];
   internalProspectNotes: InternalProspectNote[];

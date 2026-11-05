@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { SlideFrame, SlideView } from "@/components/apresentacao/SlideView";
 import { CacambasEditor } from "@/components/apresentacao/CacambasEditor";
 import { FilaEditor } from "@/components/apresentacao/FilaEditor";
+import { FaturamentoEditor } from "@/components/apresentacao/FaturamentoEditor";
 import { useData } from "@/lib/DataContext";
 import { construirApresentacao, mesesComVolume, nomeMesCurto } from "@/lib/apresentacao";
 import { montarSlides } from "@/lib/apresentacaoSlides";
@@ -77,6 +78,7 @@ export default function ApresentacaoMensal() {
       </div>
 
       <CacambasEditor mes={mes} nomeMes={mesLabel(mes)} />
+      <FaturamentoEditor mes={mes} nomeMes={mesLabel(mes)} />
       <FilaEditor mes={mes} nomeMes={mesLabel(mes)} tipo="rollon" />
       <FilaEditor mes={mes} nomeMes={mesLabel(mes)} tipo="poli" />
 

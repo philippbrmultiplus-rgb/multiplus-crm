@@ -852,25 +852,184 @@ export function SlideView({ slide }: { slide: Slide }) {
 
   if (slide.tipo === "forecast") {
     const total = slide.participacao.reduce((acc, p) => acc + p.valor, 0) || 1;
+    const [realizado, media, projecao] = slide.cards;
+    const metaAnual = slide.barra[0]?.valor ?? "";
+    const falta = slide.barra[2]?.valor ?? "";
+    const percentual = (() => {
+      const meta = Number(String(metaAnual).replace(/\./g, "").replace(",", ".").replace(/[^\d.]/g, ""));
+      const feito = Number(String(realizado?.valor ?? "").replace(/\./g, "").replace(",", ".").replace(/[^\d.]/g, ""));
+      return meta > 0 ? Math.min(100, (feito / meta) * 100) : 0;
+    })();
+
     return (
       <div style={{ width: "100%", height: "100%", background: CORES.fundo, position: "relative" }}>
         <Titulo texto="Forecast — 2026" subtitulo="Realizado no período, média mensal e projeção do ano" />
-        {slide.cards.map((c, i) => (
-          <Cartao key={c.rotulo} x={0.75 + i * 4} y={1.6} rotulo={c.rotulo} valor={c.valor} detalhe={c.detalhe} cor={[CORES.azul, CORES.navy3, CORES.dourado][i]} />
+
+        <Caixa
+          style={{
+            left: polegada(0.75),
+            top: polegada(1.45),
+            width: polegada(5.2),
+            height: polegada(3.5),
+            background: `linear-gradient(150deg, ${CORES.navy} 0%, #123B72 60%, ${CORES.azul} 100%)`,
+            borderRadius: polegada(0.24),
+            padding: polegada(0.34),
+            overflow: "hidden",
+          }}
+        >
+          <div style={{ fontSize: ptPx(9), letterSpacing: 1.6, fontWeight: 700, color: "#9CC0F0" }}>
+            {realizado?.rotulo ?? "REALIZADO"}
+          </div>
+          <div style={{ fontSize: ptPx(40), fontWeight: 700, color: CORES.branco, marginTop: polegada(0.1), lineHeight: 1.05 }}>
+            {realizado?.valor ?? "—"}
+          </div>
+          <div style={{ fontSize: ptPx(10.5), color: "#CBD9EC", marginTop: polegada(0.06) }}>
+            {realizado?.detalhe ?? ""}
+          </div>
+
+          <div style={{ marginTop: polegada(0.36) }}>
+            <div style={{ height: polegada(0.2), background: "rgba(255,255,255,0.18)", borderRadius: polegada(0.1) }}>
+              <div
+                style={{
+                  width: `${percentual}%`,
+                  height: "100%",
+                  borderRadius: polegada(0.1),
+                  background: CORES.dourado,
+                }}
+              />
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", marginTop: polegada(0.1), fontSize: ptPx(9), color: "#CBD9EC" }}>
+              <span>{percentual.toFixed(1).replace(".", ",")}% da meta anual</span>
+              <span>{metaAnual}</span>
+            </div>
+          </div>
+
+          <div style={{ marginTop: polegada(0.22), fontSize: ptPx(9), color: "#9CC0F0" }}>
+            faltante para a meta: <strong style={{ color: CORES.branco }}>{falta}</strong>
+          </div>
+        </Caixa>
+
+        {[media, projecao].map((c, i) => (
+          <Caixa
+            key={c?.rotulo ?? i}
+            style={{
+              left: polegada(6.25),
+              top: polegada(1.45 + i * 1.8),
+              width: polegada(6.3),
+              height: polegada(1.7),
+              background: CORES.branco,
+              border: `1px solid ${CORES.linha}`,
+              borderRadius: polegada(0.2),
+              padding: polegada(0.28),
+              overflow: "hidden",
+            }}
+          >
+            <div style={{ position: "absolute", left: 0, top: 0, width: polegada(0.1), height: "100%", background: i === 0 ? CORES.azul : CORES.dourado }} />
+            <div style={{ fontSize: ptPx(8.5), letterSpacing: 1.2, fontWeight: 700, color: CORES.cinza }}>{c?.rotulo ?? ""}</div>
+            <div style={{ fontSize: ptPx(28), fontWeight: 700, color: CORES.navy, marginTop: polegada(0.08), lineHeight: 1.1 }}>
+              {c?.valor ?? "—"}
+            </div>
+            <div style={{ fontSize: ptPx(9.5), color: CORES.cinza, marginTop: polegada(0.04) }}>{c?.detalhe ?? ""}</div>
+          </Caixa>
         ))}
-        <Caixa style={{ left: polegada(0.75), top: polegada(4.0), width: polegada(11.8), height: polegada(1.1), background: CORES.branco, border: `1px solid ${CORES.linha}`, borderRadius: polegada(0.2) }}>
-          {slide.barra.map((b, i) => (
-            <div key={b.rotulo} style={{ position: "absolute", left: polegada(0.25 + i * 3.9), top: polegada(0.18) }}>
-              <div style={{ fontSize: ptPx(8.5), fontWeight: 700, color: CORES.cinza }}>{b.rotulo}</div>
-              <div style={{ fontSize: ptPx(16), fontWeight: 700, color: i === 2 ? CORES.vermelho : CORES.navy, marginTop: polegada(0.04) }}>{b.valor}</div>
+
+        <Caixa style={{ left: polegada(0.75), top: polegada(5.2), width: polegada(11.8) }}>
+          <div style={{ fontSize: ptPx(8.5), fontWeight: 700, color: CORES.cinza, letterSpacing: 1, marginBottom: polegada(0.14) }}>
+            PARTICIPAÇÃO NO REALIZADO
+          </div>
+          <div style={{ display: "flex", alignItems: "flex-end", gap: polegada(0.14), height: polegada(1.15) }}>
+            {slide.participacao.map((p, i) => {
+              const altura = Math.max(8, (p.valor / total) * 100);
+              return (
+                <div key={`${p.nome}-${i}`} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", height: "100%" }}>
+                  <span style={{ fontSize: ptPx(8), fontWeight: 700, color: CORES.navy, marginBottom: 2 }}>
+                    {Math.round((p.valor / total) * 100)}%
+                  </span>
+                  <div
+                    style={{
+                      width: "100%",
+                      height: `${altura}%`,
+                      borderRadius: "4px 4px 0 0",
+                      background: ["#0B3D91", "#1B6FD0", "#3B8BEA", "#6FA8F5", "#A9C8F2", "#CBD9EC", "#0B3D91", "#1B6FD0", "#3B8BEA", "#6FA8F5"][i % 10],
+                    }}
+                  />
+                  <span style={{ fontSize: ptPx(8.5), color: CORES.cinza, marginTop: polegada(0.06) }}>{p.nome}</span>
+                </div>
+              );
+            })}
+          </div>
+        </Caixa>
+        <Logotipo />
+      </div>
+    );
+  }
+
+  if (slide.tipo === "novos") {
+    const maior = Math.max(1, ...slide.clientes.map((c) => c.volume));
+    return (
+      <div style={{ width: "100%", height: "100%", background: CORES.fundo, position: "relative" }}>
+        <Titulo texto={slide.titulo} subtitulo={slide.subtitulo} />
+        <Selo texto={`${slide.clientes.length} novos`} />
+
+        <Caixa
+          style={{
+            left: polegada(0.75),
+            top: polegada(1.45),
+            width: polegada(3.6),
+            height: polegada(4.8),
+            background: `linear-gradient(165deg, ${CORES.navy} 0%, #123B72 55%, ${CORES.azul} 100%)`,
+            borderRadius: polegada(0.24),
+            padding: polegada(0.32),
+            overflow: "hidden",
+          }}
+        >
+          <div style={{ fontSize: ptPx(9), letterSpacing: 1.5, fontWeight: 700, color: "#9CC0F0" }}>
+            CLIENTES NOVOS
+          </div>
+          <div style={{ fontSize: ptPx(58), fontWeight: 700, color: CORES.branco, lineHeight: 1, marginTop: polegada(0.08) }}>
+            {slide.clientes.length}
+          </div>
+          <div style={{ fontSize: ptPx(10.5), color: "#CBD9EC", marginTop: polegada(0.04) }}>
+            primeira coleta em {slide.mesNome.toLowerCase()}
+          </div>
+          <div style={{ marginTop: polegada(0.4), fontSize: ptPx(9), letterSpacing: 1.4, fontWeight: 700, color: "#9CC0F0" }}>
+            VOLUME TRAZIDO
+          </div>
+          <div style={{ fontSize: ptPx(26), fontWeight: 700, color: CORES.dourado, marginTop: polegada(0.04) }}>
+            {formatM3(Math.round(slide.total * 10) / 10)} m³
+          </div>
+        </Caixa>
+
+        <Caixa style={{ left: polegada(4.75), top: polegada(1.5), width: polegada(7.8) }}>
+          <div style={{ fontSize: ptPx(9), letterSpacing: 1.4, fontWeight: 700, color: CORES.cinza, marginBottom: polegada(0.14) }}>
+            CLIENTES E VOLUME DO MÊS
+          </div>
+          {slide.clientes.map((c, i) => (
+            <div key={`${c.nome}-${i}`} style={{ marginBottom: polegada(0.16) }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: polegada(0.04) }}>
+                <span style={{ fontSize: ptPx(10.5), fontWeight: 700, color: CORES.navy }}>
+                  {c.nome}
+                  <span style={{ marginLeft: polegada(0.08), fontSize: ptPx(8.5), fontWeight: 400, color: CORES.cinza }}>
+                    {c.cidade} · {c.segmento}
+                  </span>
+                </span>
+                <span style={{ fontSize: ptPx(11), fontWeight: 700, color: CORES.azul }}>
+                  {formatM3(Math.round(c.volume * 10) / 10)} m³
+                </span>
+              </div>
+              <div style={{ height: polegada(0.14), background: "#E7EEF9", borderRadius: polegada(0.07) }}>
+                <div
+                  style={{
+                    width: `${Math.max(4, (c.volume / maior) * 100)}%`,
+                    height: "100%",
+                    borderRadius: polegada(0.07),
+                    background: ["#0B3D91", "#1B6FD0", "#3B8BEA", "#6FA8F5", "#A9C8F2"][i % 5],
+                  }}
+                />
+              </div>
             </div>
           ))}
         </Caixa>
-        <Participacao
-          dados={slide.participacao.map((p) => ({ nome: p.nome, valores: [], atual: p.valor, anterior: 0, variacao: 0, participacao: (p.valor / total) * 100 }))}
-          rotulo="Participação no realizado"
-          topo={5.4}
-        />
         <Logotipo />
       </div>
     );
@@ -929,7 +1088,7 @@ export function SlideView({ slide }: { slide: Slide }) {
         style={{
           left: polegada(0.75),
           top: polegada(1.45),
-          width: polegada(5.1),
+          width: polegada(4.45),
           height: polegada(3.35),
           background: `linear-gradient(150deg, ${CORES.navy} 0%, #123B72 60%, ${CORES.azul} 100%)`,
           borderRadius: polegada(0.24),
@@ -966,10 +1125,10 @@ export function SlideView({ slide }: { slide: Slide }) {
         <Caixa
           key={c.rotulo}
           style={{
-            left: polegada(6.15),
-            top: polegada(1.45 + i * 1.72),
-            width: polegada(6.4),
-            height: polegada(1.55),
+            left: polegada(5.5),
+            top: polegada(1.45 + i * 1.42),
+            width: polegada(3.05),
+            height: polegada(1.28),
             background: CORES.branco,
             border: `1px solid ${CORES.linha}`,
             borderRadius: polegada(0.2),
@@ -978,12 +1137,49 @@ export function SlideView({ slide }: { slide: Slide }) {
         >
           <div style={{ position: "absolute", left: 0, top: 0, width: polegada(0.1), height: "100%", background: i === 0 ? CORES.azul : CORES.dourado }} />
           <div style={{ fontSize: ptPx(8.5), letterSpacing: 1.2, fontWeight: 700, color: CORES.cinza }}>{c.rotulo}</div>
-          <div style={{ fontSize: ptPx(26), fontWeight: 700, color: CORES.navy, marginTop: polegada(0.08), lineHeight: 1.1 }}>
+          <div style={{ fontSize: ptPx(24), fontWeight: 700, color: CORES.navy, marginTop: polegada(0.06), lineHeight: 1.1 }}>
             {c.valor}
           </div>
-          <div style={{ fontSize: ptPx(9.5), color: CORES.cinza, marginTop: polegada(0.04) }}>{c.detalhe}</div>
+          {c.detalhe && (
+            <div style={{ fontSize: ptPx(9), color: CORES.cinza, marginTop: polegada(0.03) }}>{c.detalhe}</div>
+          )}
         </Caixa>
       ))}
+
+      <Caixa
+        style={{
+          left: polegada(8.85),
+          top: polegada(1.45),
+          width: polegada(3.7),
+          height: polegada(2.7),
+          background: `linear-gradient(160deg, ${CORES.navy} 0%, #16427C 100%)`,
+          borderRadius: polegada(0.22),
+          padding: polegada(0.28),
+          overflow: "hidden",
+        }}
+      >
+        <div style={{ fontSize: ptPx(8.5), letterSpacing: 1.4, fontWeight: 700, color: "#9CC0F0" }}>
+          FATURAMENTO DO MÊS
+        </div>
+        <div style={{ fontSize: ptPx(26), fontWeight: 700, color: CORES.dourado, marginTop: polegada(0.06), lineHeight: 1.1 }}>
+          {slide.faturamento.total.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 2 })}
+        </div>
+        <div style={{ marginTop: polegada(0.18), display: "flex", flexDirection: "column", gap: polegada(0.08) }}>
+          {slide.faturamento.linhas.slice(0, 5).map((l, i) => (
+            <div key={`${l.cliente}-${i}`} style={{ display: "flex", justifyContent: "space-between", gap: polegada(0.1) }}>
+              <span style={{ fontSize: ptPx(9), color: "#DCE7F6", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {l.cliente}
+              </span>
+              <span style={{ fontSize: ptPx(9), fontWeight: 700, color: CORES.branco, whiteSpace: "nowrap" }}>
+                {l.valor.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+            </div>
+          ))}
+          {slide.faturamento.linhas.length === 0 && (
+            <span style={{ fontSize: ptPx(9), color: "#9CC0F0" }}>sem lançamentos no mês</span>
+          )}
+        </div>
+      </Caixa>
 
       <Caixa style={{ left: polegada(0.75), top: polegada(5.15), width: polegada(11.8) }}>
         <div style={{ fontSize: ptPx(8.5), fontWeight: 700, color: CORES.cinza, marginBottom: polegada(0.12), letterSpacing: 1 }}>

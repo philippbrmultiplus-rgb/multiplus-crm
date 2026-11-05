@@ -1,0 +1,15 @@
+create table if not exists apresentacao_faturamento (
+  id uuid primary key default gen_random_uuid(),
+  mes date not null,
+  cliente text not null,
+  valor numeric not null default 0,
+  posicao integer not null default 0,
+  atualizado_em timestamptz not null default now()
+);
+create index if not exists apresentacao_faturamento_mes_idx on apresentacao_faturamento (mes);
+alter table apresentacao_faturamento enable row level security;
+create policy fat_select on apresentacao_faturamento for select using (true);
+create policy fat_write on apresentacao_faturamento for insert with check (is_coordenador());
+create policy fat_update on apresentacao_faturamento for update using (is_coordenador()) with check (is_coordenador());
+create policy fat_delete on apresentacao_faturamento for delete using (is_coordenador());
+notify pgrst, 'reload schema';
