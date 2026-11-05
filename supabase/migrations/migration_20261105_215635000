@@ -1,0 +1,6 @@
+begin;
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"9027d4b3-2567-4894-90ac-bd1722d3b269","role":"authenticated"}';
+update public.clients set prospeccao_status = 'fechado', is_prospecao = false, active = true where id = 'cli-1793109544603-rsym';
+update public.clients set name = 'TESTE INDEVIDO' where id = 'cli-53';
+rollback;

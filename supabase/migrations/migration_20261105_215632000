@@ -1,0 +1,10 @@
+alter policy clients_update_prospect on public.clients to authenticated
+using (is_prospecao = true)
+with check (
+  is_prospecao = true
+  or (
+    is_prospecao = false
+    and active = true
+    and prospeccao_status = any (array['fechado'::text, 'proposta_recusada'::text])
+  )
+);

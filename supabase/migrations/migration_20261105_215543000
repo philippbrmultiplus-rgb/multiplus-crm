@@ -1,0 +1,5 @@
+begin;
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"9027d4b3-2567-4894-90ac-bd1722d3b269","role":"authenticated"}';
+insert into public.clients (id, name, city, segment, is_prospecao, prospeccao_status, active) values ('teste-rls-prospect','TESTE RLS PROSPECT','Porto Alegre','Poli', true, 'em_negociacao', true);
+rollback;

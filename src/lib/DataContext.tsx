@@ -40,6 +40,17 @@ import { toLocalDateKey } from "./geo";
 
 const STORAGE_KEY = "rs-app-state.v1";
 
+/** devolve a prospecção ao estado anterior quando o banco recusa a finalização */
+const desfazerStatusProspeccao =
+  (
+    clientId: string,
+    anterior: Pick<Client, "prospeccaoStatus" | "prospeccaoJustificativa" | "isProspecao" | "active">,
+  ) =>
+  (prev: AppState): AppState => ({
+    ...prev,
+    clients: prev.clients.map((c) => (c.id === clientId ? { ...c, ...anterior } : c)),
+  });
+
 /** fotos já enviadas que não conseguiram anexar à visita (queda de conexão no meio do caminho) */
 const PENDING_PHOTOS_KEY = "rs-pending-photos.v1";
 
@@ -2383,6 +2394,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
         status === "proposta_recusada" ? justificativa!.trim() : target?.prospeccaoJustificativa ?? null;
       // fechado = virou cliente: sai da prospecção e entra na lista de clientes ativos
       const virouCliente = status === "fechado";
+      // guarda os valores atuais para desfazer a mudança se o banco recusar
+      const anterior = {
+        prospeccaoStatus: target?.prospeccaoStatus ?? "em_negociacao",
+        prospeccaoJustificativa: target?.prospeccaoJustificativa ?? null,
+        isProspecao: target?.isProspecao ?? true,
+        active: target?.active ?? true,
+      };
       setAppState((prev) => ({
         ...prev,
         clients: prev.clients.map((c) =>
@@ -2397,7 +2415,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
             : c,
         ),
       }));
-      if (!uidRef.current) return;
+      if (!uidRef.current) {
+        setAppState(desfazerStatusProspeccao(clientId, anterior));
+        toast.error("Faça login para alterar a prospecção.");
+        return;
+      }
       void supabase
         .from("clients")
         .update({
@@ -2407,10 +2429,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
           updated_at: new Date().toISOString(),
         })
         .eq("id", clientId)
-        .then(({ error }) => {
-          if (error) {
-            console.error("atualizar prospecção:", error.message);
-            toast.error("Não foi possível atualizar a prospecção", { description: error.message });
+        .select("id")
+        .then(({ data, error }) => {
+          // sem permissão o banco não devolve erro nem linha: nada foi salvo
+          const naoSalvou = !error && (!data || data.length === 0);
+          if (error || naoSalvou) {
+            console.error("atualizar prospecção:", error?.message ?? "nenhuma linha atualizada");
+            setAppState(desfazerStatusProspeccao(clientId, anterior));
+            toast.error("Não foi possível atualizar a prospecção", {
+              description: error
+                ? error.code === "42501"
+                  ? "Seu usuário não tem permissão para essa alteração."
+                  : error.message
+                : "O cadastro não aceitou a mudança (prospecção já finalizada ou cliente sem permissão).",
+            });
           } else {
             toast.success(
               virouCliente
