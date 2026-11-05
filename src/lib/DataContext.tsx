@@ -2244,7 +2244,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           : [...prev.cacambas, salvo].sort((a, b) => (a.mes < b.mes ? -1 : 1)),
       }));
 
-      if (!canWriteClientData()) return "Só o coordenador pode alterar as caçambas.";
+      if (!checarEditarClientes()) return "Sem permissão para alterar as caçambas.";
 
       const { error } = await supabase.from("apresentacao_cacambas").upsert(
         {
@@ -2271,7 +2271,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       linhas: { cliente: string; cidade: string; volume: number }[],
     ): Promise<string | null> => {
       const mes = `${mesBase.slice(0, 7)}-01`;
-      if (!canWriteClientData()) return "Só o coordenador pode alterar a fila de espera.";
+      if (!checarEditarClientes()) return "Sem permissão para alterar a fila de espera.";
 
       const { error: erroDelete } = await supabase
         .from("apresentacao_fila")
@@ -2319,7 +2319,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const salvarFaturamento = useCallback(
     async (mesBase: string, linhas: { cliente: string; valor: number }[]): Promise<string | null> => {
       const mes = `${mesBase.slice(0, 7)}-01`;
-      if (!canWriteClientData()) return "Só o coordenador pode alterar o faturamento.";
+      if (!checarEditarClientes()) return "Sem permissão para alterar o faturamento.";
 
       const { error: erroDelete } = await supabase.from("apresentacao_faturamento").delete().eq("mes", mes);
       if (erroDelete) return erroDelete.message;

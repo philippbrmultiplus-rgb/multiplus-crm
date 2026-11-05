@@ -90,7 +90,7 @@ const NAV_ITEMS: NavItem[] = [
     to: "/apresentacao",
     label: "Apresentação mensal",
     icon: Presentation,
-    roles: ["coordenador", "gerente"],
+    roles: ["coordenador", "gerente", "vendedor"],
   },
   { to: "/backup", label: "Dados & backup", icon: Database, roles: ["coordenador", "gerente"] },
 ];

@@ -1,0 +1,12 @@
+alter policy cac_write on apresentacao_cacambas with check (is_coordenador() or is_liberado_editar_clientes());
+alter policy cac_update on apresentacao_cacambas using (is_coordenador() or is_liberado_editar_clientes()) with check (is_coordenador() or is_liberado_editar_clientes());
+
+alter policy fila_write on apresentacao_fila with check (is_coordenador() or is_liberado_editar_clientes());
+alter policy fila_update on apresentacao_fila using (is_coordenador() or is_liberado_editar_clientes()) with check (is_coordenador() or is_liberado_editar_clientes());
+alter policy fila_delete on apresentacao_fila using (is_coordenador() or is_liberado_editar_clientes());
+
+alter policy fat_write on apresentacao_faturamento with check (is_coordenador() or is_liberado_editar_clientes());
+alter policy fat_update on apresentacao_faturamento using (is_coordenador() or is_liberado_editar_clientes()) with check (is_coordenador() or is_liberado_editar_clientes());
+alter policy fat_delete on apresentacao_faturamento using (is_coordenador() or is_liberado_editar_clientes());
+
+notify pgrst, 'reload schema';
