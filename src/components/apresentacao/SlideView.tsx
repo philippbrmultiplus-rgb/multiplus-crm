@@ -145,7 +145,7 @@ function Barras({ meses, dados }: { meses: string[]; dados: SegmentoResumo[] }) 
             <div style={{ display: "flex", alignItems: "flex-end", gap: polegada(0.08), height: "100%" }}>
               {d.valores.map((v, i) => (
                 <div key={v.mes} style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "flex-end", alignItems: "center", height: "100%" }}>
-                  <span style={{ fontSize: ptPx(8), color: CORES.tinta, fontWeight: 600, marginBottom: 2 }}>
+                  <span style={{ fontSize: ptPx(10), color: CORES.tinta, fontWeight: 700, marginBottom: 2 }}>
                     {v.valor > 0 ? formatM3(Math.round(v.valor)) : ""}
                   </span>
                   <div
@@ -603,7 +603,7 @@ export function SlideView({ slide }: { slide: Slide }) {
                   <div key={i} style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "flex-end", alignItems: "center", height: "100%" }}>
                     <span
                       style={{
-                        fontSize: ptPx(8.5),
+                        fontSize: ptPx(10),
                         fontWeight: 700,
                         color: CORES.tinta,
                         marginBottom: 1,
