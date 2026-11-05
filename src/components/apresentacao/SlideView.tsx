@@ -204,10 +204,10 @@ function Rodape({ texto, topo = 6.3 }: { texto: string; topo?: number }) {
   );
 }
 
-function Logotipo() {
+function Logotipo({ escuro = false }: { escuro?: boolean }) {
   return (
     <img
-      src="/apresentacao/logo-azul.png"
+      src={escuro ? "/apresentacao/logo-branco.png" : "/apresentacao/logo-azul.png"}
       alt="Multiplus"
       style={{ position: "absolute", left: polegada(0.75), top: polegada(6.98), width: polegada(1.05) }}
     />
@@ -320,7 +320,7 @@ export function SlideView({ slide }: { slide: Slide }) {
         <img
           src="/apresentacao/logo-branco.png"
           alt="Multiplus"
-          style={{ position: "absolute", right: polegada(0.55), top: polegada(0.45), width: polegada(4.97) }}
+          style={{ position: "absolute", right: polegada(0.5), top: polegada(0.42), width: polegada(5.6) }}
         />
 
         {cards.map((item, i) => {
@@ -383,7 +383,7 @@ export function SlideView({ slide }: { slide: Slide }) {
           <span style={{ fontSize: ptPx(15), fontWeight: 700, color: corTotal }}>{num(pctTotal)}%</span>
           <span style={{ fontSize: ptPx(11), color: "#9CC0F0" }}>· {slide.diasUteis} dias úteis</span>
         </Caixa>
-        <Logotipo />
+        <Logotipo escuro />
       </div>
     );
   }
@@ -592,7 +592,7 @@ export function SlideView({ slide }: { slide: Slide }) {
           ))}
         </Caixa>
 
-        <Caixa style={{ left: polegada(0.7), top: polegada(1.6), width: larguraGrafico, overflow: "hidden" }}>
+        <Caixa style={{ left: polegada(0.7), top: polegada(1.6), width: larguraGrafico }}>
           <div style={{ display: "flex", alignItems: "flex-end", gap: polegada(0.06), height: polegada(4.5), borderBottom: `1px solid ${CORES.linha}` }}>
             {slide.meses.map((m) => (
               <div key={m.mes} style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "flex-end", gap: polegada(0.04), height: "100%" }}>
@@ -606,7 +606,10 @@ export function SlideView({ slide }: { slide: Slide }) {
                         fontSize: ptPx(8.5),
                         fontWeight: 700,
                         color: CORES.tinta,
-                        marginBottom: i === 1 ? polegada(0.14) : 1,
+                        marginBottom: 1,
+                        whiteSpace: "nowrap",
+                        transform: "rotate(-45deg)",
+                        transformOrigin: "center bottom",
                       }}
                     >
                       {barra.valor > 0 ? String(Math.round(barra.valor)) : ""}

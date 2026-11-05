@@ -39,8 +39,9 @@ export async function gerarPptx(slides: Slide[], nomeArquivo: string): Promise<v
   };
 
   const logoAzul = await imagemBase64("/apresentacao/logo-azul.png");
-  const logotipo = (s: ReturnType<typeof novoSlide>) => {
-    s.addImage({ data: logoAzul, x: 0.75, y: 6.98, w: 1.05, h: 0.41 });
+  const logoBranco = await imagemBase64("/apresentacao/logo-branco.png");
+  const logotipo = (s: ReturnType<typeof novoSlide>, escuro = false) => {
+    s.addImage({ data: escuro ? logoBranco : logoAzul, x: 0.75, y: 6.98, w: 1.05, h: 0.41 });
   };
 
   const cabecalho = (s: ReturnType<typeof novoSlide>, titulo: string, subtitulo?: string, selo?: string) => {
@@ -148,7 +149,7 @@ export async function gerarPptx(slides: Slide[], nomeArquivo: string): Promise<v
       s.addText(`— ${slide.ano} —`, { x: 0.85, y: 1.95, w: 6, h: 0.4, fontSize: 20, bold: true, color: "2F7DE1" });
 
       // logo branco no canto superior direito, igual ao das capas
-      s.addImage({ data: await imagemBase64("/apresentacao/logo-branco.png"), x: 7.81, y: 0.45, w: 4.97, h: 1.53 });
+      s.addImage({ data: await imagemBase64("/apresentacao/logo-branco.png"), x: 7.23, y: 0.42, w: 5.6, h: 1.72 });
 
       const cards = slide.segmentos.slice(0, 4);
       const largura = 3.05;
@@ -188,7 +189,7 @@ export async function gerarPptx(slides: Slide[], nomeArquivo: string): Promise<v
         ],
         { x: 0.85, y: 5.5, w: 11.8, h: 0.6, valign: "middle" },
       );
-      logotipo(s);
+      logotipo(s, true);
       continue;
     }
 
@@ -431,25 +432,64 @@ export async function gerarPptx(slides: Slide[], nomeArquivo: string): Promise<v
       const s = novoSlide();
       cabecalho(s, "Comparativo de volume mensal 2025 x 2026", slide.subtitulo);
 
-      s.addChart(
-        pptx.ChartType.bar,
-        [
-          { name: "2026 (m³)", labels: slide.meses.map((m) => m.nome), values: slide.meses.map((m) => Math.round(m.v2026)) },
-          { name: "2025 (m³)", labels: slide.meses.map((m) => m.nome), values: slide.meses.map((m) => Math.round(m.v2025)) },
-        ],
-        {
-          x: 0.55, y: 1.25, w: 8.1, h: 5.35,
-          barDir: "col", barGrouping: "clustered", barGapWidthPct: 40,
-          chartColors: [hex(CORES.azul), hex(CORES.dourado)],
-          showLegend: true, legendPos: "t", legendFontSize: 10,
-          showValue: true, dataLabelFontSize: 9.5, dataLabelFormatCode: "0",
-          catAxisLabelFontSize: 11, valAxisLabelFontSize: 10.5,
-          valAxisMaxVal: Math.ceil((Math.max(1, ...slide.meses.flatMap((m) => [m.v2025, m.v2026])) * 1.2) / 500) * 500,
-          valAxisMinVal: 0,
-          valGridLine: { color: "E7ECF4", size: 1 },
-          catAxisLineShow: false, valAxisLineShow: false,
-        },
-      );
+      // legenda
+      s.addShape(pptx.ShapeType.ellipse, { x: 0.75, y: 1.52, w: 0.12, h: 0.12, fill: { color: hex(CORES.azul) }, line: { color: hex(CORES.azul) } });
+      s.addText("2026 (m³)", { x: 0.92, y: 1.44, w: 1.2, h: 0.26, fontSize: 9, bold: true, color: hex(CORES.tinta) });
+      s.addShape(pptx.ShapeType.ellipse, { x: 2.0, y: 1.52, w: 0.12, h: 0.12, fill: { color: hex(CORES.dourado) }, line: { color: hex(CORES.dourado) } });
+      s.addText("2025 (m³)", { x: 2.17, y: 1.44, w: 1.2, h: 0.26, fontSize: 9, bold: true, color: hex(CORES.tinta) });
+
+      // área do gráfico desenhada em formas: permite os valores na diagonal
+      const plotX = 0.75;
+      const plotW = 7.85;
+      const plotY = 1.95;
+      const plotH = 4.3;
+      const base = plotY + plotH;
+      const maior = Math.max(1, ...slide.meses.flatMap((m) => [m.v2025, m.v2026]));
+      const topo = Math.ceil((maior * 1.22) / 500) * 500;
+      const passo = plotW / 12;
+      const barra = 0.25;
+
+      for (const frac of [0, 0.25, 0.5, 0.75, 1]) {
+        const y = base - plotH * frac;
+        s.addShape(pptx.ShapeType.rect, {
+          x: plotX, y, w: plotW, h: 0.01,
+          fill: { color: frac === 0 ? "C9D6EA" : "E7ECF4" }, line: { color: frac === 0 ? "C9D6EA" : "E7ECF4" },
+        });
+        s.addText(String(Math.round(topo * frac)), {
+          x: 0.02, y: y - 0.11, w: 0.66, h: 0.22, align: "right", fontSize: 8, color: hex(CORES.cinza),
+        });
+      }
+
+      slide.meses.forEach((m, i) => {
+        const centro = plotX + passo * (i + 0.5);
+        const barras = [
+          { valor: m.v2025, cor: CORES.dourado, desloc: -barra - 0.02 },
+          { valor: m.v2026, cor: CORES.azul, desloc: 0.02 },
+        ];
+        for (const b of barras) {
+          if (b.valor <= 0) continue;
+          const altura = (b.valor / topo) * plotH;
+          s.addShape(pptx.ShapeType.rect, {
+            x: centro + b.desloc, y: base - altura, w: barra, h: altura,
+            fill: { color: hex(b.cor) }, line: { color: hex(b.cor) },
+          });
+          s.addText(String(Math.round(b.valor)), {
+            x: centro + b.desloc + barra / 2 - 0.35,
+            y: base - altura - 0.42,
+            w: 0.7,
+            h: 0.22,
+            align: "center",
+            fontSize: 8,
+            bold: true,
+            color: hex(CORES.tinta),
+            rotate: -45,
+          });
+        }
+        s.addText(m.nome, {
+          x: centro - 0.32, y: base + 0.06, w: 0.64, h: 0.24,
+          align: "center", fontSize: 10, bold: true, color: hex(CORES.navy),
+        });
+      });
 
       const celula = (texto: string, opcoes: Record<string, unknown> = {}) => ({ text: texto, options: opcoes });
       const linhas: { text: string; options?: Record<string, unknown> }[][] = [
