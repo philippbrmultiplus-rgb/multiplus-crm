@@ -3360,6 +3360,87 @@ export type Database = {
   }
   public: {
     Tables: {
+      apresentacao_cacambas: {
+        Row: {
+          atualizado_em: string
+          mes: string
+          poli: Json
+          rollon: Json
+        }
+        Insert: {
+          atualizado_em?: string
+          mes: string
+          poli?: Json
+          rollon?: Json
+        }
+        Update: {
+          atualizado_em?: string
+          mes?: string
+          poli?: Json
+          rollon?: Json
+        }
+        Relationships: []
+      }
+      apresentacao_faturamento: {
+        Row: {
+          atualizado_em: string
+          cliente: string
+          id: string
+          mes: string
+          posicao: number
+          valor: number
+        }
+        Insert: {
+          atualizado_em?: string
+          cliente: string
+          id?: string
+          mes: string
+          posicao?: number
+          valor?: number
+        }
+        Update: {
+          atualizado_em?: string
+          cliente?: string
+          id?: string
+          mes?: string
+          posicao?: number
+          valor?: number
+        }
+        Relationships: []
+      }
+      apresentacao_fila: {
+        Row: {
+          atualizado_em: string
+          cidade: string
+          cliente: string
+          id: string
+          mes: string
+          posicao: number
+          tipo: string
+          volume: number
+        }
+        Insert: {
+          atualizado_em?: string
+          cidade?: string
+          cliente: string
+          id?: string
+          mes: string
+          posicao?: number
+          tipo?: string
+          volume?: number
+        }
+        Update: {
+          atualizado_em?: string
+          cidade?: string
+          cliente?: string
+          id?: string
+          mes?: string
+          posicao?: number
+          tipo?: string
+          volume?: number
+        }
+        Relationships: []
+      }
       client_alerts: {
         Row: {
           client_id: string
@@ -3614,17 +3695,24 @@ export type Database = {
           city: string | null
           cnpj: string | null
           contato: string | null
+          contrato_numero: string | null
           created_at: string
+          dia_pagamento: number | null
           email: string | null
+          equipamento: string | null
+          equipamentos_qtd: number | null
+          forma_pagamento: string | null
           freq_month: number | null
           geo_aproximado: boolean
           geocode_status: string | null
           id: string
+          inscricao_estadual: string | null
           is_prospecao: boolean
           last_collect_at: string | null
           last_visit_at: string | null
           lat: number | null
           lng: number | null
+          local_coleta: string | null
           name: string
           obs: string | null
           prospeccao_justificativa: string | null
@@ -3636,7 +3724,9 @@ export type Database = {
           tier: string | null
           total_2025: number | null
           total_2026: number | null
+          trocas_minimas: number | null
           updated_at: string
+          valor_troca: string | null
           visita_agendada: string | null
         }
         Insert: {
@@ -3646,17 +3736,24 @@ export type Database = {
           city?: string | null
           cnpj?: string | null
           contato?: string | null
+          contrato_numero?: string | null
           created_at?: string
+          dia_pagamento?: number | null
           email?: string | null
+          equipamento?: string | null
+          equipamentos_qtd?: number | null
+          forma_pagamento?: string | null
           freq_month?: number | null
           geo_aproximado?: boolean
           geocode_status?: string | null
           id: string
+          inscricao_estadual?: string | null
           is_prospecao?: boolean
           last_collect_at?: string | null
           last_visit_at?: string | null
           lat?: number | null
           lng?: number | null
+          local_coleta?: string | null
           name: string
           obs?: string | null
           prospeccao_justificativa?: string | null
@@ -3668,7 +3765,9 @@ export type Database = {
           tier?: string | null
           total_2025?: number | null
           total_2026?: number | null
+          trocas_minimas?: number | null
           updated_at?: string
+          valor_troca?: string | null
           visita_agendada?: string | null
         }
         Update: {
@@ -3678,17 +3777,24 @@ export type Database = {
           city?: string | null
           cnpj?: string | null
           contato?: string | null
+          contrato_numero?: string | null
           created_at?: string
+          dia_pagamento?: number | null
           email?: string | null
+          equipamento?: string | null
+          equipamentos_qtd?: number | null
+          forma_pagamento?: string | null
           freq_month?: number | null
           geo_aproximado?: boolean
           geocode_status?: string | null
           id?: string
+          inscricao_estadual?: string | null
           is_prospecao?: boolean
           last_collect_at?: string | null
           last_visit_at?: string | null
           lat?: number | null
           lng?: number | null
+          local_coleta?: string | null
           name?: string
           obs?: string | null
           prospeccao_justificativa?: string | null
@@ -3700,7 +3806,9 @@ export type Database = {
           tier?: string | null
           total_2025?: number | null
           total_2026?: number | null
+          trocas_minimas?: number | null
           updated_at?: string
+          valor_troca?: string | null
           visita_agendada?: string | null
         }
         Relationships: []
@@ -3827,6 +3935,63 @@ export type Database = {
         }
         Relationships: []
       }
+      metas_mes: {
+        Row: {
+          atualizado_em: string
+          mes: string
+          meta_dia_pap: number
+          meta_dia_poli: number
+          meta_dia_rollon: number
+          meta_dia_terceiro: number
+        }
+        Insert: {
+          atualizado_em?: string
+          mes: string
+          meta_dia_pap?: number
+          meta_dia_poli?: number
+          meta_dia_rollon?: number
+          meta_dia_terceiro?: number
+        }
+        Update: {
+          atualizado_em?: string
+          mes?: string
+          meta_dia_pap?: number
+          meta_dia_poli?: number
+          meta_dia_rollon?: number
+          meta_dia_terceiro?: number
+        }
+        Relationships: []
+      }
+      planilha_lancamentos: {
+        Row: {
+          collect_date: string
+          enviado_em: string
+          enviado_por: string | null
+          id: string
+          nome_planilha: string
+          trocas: number
+          volume_m3: number | null
+        }
+        Insert: {
+          collect_date: string
+          enviado_em?: string
+          enviado_por?: string | null
+          id?: string
+          nome_planilha: string
+          trocas?: number
+          volume_m3?: number | null
+        }
+        Update: {
+          collect_date?: string
+          enviado_em?: string
+          enviado_por?: string | null
+          id?: string
+          nome_planilha?: string
+          trocas?: number
+          volume_m3?: number | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -3933,9 +4098,28 @@ export type Database = {
       settings: {
         Row: {
           cadence_version: number
+          contrato_foro: string | null
+          contrato_prazo_meses: number | null
+          contrato_testemunha_cpf: string | null
+          contrato_testemunha_nome: string | null
+          contrato_valor_equipamento: number | null
+          contrato_valor_viagem: number | null
+          empresa_cep: string | null
+          empresa_cidade: string | null
+          empresa_cnpj: string | null
+          empresa_endereco: string | null
+          empresa_ie: string | null
+          empresa_razao: string | null
+          empresa_uf: string | null
           home_lat: number | null
           home_lng: number | null
           id: number
+          meta_dia_pap: number | null
+          meta_dia_poli: number | null
+          meta_dia_rollon: number | null
+          meta_dia_terceiro: number | null
+          meta_mes: number | null
+          planilha_versao: string | null
           tier_a_threshold: number | null
           tier_b_threshold: number | null
           travel_speed_kmh: number | null
@@ -3948,9 +4132,28 @@ export type Database = {
         }
         Insert: {
           cadence_version?: number
+          contrato_foro?: string | null
+          contrato_prazo_meses?: number | null
+          contrato_testemunha_cpf?: string | null
+          contrato_testemunha_nome?: string | null
+          contrato_valor_equipamento?: number | null
+          contrato_valor_viagem?: number | null
+          empresa_cep?: string | null
+          empresa_cidade?: string | null
+          empresa_cnpj?: string | null
+          empresa_endereco?: string | null
+          empresa_ie?: string | null
+          empresa_razao?: string | null
+          empresa_uf?: string | null
           home_lat?: number | null
           home_lng?: number | null
           id?: number
+          meta_dia_pap?: number | null
+          meta_dia_poli?: number | null
+          meta_dia_rollon?: number | null
+          meta_dia_terceiro?: number | null
+          meta_mes?: number | null
+          planilha_versao?: string | null
           tier_a_threshold?: number | null
           tier_b_threshold?: number | null
           travel_speed_kmh?: number | null
@@ -3963,9 +4166,28 @@ export type Database = {
         }
         Update: {
           cadence_version?: number
+          contrato_foro?: string | null
+          contrato_prazo_meses?: number | null
+          contrato_testemunha_cpf?: string | null
+          contrato_testemunha_nome?: string | null
+          contrato_valor_equipamento?: number | null
+          contrato_valor_viagem?: number | null
+          empresa_cep?: string | null
+          empresa_cidade?: string | null
+          empresa_cnpj?: string | null
+          empresa_endereco?: string | null
+          empresa_ie?: string | null
+          empresa_razao?: string | null
+          empresa_uf?: string | null
           home_lat?: number | null
           home_lng?: number | null
           id?: number
+          meta_dia_pap?: number | null
+          meta_dia_poli?: number | null
+          meta_dia_rollon?: number | null
+          meta_dia_terceiro?: number | null
+          meta_mes?: number | null
+          planilha_versao?: string | null
           tier_a_threshold?: number | null
           tier_b_threshold?: number | null
           travel_speed_kmh?: number | null
@@ -3977,6 +4199,40 @@ export type Database = {
           working_days?: number[] | null
         }
         Relationships: []
+      }
+      user_permissoes: {
+        Row: {
+          atualizado_em: string
+          atualizado_por: string | null
+          atualizar_planilha: boolean
+          editar_clientes: boolean
+          gerir_rota: boolean
+          user_id: string
+        }
+        Insert: {
+          atualizado_em?: string
+          atualizado_por?: string | null
+          atualizar_planilha?: boolean
+          editar_clientes?: boolean
+          gerir_rota?: boolean
+          user_id: string
+        }
+        Update: {
+          atualizado_em?: string
+          atualizado_por?: string | null
+          atualizar_planilha?: boolean
+          editar_clientes?: boolean
+          gerir_rota?: boolean
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_permissoes_user_id_fkey"
+            columns: ["user_id"]
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       visits: {
         Row: {
@@ -4107,6 +4363,22 @@ export type Database = {
         Returns: string
       }
       is_coordenador: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      is_leitor_apenas: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      is_liberado_editar_clientes: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      is_liberado_gerir_rota: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      is_liberado_planilha: {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }

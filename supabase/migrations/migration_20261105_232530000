@@ -1,0 +1,505 @@
+create index if not exists internal_prospect_notes_prospect_idx on public.internal_prospect_notes (prospect_id, created_at);
+
+grant select, insert, delete on public.internal_prospect_notes to authenticated;
+
+alter table public.internal_prospect_notes enable row level security;
+
+drop policy if exists ipn_select on public.internal_prospect_notes;
+create policy ipn_select on public.internal_prospect_notes for select to authenticated using (true);
+
+drop policy if exists ipn_insert on public.internal_prospect_notes;
+create policy ipn_insert on public.internal_prospect_notes for insert to authenticated
+with check (
+  created_by = auth.uid()
+  and exists (
+    select 1 from public.profiles p
+    where p.id = auth.uid() and p.role in ('coordenador', 'vendedor')
+  )
+);
+
+drop policy if exists ipn_delete on public.internal_prospect_notes;
+create policy ipn_delete on public.internal_prospect_notes for delete to authenticated
+using (created_by = auth.uid() or public.is_coordenador());
+
+do $$
+begin
+  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'internal_prospect_notes') then
+    alter publication supabase_realtime add table public.internal_prospect_notes;
+  end if;
+end $$;
+
+alter table public.internal_prospects add column if not exists visita_agendada date;
+
+grant update on public.internal_prospects to authenticated;
+
+drop policy if exists ip_update on public.internal_prospects;
+
+create policy ip_update on public.internal_prospects for update to authenticated
+using (
+  exists (
+    select 1 from public.profiles p
+    where p.id = auth.uid() and p.role in ('coordenador', 'vendedor')
+  )
+)
+with check (
+  exists (
+    select 1 from public.profiles p
+    where p.id = auth.uid() and p.role in ('coordenador', 'vendedor')
+  )
+);
+
+alter table public.clients add column if not exists visita_agendada date;
+
+grant select, insert, delete on public.client_prospect_notes to authenticated;
+
+alter table public.client_prospect_notes enable row level security;
+
+drop policy if exists cpn_select on public.client_prospect_notes;
+create policy cpn_select on public.client_prospect_notes for select to authenticated using (true);
+
+drop policy if exists cpn_insert on public.client_prospect_notes;
+create policy cpn_insert on public.client_prospect_notes for insert to authenticated
+with check (
+  created_by = auth.uid()
+  and exists (
+    select 1 from public.profiles p
+    where p.id = auth.uid() and p.role in ('coordenador', 'vendedor')
+  )
+);
+
+drop policy if exists cpn_delete on public.client_prospect_notes;
+create policy cpn_delete on public.client_prospect_notes for delete to authenticated
+using (created_by = auth.uid() or public.is_coordenador());
+
+do $$
+begin
+  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'client_prospect_notes') then
+    alter publication supabase_realtime add table public.client_prospect_notes;
+  end if;
+end $$;
+
+alter table public.client_payments enable row level security;
+
+grant select, insert, update, delete on public.client_payments to authenticated;
+
+grant select, insert, update, delete on public.profiles to authenticated;
+
+grant select, insert, update, delete on public.clients to authenticated;
+
+grant select, insert, update, delete on public.settings to authenticated;
+
+grant select, insert, update, delete on public.weekly_routes to authenticated;
+
+grant select, insert, update, delete on public.route_visits to authenticated;
+
+grant select, insert, update, delete on public.visits to authenticated;
+
+grant select, insert, update, delete on public.clientes_excluidos to authenticated;
+
+grant select, insert, update, delete on public.coletas to authenticated;
+
+drop policy if exists cp_select on public.client_payments;
+create policy cp_select on public.client_payments for select to authenticated using (true);
+
+drop policy if exists cp_insert on public.client_payments;
+create policy cp_insert on public.client_payments for insert to authenticated
+with check (public.is_coordenador());
+
+drop policy if exists cp_update on public.client_payments;
+create policy cp_update on public.client_payments for update to authenticated
+using (public.is_coordenador()) with check (public.is_coordenador());
+
+drop policy if exists cp_delete on public.client_payments;
+create policy cp_delete on public.client_payments for delete to authenticated
+using (public.is_coordenador());
+
+drop policy if exists cmv_insert on public.client_monthly_volumes;
+create policy cmv_insert on public.client_monthly_volumes for insert to authenticated with check (is_coordenador());
+
+drop policy if exists cmv_update on public.client_monthly_volumes;
+create policy cmv_update on public.client_monthly_volumes for update to authenticated using (is_coordenador()) with check (is_coordenador());
+
+drop policy if exists cmv_delete on public.client_monthly_volumes;
+create policy cmv_delete on public.client_monthly_volumes for delete to authenticated using (is_coordenador());
+
+drop policy if exists cc_insert on public.client_cadence;
+create policy cc_insert on public.client_cadence for insert to authenticated with check (is_coordenador());
+
+drop policy if exists cc_update on public.client_cadence;
+create policy cc_update on public.client_cadence for update to authenticated using (is_coordenador()) with check (is_coordenador());
+
+drop policy if exists cc_delete on public.client_cadence;
+create policy cc_delete on public.client_cadence for delete to authenticated using (is_coordenador());
+
+create table if not exists public.user_permissoes (
+  user_id uuid primary key references public.profiles(id) on delete cascade,
+  editar_clientes boolean not null default false,
+  gerir_rota boolean not null default false,
+  atualizado_em timestamptz not null default now(),
+  atualizado_por uuid
+);
+
+alter table public.user_permissoes enable row level security;
+
+drop policy if exists up_select on public.user_permissoes;
+create policy up_select on public.user_permissoes for select to authenticated
+  using (auth.uid() = user_id or is_coordenador());
+
+drop policy if exists up_insert on public.user_permissoes;
+create policy up_insert on public.user_permissoes for insert to authenticated
+  with check (is_coordenador());
+
+drop policy if exists up_update on public.user_permissoes;
+create policy up_update on public.user_permissoes for update to authenticated
+  using (is_coordenador()) with check (is_coordenador());
+
+drop policy if exists up_delete on public.user_permissoes;
+create policy up_delete on public.user_permissoes for delete to authenticated
+  using (is_coordenador());
+
+create or replace function public.is_liberado_editar_clientes()
+returns boolean language sql stable security definer set search_path to 'public' as $$
+  select is_coordenador() or exists (
+    select 1 from public.user_permissoes p where p.user_id = auth.uid() and p.editar_clientes
+  );
+$$;
+
+create or replace function public.is_liberado_gerir_rota()
+returns boolean language sql stable security definer set search_path to 'public' as $$
+  select is_coordenador() or exists (
+    select 1 from public.user_permissoes p where p.user_id = auth.uid() and p.gerir_rota
+  );
+$$;
+
+alter policy clients_insert_coord on public.clients
+  with check (is_liberado_editar_clientes());
+
+alter policy clients_update_coord on public.clients
+  using (is_liberado_editar_clientes()) with check (is_liberado_editar_clientes());
+
+alter policy routes_write on public.weekly_routes
+  with check (is_liberado_gerir_rota());
+
+alter policy routes_update on public.weekly_routes
+  using (is_liberado_gerir_rota()) with check (is_liberado_gerir_rota());
+
+alter policy routes_delete on public.weekly_routes
+  using (is_liberado_gerir_rota());
+
+alter policy rv_delete on public.route_visits
+  using (is_liberado_gerir_rota());
+
+do $$
+begin
+  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'user_permissoes') then
+    alter publication supabase_realtime add table public.user_permissoes;
+  end if;
+end $$;
+
+alter table public.settings add column if not exists planilha_versao text;
+
+create or replace function public.is_leitor_apenas()
+returns boolean language sql stable security definer set search_path to 'public' as $$
+  select exists (select 1 from public.profiles where id = auth.uid() and role = 'gerente');
+$$;
+
+alter policy coletas_insert on public.coletas
+  with check (auth.uid() is not null and not is_leitor_apenas());
+
+alter policy rv_write_vendor on public.route_visits
+  with check (auth.uid() is not null and not is_leitor_apenas());
+
+alter policy rv_update_any on public.route_visits
+  using (auth.uid() is not null and not is_leitor_apenas())
+  with check (auth.uid() is not null and not is_leitor_apenas());
+
+alter policy rv_write_prospect on public.route_visits
+  with check (
+    exists (select 1 from public.clients c where c.id = route_visits.client_id and c.is_prospecao = true)
+    and not is_leitor_apenas()
+  );
+
+alter policy visits_insert on public.visits
+  with check (not is_leitor_apenas());
+
+alter policy visits_update on public.visits
+  using (((auth.uid() = created_by) or is_coordenador()) and not is_leitor_apenas())
+  with check (not is_leitor_apenas());
+
+alter policy visits_delete on public.visits
+  using (((auth.uid() = created_by) or is_coordenador()) and not is_leitor_apenas());
+
+alter policy clients_insert_prospect on public.clients
+  with check (is_prospecao = true and not is_leitor_apenas());
+
+alter policy clients_update_prospect on public.clients
+  using (is_prospecao = true and not is_leitor_apenas())
+  with check (is_prospecao = true and not is_leitor_apenas());
+
+alter policy visitas_auth_upload on storage.objects
+  with check (bucket_id = 'visitas' and not public.is_leitor_apenas());
+
+create or replace function public.protege_papel_perfil()
+returns trigger language plpgsql security definer set search_path to 'public' as $$
+begin
+  if new.role is distinct from old.role and auth.uid() is not null and not is_coordenador() then
+    raise exception 'Somente o coordenador pode alterar papéis de usuário';
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists trg_protege_papel on public.profiles;
+
+create trigger trg_protege_papel
+  before update on public.profiles
+  for each row execute function public.protege_papel_perfil();
+
+alter table public.user_permissoes
+  add column if not exists atualizar_planilha boolean not null default false;
+
+create or replace function public.is_liberado_planilha()
+returns boolean language sql stable security definer set search_path to 'public' as $$
+  select is_coordenador() or exists (
+    select 1 from public.user_permissoes p where p.user_id = auth.uid() and p.atualizar_planilha
+  );
+$$;
+
+create table if not exists public.planilha_lancamentos (
+  id text primary key default (gen_random_uuid())::text,
+  nome_planilha text not null,
+  collect_date date not null,
+  volume_m3 numeric,
+  trocas integer not null default 1,
+  enviado_por uuid,
+  enviado_em timestamptz not null default now(),
+  unique (nome_planilha, collect_date)
+);
+
+alter table public.planilha_lancamentos enable row level security;
+
+drop policy if exists pl_select on public.planilha_lancamentos;
+create policy pl_select on public.planilha_lancamentos for select to authenticated using (true);
+
+drop policy if exists pl_insert on public.planilha_lancamentos;
+create policy pl_insert on public.planilha_lancamentos for insert to authenticated with check (is_liberado_planilha());
+
+drop policy if exists pl_update on public.planilha_lancamentos;
+create policy pl_update on public.planilha_lancamentos for update to authenticated using (is_liberado_planilha()) with check (is_liberado_planilha());
+
+drop policy if exists pl_delete on public.planilha_lancamentos;
+create policy pl_delete on public.planilha_lancamentos for delete to authenticated using (is_coordenador());
+
+alter policy cmv_insert on public.client_monthly_volumes with check (is_liberado_planilha());
+
+alter policy cmv_update on public.client_monthly_volumes
+  using (is_liberado_planilha()) with check (is_liberado_planilha());
+
+alter policy cc_insert on public.client_cadence with check (is_liberado_planilha());
+
+alter policy cc_update on public.client_cadence
+  using (is_liberado_planilha()) with check (is_liberado_planilha());
+
+alter policy coletas_insert on public.coletas
+  with check ((auth.uid() is not null and not is_leitor_apenas()) or is_liberado_planilha());
+
+alter policy coletas_update on public.coletas
+  using (is_liberado_planilha()) with check (is_liberado_planilha());
+
+alter policy clients_update_coord on public.clients
+  using (is_liberado_editar_clientes() or is_liberado_planilha())
+  with check (is_liberado_editar_clientes() or is_liberado_planilha());
+
+create or replace function public.limita_edicao_planilha()
+returns trigger language plpgsql security definer set search_path to 'public' as $$
+declare
+  data_enviada date := new.last_collect_at;
+begin
+  if auth.uid() is not null
+     and not is_coordenador()
+     and not is_liberado_editar_clientes()
+     and is_liberado_planilha() then
+    new := old;
+    if data_enviada is not null and (old.last_collect_at is null or old.last_collect_at < data_enviada) then
+      new.last_collect_at := data_enviada;
+    end if;
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists trg_limita_edicao_planilha on public.clients;
+
+create trigger trg_limita_edicao_planilha
+  before update on public.clients
+  for each row execute function public.limita_edicao_planilha();
+
+alter policy cmv_delete on public.client_monthly_volumes using (is_liberado_planilha());
+
+alter policy cc_delete on public.client_cadence using (is_liberado_planilha());
+
+alter table public.clients
+  add column if not exists cnpj text,
+  add column if not exists inscricao_estadual text,
+  add column if not exists contrato_numero text,
+  add column if not exists equipamento text,
+  add column if not exists equipamentos_qtd integer,
+  add column if not exists trocas_minimas integer,
+  add column if not exists valor_troca text,
+  add column if not exists dia_pagamento integer,
+  add column if not exists forma_pagamento text,
+  add column if not exists local_coleta text;
+
+alter table public.settings
+  add column if not exists empresa_razao text,
+  add column if not exists empresa_cnpj text,
+  add column if not exists empresa_ie text,
+  add column if not exists empresa_endereco text,
+  add column if not exists empresa_cidade text,
+  add column if not exists empresa_uf text,
+  add column if not exists empresa_cep text,
+  add column if not exists contrato_foro text,
+  add column if not exists contrato_prazo_meses integer,
+  add column if not exists contrato_valor_viagem numeric,
+  add column if not exists contrato_valor_equipamento numeric,
+  add column if not exists contrato_testemunha_nome text,
+  add column if not exists contrato_testemunha_cpf text;
+
+alter table public.client_notes enable row level security;
+
+drop policy if exists cn_select on public.client_notes;
+create policy cn_select on public.client_notes for select to authenticated using (true);
+
+drop policy if exists cn_insert on public.client_notes;
+create policy cn_insert on public.client_notes for insert to authenticated
+  with check (
+    auth.uid() is not null and (
+      is_coordenador()
+      or is_liberado_editar_clientes()
+      or exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'vendedor')
+    )
+  );
+
+drop policy if exists cn_delete on public.client_notes;
+create policy cn_delete on public.client_notes for delete to authenticated
+  using (is_coordenador() or created_by = auth.uid());
+
+alter table public.settings
+  add column if not exists meta_dia_rollon numeric,
+  add column if not exists meta_dia_poli numeric,
+  add column if not exists meta_dia_terceiro numeric,
+  add column if not exists meta_mes numeric;
+
+alter table settings add column if not exists meta_dia_pap numeric default 10;
+
+create table if not exists metas_mes (
+  mes date primary key,
+  meta_dia_rollon numeric not null default 0,
+  meta_dia_poli numeric not null default 0,
+  meta_dia_pap numeric not null default 0,
+  meta_dia_terceiro numeric not null default 0,
+  atualizado_em timestamptz not null default now()
+);
+
+alter table metas_mes enable row level security;
+
+drop policy if exists mm_select on metas_mes;
+create policy mm_select on metas_mes for select using (true);
+
+drop policy if exists mm_write on metas_mes;
+create policy mm_write on metas_mes for insert with check (is_coordenador());
+
+drop policy if exists mm_update on metas_mes;
+create policy mm_update on metas_mes for update using (is_coordenador()) with check (is_coordenador());
+
+drop policy if exists mm_delete on metas_mes;
+create policy mm_delete on metas_mes for delete using (is_coordenador());
+
+create table if not exists apresentacao_cacambas (
+  mes date primary key,
+  rollon jsonb not null default '{"total":0,"clientes":0,"estoques":0,"manutencao":0,"caminhoes":0,"segmentos":[]}'::jsonb,
+  poli jsonb not null default '{"total":0,"clientes":0,"estoques":0,"manutencao":0,"caminhoes":0,"segmentos":[]}'::jsonb,
+  atualizado_em timestamptz not null default now()
+);
+
+alter table apresentacao_cacambas enable row level security;
+
+drop policy if exists cac_select on apresentacao_cacambas;
+create policy cac_select on apresentacao_cacambas for select using (true);
+
+drop policy if exists cac_write on apresentacao_cacambas;
+create policy cac_write on apresentacao_cacambas for insert with check (is_coordenador());
+
+drop policy if exists cac_update on apresentacao_cacambas;
+create policy cac_update on apresentacao_cacambas for update using (is_coordenador()) with check (is_coordenador());
+
+create table if not exists apresentacao_fila (
+  id uuid primary key default gen_random_uuid(),
+  mes date not null,
+  cliente text not null,
+  cidade text not null default '',
+  volume numeric not null default 0,
+  posicao integer not null default 0,
+  atualizado_em timestamptz not null default now()
+);
+
+create index if not exists apresentacao_fila_mes_idx on apresentacao_fila (mes);
+
+alter table apresentacao_fila enable row level security;
+
+drop policy if exists fila_select on apresentacao_fila;
+create policy fila_select on apresentacao_fila for select using (true);
+
+drop policy if exists fila_write on apresentacao_fila;
+create policy fila_write on apresentacao_fila for insert with check (is_coordenador());
+
+drop policy if exists fila_update on apresentacao_fila;
+create policy fila_update on apresentacao_fila for update using (is_coordenador()) with check (is_coordenador());
+
+drop policy if exists fila_delete on apresentacao_fila;
+create policy fila_delete on apresentacao_fila for delete using (is_coordenador());
+
+alter table apresentacao_fila add column if not exists tipo text not null default 'rollon';
+
+create table if not exists apresentacao_faturamento (
+  id uuid primary key default gen_random_uuid(),
+  mes date not null,
+  cliente text not null,
+  valor numeric not null default 0,
+  posicao integer not null default 0,
+  atualizado_em timestamptz not null default now()
+);
+
+create index if not exists apresentacao_faturamento_mes_idx on apresentacao_faturamento (mes);
+
+alter table apresentacao_faturamento enable row level security;
+
+drop policy if exists fat_select on apresentacao_faturamento;
+create policy fat_select on apresentacao_faturamento for select using (true);
+
+drop policy if exists fat_write on apresentacao_faturamento;
+create policy fat_write on apresentacao_faturamento for insert with check (is_coordenador());
+
+drop policy if exists fat_update on apresentacao_faturamento;
+create policy fat_update on apresentacao_faturamento for update using (is_coordenador()) with check (is_coordenador());
+
+drop policy if exists fat_delete on apresentacao_faturamento;
+create policy fat_delete on apresentacao_faturamento for delete using (is_coordenador());
+
+alter policy cac_write on apresentacao_cacambas with check (is_coordenador() or is_liberado_editar_clientes());
+
+alter policy cac_update on apresentacao_cacambas using (is_coordenador() or is_liberado_editar_clientes()) with check (is_coordenador() or is_liberado_editar_clientes());
+
+alter policy fila_write on apresentacao_fila with check (is_coordenador() or is_liberado_editar_clientes());
+
+alter policy fila_update on apresentacao_fila using (is_coordenador() or is_liberado_editar_clientes()) with check (is_coordenador() or is_liberado_editar_clientes());
+
+alter policy fila_delete on apresentacao_fila using (is_coordenador() or is_liberado_editar_clientes());
+
+alter policy fat_write on apresentacao_faturamento with check (is_coordenador() or is_liberado_editar_clientes());
+
+alter policy fat_update on apresentacao_faturamento using (is_coordenador() or is_liberado_editar_clientes()) with check (is_coordenador() or is_liberado_editar_clientes());
+
+alter policy fat_delete on apresentacao_faturamento using (is_coordenador() or is_liberado_editar_clientes());
+
+insert into public.settings (id) values (1) on conflict (id) do nothing;
+
+notify pgrst, 'reload schema';

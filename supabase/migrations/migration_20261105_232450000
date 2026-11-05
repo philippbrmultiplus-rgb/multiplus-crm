@@ -1,0 +1,289 @@
+create table if not exists public.profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  full_name text,
+  role text not null default 'vendedor' check (role in ('coordenador','vendedor')),
+  created_at timestamptz not null default now()
+);
+
+alter table public.profiles enable row level security;
+
+create or replace function public.handle_new_user()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare v_role text;
+begin
+  select case when not exists (select 1 from public.profiles) then 'coordenador' else 'vendedor' end
+  into v_role;
+  insert into public.profiles (id, full_name, role)
+  values (new.id, coalesce(new.raw_user_meta_data->>'full_name', split_part(coalesce(new.email,''),'@',1)), v_role)
+  on conflict (id) do nothing;
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+
+create trigger on_auth_user_created after insert on auth.users
+  for each row execute function public.handle_new_user();
+
+create or replace function public.is_coordenador()
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.profiles where id = auth.uid() and role = 'coordenador');
+$$;
+
+create or replace function public.current_role()
+returns text language sql stable security definer set search_path = public as $$
+  select role from public.profiles where id = auth.uid();
+$$;
+
+drop policy if exists profiles_select on public.profiles;
+create policy "profiles_select" on public.profiles for select to authenticated using (true);
+
+drop policy if exists profiles_update_own on public.profiles;
+create policy "profiles_update_own" on public.profiles for update to authenticated using (auth.uid() = id) with check (auth.uid() = id);
+
+alter table public.clients enable row level security;
+
+drop policy if exists clients_select on public.clients;
+create policy "clients_select" on public.clients for select to authenticated using (true);
+
+drop policy if exists clients_insert_coord on public.clients;
+create policy "clients_insert_coord" on public.clients for insert to authenticated with check (public.is_coordenador());
+
+drop policy if exists clients_update_coord on public.clients;
+create policy "clients_update_coord" on public.clients for update to authenticated using (public.is_coordenador()) with check (public.is_coordenador());
+
+drop policy if exists clients_delete_coord on public.clients;
+create policy "clients_delete_coord" on public.clients for delete to authenticated using (public.is_coordenador());
+
+alter table public.settings enable row level security;
+
+drop policy if exists settings_select on public.settings;
+create policy "settings_select" on public.settings for select to authenticated using (true);
+
+drop policy if exists settings_write on public.settings;
+create policy "settings_write" on public.settings for insert to authenticated with check (public.is_coordenador());
+
+drop policy if exists settings_update on public.settings;
+create policy "settings_update" on public.settings for update to authenticated using (public.is_coordenador()) with check (public.is_coordenador());
+
+alter table public.weekly_routes enable row level security;
+
+drop policy if exists routes_select on public.weekly_routes;
+create policy "routes_select" on public.weekly_routes for select to authenticated using (true);
+
+drop policy if exists routes_write on public.weekly_routes;
+create policy "routes_write" on public.weekly_routes for insert to authenticated with check (public.is_coordenador());
+
+drop policy if exists routes_update on public.weekly_routes;
+create policy "routes_update" on public.weekly_routes for update to authenticated using (public.is_coordenador()) with check (public.is_coordenador());
+
+drop policy if exists routes_delete on public.weekly_routes;
+create policy "routes_delete" on public.weekly_routes for delete to authenticated using (public.is_coordenador());
+
+alter table public.route_visits enable row level security;
+
+drop policy if exists rv_select on public.route_visits;
+create policy "rv_select" on public.route_visits for select to authenticated using (true);
+
+drop policy if exists rv_write on public.route_visits;
+create policy "rv_write" on public.route_visits for insert to authenticated with check (public.is_coordenador());
+
+drop policy if exists rv_update on public.route_visits;
+create policy "rv_update" on public.route_visits for update to authenticated using (public.is_coordenador()) with check (public.is_coordenador());
+
+drop policy if exists rv_delete on public.route_visits;
+create policy "rv_delete" on public.route_visits for delete to authenticated using (public.is_coordenador());
+
+alter table public.visits enable row level security;
+
+drop policy if exists visits_select on public.visits;
+create policy "visits_select" on public.visits for select to authenticated using (true);
+
+drop policy if exists visits_insert on public.visits;
+create policy "visits_insert" on public.visits for insert to authenticated with check (true);
+
+drop policy if exists visits_update on public.visits;
+create policy "visits_update" on public.visits for update to authenticated using (auth.uid() = created_by or public.is_coordenador()) with check (true);
+
+drop policy if exists visits_delete on public.visits;
+create policy "visits_delete" on public.visits for delete to authenticated using (auth.uid() = created_by or public.is_coordenador());
+
+do $$
+begin
+  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'visits') then
+    alter publication supabase_realtime add table public.visits;
+  end if;
+end $$;
+
+drop policy if exists visitas_public_read on storage.objects;
+create policy "visitas_public_read" on storage.objects for select using (bucket_id = 'visitas');
+
+drop policy if exists visitas_auth_upload on storage.objects;
+create policy "visitas_auth_upload" on storage.objects for insert to authenticated with check (bucket_id = 'visitas');
+
+alter table public.clients add column if not exists last_collect_at date;
+
+alter table public.settings add column if not exists cadence_version int not null default 0;
+
+ALTER TABLE public.clients ADD COLUMN IF NOT EXISTS last_visit_at date;
+
+CREATE OR REPLACE FUNCTION public.set_client_last_visit_at()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF NEW.status = 'realizada' AND NEW.client_id IS NOT NULL THEN
+    UPDATE public.clients
+       SET last_visit_at = (NEW.visited_at AT TIME ZONE 'America/Sao_Paulo')::date,
+           updated_at = now()
+     WHERE id = NEW.client_id
+       AND (last_visit_at IS NULL
+            OR last_visit_at < (NEW.visited_at AT TIME ZONE 'America/Sao_Paulo')::date);
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_set_client_last_visit_at ON public.visits;
+
+CREATE TRIGGER trg_set_client_last_visit_at
+  AFTER INSERT ON public.visits
+  FOR EACH ROW
+  EXECUTE FUNCTION public.set_client_last_visit_at();
+
+ALTER TABLE public.clients ADD COLUMN IF NOT EXISTS is_prospecao boolean NOT NULL DEFAULT false;
+
+do $$
+begin
+  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'clients') then
+    alter publication supabase_realtime add table "clients";
+  end if;
+end $$;
+
+do $$
+begin
+  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'weekly_routes') then
+    alter publication supabase_realtime add table "weekly_routes";
+  end if;
+end $$;
+
+do $$
+begin
+  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'route_visits') then
+    alter publication supabase_realtime add table "route_visits";
+  end if;
+end $$;
+
+drop policy if exists visits_delete_coord on public.visits;
+CREATE POLICY "visits_delete_coord" ON public.visits
+  FOR DELETE USING (is_coordenador());
+
+drop policy if exists rv_update_any on public.route_visits;
+CREATE POLICY "rv_update_any" ON public.route_visits
+  FOR UPDATE USING (auth.uid() IS NOT NULL) WITH CHECK (auth.uid() IS NOT NULL);
+
+alter table public.clients add column if not exists contato text;
+
+drop policy if exists clients_insert_prospect on public.clients;
+CREATE POLICY "clients_insert_prospect" ON public.clients
+  FOR INSERT WITH CHECK (is_prospecao = true);
+
+drop policy if exists rv_write_prospect on public.route_visits;
+CREATE POLICY "rv_write_prospect" ON public.route_visits
+  FOR INSERT WITH CHECK (exists (select 1 from public.clients c where c.id = client_id and c.is_prospecao = true));
+
+CREATE UNIQUE INDEX IF NOT EXISTS visits_one_notdone ON public.visits (route_visit_id) WHERE status = 'nao_realizada' AND route_visit_id IS NOT NULL;
+
+CREATE OR REPLACE FUNCTION public.sync_route_visit_not_done()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF NEW.status = 'nao_realizada' AND (OLD.status IS DISTINCT FROM 'nao_realizada') THEN
+    BEGIN
+      INSERT INTO public.visits (id, client_id, route_visit_id, visited_at, status, result_comments, next_actions, within_radius)
+      VALUES (
+        concat('v-', floor(extract(epoch from clock_timestamp()) * 1000)::bigint::text, '-', substr(md5(random()::text), 1, 6)),
+        NEW.client_id,
+        NEW.id,
+        now(),
+        'nao_realizada',
+        '',
+        '',
+        true
+      );
+    EXCEPTION WHEN unique_violation THEN
+      NULL;
+    END;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_sync_route_visit_not_done ON public.route_visits;
+
+CREATE TRIGGER trg_sync_route_visit_not_done
+  AFTER UPDATE OF status ON public.route_visits
+  FOR EACH ROW
+  EXECUTE FUNCTION public.sync_route_visit_not_done();
+
+alter table public.clientes_excluidos enable row level security;
+
+drop policy if exists ce_insert_coord on public.clientes_excluidos;
+CREATE POLICY "ce_insert_coord" ON public.clientes_excluidos
+  FOR INSERT WITH CHECK (is_coordenador());
+
+drop policy if exists ce_select on public.clientes_excluidos;
+CREATE POLICY "ce_select" ON public.clientes_excluidos
+  FOR SELECT USING (true);
+
+drop policy if exists ce_delete_coord on public.clientes_excluidos;
+CREATE POLICY "ce_delete_coord" ON public.clientes_excluidos
+  FOR DELETE USING (is_coordenador());
+
+ALTER TABLE public.clients ADD COLUMN IF NOT EXISTS responsavel text;
+
+ALTER TABLE public.clients ADD COLUMN IF NOT EXISTS prospeccao_status text;
+
+drop policy if exists rv_write_vendor on public.route_visits;
+CREATE POLICY "rv_write_vendor" ON public.route_visits
+  FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+
+ALTER TABLE public.visits DROP CONSTRAINT IF EXISTS visits_route_visit_id_fkey;
+
+ALTER TABLE public.visits
+  ADD CONSTRAINT visits_route_visit_id_fkey
+  FOREIGN KEY (route_visit_id) REFERENCES public.route_visits(id) ON DELETE SET NULL;
+
+ALTER TABLE public.visits ADD COLUMN IF NOT EXISTS photos jsonb;
+
+alter table public.coletas enable row level security;
+
+drop policy if exists coletas_select on public.coletas;
+CREATE POLICY "coletas_select" ON public.coletas FOR SELECT USING (true);
+
+drop policy if exists coletas_insert on public.coletas;
+CREATE POLICY "coletas_insert" ON public.coletas FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+
+drop policy if exists coletas_delete on public.coletas;
+CREATE POLICY "coletas_delete" ON public.coletas FOR DELETE USING (is_coordenador());
+
+ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_role_check;
+
+ALTER TABLE public.profiles
+  ADD CONSTRAINT profiles_role_check
+  CHECK (role = ANY (ARRAY['coordenador'::text, 'vendedor'::text, 'gerente'::text]));
+
+drop policy if exists profiles_update_coord on public.profiles;
+CREATE POLICY "profiles_update_coord" ON public.profiles
+  FOR UPDATE USING (is_coordenador()) WITH CHECK (is_coordenador());
+
+ALTER TABLE public.visits ADD COLUMN IF NOT EXISTS alerta boolean NOT NULL DEFAULT false;
+
+ALTER TABLE public.visits ADD COLUMN IF NOT EXISTS alerta_motivo text;
+
+ALTER TABLE public.clients ADD COLUMN IF NOT EXISTS geo_aproximado boolean NOT NULL DEFAULT false;

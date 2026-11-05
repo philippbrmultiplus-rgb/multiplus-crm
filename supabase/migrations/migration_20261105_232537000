@@ -1,0 +1,11 @@
+alter policy clients_update_prospect on public.clients
+  using (is_prospecao = true and not public.is_leitor_apenas())
+  with check (
+    (is_prospecao = true and not public.is_leitor_apenas())
+    or (
+      is_prospecao = false
+      and active = true
+      and prospeccao_status = any (array['fechado'::text, 'proposta_recusada'::text])
+      and not public.is_leitor_apenas()
+    )
+  );
