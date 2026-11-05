@@ -38,11 +38,9 @@ export async function gerarPptx(slides: Slide[], nomeArquivo: string): Promise<v
     return s;
   };
 
-  const logotipo = (s: ReturnType<typeof novoSlide>, claro = false) => {
-    const cor = claro ? "6FA8F5" : "1B6FD0";
-    s.addShape(pptx.ShapeType.roundRect, { x: 0.75, y: 7.1, w: 0.24, h: 0.24, fill: { color: cor }, line: { color: cor }, rectRadius: 0.05 });
-    s.addText("M", { x: 0.75, y: 7.1, w: 0.24, h: 0.24, align: "center", valign: "middle", fontSize: 10, bold: true, color: "FFFFFF" });
-    s.addText("ultiplus", { x: 1.01, y: 7.1, w: 1.6, h: 0.24, valign: "middle", fontSize: 9.5, bold: true, color: cor });
+  const logoAzul = await imagemBase64("/apresentacao/logo-azul.png");
+  const logotipo = (s: ReturnType<typeof novoSlide>) => {
+    s.addImage({ data: logoAzul, x: 0.75, y: 6.98, w: 1.05, h: 0.41 });
   };
 
   const cabecalho = (s: ReturnType<typeof novoSlide>, titulo: string, subtitulo?: string, selo?: string) => {
@@ -190,7 +188,7 @@ export async function gerarPptx(slides: Slide[], nomeArquivo: string): Promise<v
         ],
         { x: 0.85, y: 5.5, w: 11.8, h: 0.6, valign: "middle" },
       );
-      logotipo(s, true);
+      logotipo(s);
       continue;
     }
 
@@ -440,12 +438,12 @@ export async function gerarPptx(slides: Slide[], nomeArquivo: string): Promise<v
           { name: "2025 (m³)", labels: slide.meses.map((m) => m.nome), values: slide.meses.map((m) => Math.round(m.v2025)) },
         ],
         {
-          x: 0.55, y: 1.25, w: 8.3, h: 5.35,
+          x: 0.55, y: 1.25, w: 8.1, h: 5.35,
           barDir: "col", barGrouping: "clustered", barGapWidthPct: 40,
           chartColors: [hex(CORES.azul), hex(CORES.dourado)],
           showLegend: true, legendPos: "t", legendFontSize: 10,
-          showValue: true, dataLabelFontSize: 7, dataLabelFormatCode: "#,##0",
-          catAxisLabelFontSize: 9, valAxisLabelFontSize: 9,
+          showValue: true, dataLabelFontSize: 9.5, dataLabelFormatCode: "0",
+          catAxisLabelFontSize: 11, valAxisLabelFontSize: 10.5,
           valAxisMaxVal: Math.ceil((Math.max(1, ...slide.meses.flatMap((m) => [m.v2025, m.v2026])) * 1.2) / 500) * 500,
           valAxisMinVal: 0,
           valGridLine: { color: "E7ECF4", size: 1 },
@@ -456,38 +454,38 @@ export async function gerarPptx(slides: Slide[], nomeArquivo: string): Promise<v
       const celula = (texto: string, opcoes: Record<string, unknown> = {}) => ({ text: texto, options: opcoes });
       const linhas: { text: string; options?: Record<string, unknown> }[][] = [
         ["MÊS", "DIAS 25/26", "Δ%"].map((t, i) =>
-          celula(t, { bold: true, color: "FFFFFF", fill: { color: hex(CORES.navy3) }, fontSize: 8, align: i === 0 ? "left" : "right" }),
+          celula(t, { bold: true, color: "FFFFFF", fill: { color: hex(CORES.navy3) }, fontSize: 9.5, align: i === 0 ? "left" : "right" }),
         ),
         ...slide.meses.map((m) => {
           const cor = m.crescimento == null ? hex(CORES.cinza) : m.crescimento >= 0 ? hex(CORES.verde) : hex(CORES.vermelho);
           return [
-            celula(m.nome, { bold: true, color: hex(CORES.navy), fontSize: 8, fill: { color: "FFFFFF" } }),
-            celula(`${m.dias2025} / ${m.dias2026}`, { color: hex(CORES.cinza), fontSize: 8, align: "right", fill: { color: "FFFFFF" } }),
+            celula(m.nome, { bold: true, color: hex(CORES.navy), fontSize: 10, fill: { color: "FFFFFF" } }),
+            celula(`${m.dias2025} / ${m.dias2026}`, { color: hex(CORES.cinza), fontSize: 10, align: "right", fill: { color: "FFFFFF" } }),
             celula(m.crescimento == null ? "—" : `${m.crescimento > 0 ? "+" : ""}${num(m.crescimento)}%`, {
-              bold: true, color: cor, fontSize: 8, align: "right", fill: { color: "FFFFFF" },
+              bold: true, color: cor, fontSize: 10, align: "right", fill: { color: "FFFFFF" },
             }),
           ];
         }),
         [
-          celula("Total", { bold: true, color: hex(CORES.navy), fontSize: 8, fill: { color: "F1F5FB" } }),
+          celula("Total", { bold: true, color: hex(CORES.navy), fontSize: 10, fill: { color: "F1F5FB" } }),
           celula(`${num(Math.round(slide.total2025))} / ${num(Math.round(slide.total2026))}`, {
-            color: hex(CORES.cinza), fontSize: 8, align: "right", fill: { color: "F1F5FB" },
+            color: hex(CORES.cinza), fontSize: 10, align: "right", fill: { color: "F1F5FB" },
           }),
           celula(
             slide.crescimentoTotal == null ? "—" : `${slide.crescimentoTotal > 0 ? "+" : ""}${num(slide.crescimentoTotal)}%`,
             {
               bold: true,
               color: (slide.crescimentoTotal ?? 0) >= 0 ? hex(CORES.verde) : hex(CORES.vermelho),
-              fontSize: 8, align: "right", fill: { color: "F1F5FB" },
+              fontSize: 10, align: "right", fill: { color: "F1F5FB" },
             },
           ),
         ],
       ];
       s.addTable(linhas as never, {
-        x: 9.05, y: 1.35, w: 3.5,
-        colW: [1.0, 1.35, 1.15],
+        x: 9.05, y: 1.3, w: 3.6,
+        colW: [1.0, 1.4, 1.2],
         border: { type: "solid", color: "E2E8F0", pt: 0.5 },
-        rowH: 0.32,
+        rowH: 0.36,
         valign: "middle",
         margin: 0.03,
       });

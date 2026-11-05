@@ -173,16 +173,6 @@ export function montarSlides(dados: ApresentacaoMensal): Slide[] {
   }
 
   slides.push({
-    tipo: "comparativo",
-    subtitulo: `Realizado x meta de cada mês (metas diárias × dias úteis)`,
-    selo: `${formatM3(Math.round(dados.comparativo.reduce((acc, c) => acc + c.valor, 0)))} m³`,
-    meses: dados.comparativo,
-    nota: `Dias úteis (seg a sex, sem feriados nacionais): ${dados.comparativo
-      .map((c) => `${c.nome.toLowerCase()} ${c.parcial ? `${c.diasUteis} de ${c.diasUteisMes}` : c.diasUteis}`)
-      .join(" · ")}.`,
-  });
-
-  slides.push({
     tipo: "comparativoAnual",
     subtitulo: "Volume mensal (m³) · 2025 na coluna amarela e 2026 na azul · dias úteis de cada mês e crescimento",
     meses: dados.comparativoAnual.meses,

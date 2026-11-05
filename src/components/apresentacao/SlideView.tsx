@@ -204,15 +204,13 @@ function Rodape({ texto, topo = 6.3 }: { texto: string; topo?: number }) {
   );
 }
 
-function Logotipo({ claro = false }: { claro?: boolean }) {
-  const cor = claro ? "#6FA8F5" : CORES.azul;
+function Logotipo() {
   return (
-    <Caixa style={{ left: polegada(0.75), top: polegada(7.1), display: "flex", alignItems: "center", gap: polegada(0.05) }}>
-      <div style={{ width: polegada(0.24), height: polegada(0.24), background: cor, borderRadius: polegada(0.05), display: "grid", placeItems: "center", color: CORES.branco, fontWeight: 700, fontSize: ptPx(11) }}>
-        M
-      </div>
-      <span style={{ color: cor, fontWeight: 700, fontSize: ptPx(9.5) }}>ultiplus</span>
-    </Caixa>
+    <img
+      src="/apresentacao/logo-azul.png"
+      alt="Multiplus"
+      style={{ position: "absolute", left: polegada(0.75), top: polegada(6.98), width: polegada(1.05) }}
+    />
   );
 }
 
@@ -385,7 +383,7 @@ export function SlideView({ slide }: { slide: Slide }) {
           <span style={{ fontSize: ptPx(15), fontWeight: 700, color: corTotal }}>{num(pctTotal)}%</span>
           <span style={{ fontSize: ptPx(11), color: "#9CC0F0" }}>· {slide.diasUteis} dias úteis</span>
         </Caixa>
-        <Logotipo claro />
+        <Logotipo />
       </div>
     );
   }
@@ -576,7 +574,7 @@ export function SlideView({ slide }: { slide: Slide }) {
       1,
       ...slide.meses.flatMap((m) => [m.v2025, m.v2026]),
     );
-    const larguraGrafico = polegada(8.3);
+    const larguraGrafico = polegada(8.1);
     return (
       <div style={{ width: "100%", height: "100%", background: CORES.fundo, position: "relative" }}>
         <Titulo texto="Comparativo de volume mensal 2025 x 2026" subtitulo={slide.subtitulo} />
@@ -594,22 +592,29 @@ export function SlideView({ slide }: { slide: Slide }) {
           ))}
         </Caixa>
 
-        <Caixa style={{ left: polegada(0.7), top: polegada(1.6), width: larguraGrafico }}>
+        <Caixa style={{ left: polegada(0.7), top: polegada(1.6), width: larguraGrafico, overflow: "hidden" }}>
           <div style={{ display: "flex", alignItems: "flex-end", gap: polegada(0.06), height: polegada(4.5), borderBottom: `1px solid ${CORES.linha}` }}>
             {slide.meses.map((m) => (
-              <div key={m.mes} style={{ flex: 1, display: "flex", alignItems: "flex-end", gap: polegada(0.04), height: "100%" }}>
+              <div key={m.mes} style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "flex-end", gap: polegada(0.04), height: "100%" }}>
                 {[
                   { valor: m.v2025, cor: CORES.dourado },
                   { valor: m.v2026, cor: CORES.azul },
                 ].map((barra, i) => (
-                  <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "flex-end", alignItems: "center", height: "100%" }}>
-                    <span style={{ fontSize: ptPx(6.5), fontWeight: 700, color: CORES.tinta, marginBottom: 1 }}>
-                      {barra.valor > 0 ? formatM3(Math.round(barra.valor)) : ""}
+                  <div key={i} style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "flex-end", alignItems: "center", height: "100%" }}>
+                    <span
+                      style={{
+                        fontSize: ptPx(8.5),
+                        fontWeight: 700,
+                        color: CORES.tinta,
+                        marginBottom: i === 1 ? polegada(0.14) : 1,
+                      }}
+                    >
+                      {barra.valor > 0 ? String(Math.round(barra.valor)) : ""}
                     </span>
                     <div
                       style={{
                         width: "100%",
-                        height: `${Math.max(1, (barra.valor / topo) * 84)}%`,
+                        height: barra.valor > 0 ? `${Math.max(1, (barra.valor / topo) * 84)}%` : 0,
                         background: barra.cor,
                         borderRadius: "2px 2px 0 0",
                       }}
@@ -621,7 +626,7 @@ export function SlideView({ slide }: { slide: Slide }) {
           </div>
           <div style={{ display: "flex", gap: polegada(0.06), marginTop: polegada(0.08) }}>
             {slide.meses.map((m) => (
-              <div key={m.mes} style={{ flex: 1, textAlign: "center", fontSize: ptPx(9), fontWeight: 700, color: CORES.navy }}>
+              <div key={m.mes} style={{ flex: 1, minWidth: 0, textAlign: "center", fontSize: ptPx(11), fontWeight: 700, color: CORES.navy }}>
                 {m.nome}
               </div>
             ))}
@@ -629,8 +634,8 @@ export function SlideView({ slide }: { slide: Slide }) {
         </Caixa>
 
         {/* dias úteis e crescimento */}
-        <Caixa style={{ left: polegada(9.15), top: polegada(1.35), width: polegada(3.45) }}>
-          <table style={{ width: "100%", tableLayout: "fixed", fontSize: ptPx(8) }}>
+        <Caixa style={{ left: polegada(9.05), top: polegada(1.3), width: polegada(3.6) }}>
+          <table style={{ width: "100%", tableLayout: "fixed", fontSize: ptPx(10.5) }}>
             <thead>
               <tr style={{ color: CORES.cinza, textTransform: "uppercase", letterSpacing: 0.4 }}>
                 <th style={{ width: "30%", textAlign: "left", paddingBottom: polegada(0.04) }}>Mês</th>
@@ -643,7 +648,7 @@ export function SlideView({ slide }: { slide: Slide }) {
             <tbody>
               {slide.meses.map((m) => (
                 <tr key={m.mes} style={{ borderTop: `1px solid ${CORES.linha}` }}>
-                  <td style={{ padding: `${polegada(0.035)} 0`, fontWeight: 700, color: CORES.navy }}>{m.nome}</td>
+                  <td style={{ padding: `${polegada(0.05)} 0`, fontWeight: 700, color: CORES.navy }}>{m.nome}</td>
                   <td style={{ textAlign: "right", color: CORES.cinza, whiteSpace: "nowrap" }}>
                     {m.dias2025} / {m.dias2026}
                   </td>
