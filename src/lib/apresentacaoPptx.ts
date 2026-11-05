@@ -429,6 +429,72 @@ export async function gerarPptx(slides: Slide[], nomeArquivo: string): Promise<v
       continue;
     }
 
+    if (slide.tipo === "comparativoAnual") {
+      const s = novoSlide();
+      cabecalho(s, "Comparativo de volume mensal 2025 x 2026", slide.subtitulo);
+
+      s.addChart(
+        pptx.ChartType.bar,
+        [
+          { name: "2026 (m³)", labels: slide.meses.map((m) => m.nome), values: slide.meses.map((m) => Math.round(m.v2026)) },
+          { name: "2025 (m³)", labels: slide.meses.map((m) => m.nome), values: slide.meses.map((m) => Math.round(m.v2025)) },
+        ],
+        {
+          x: 0.55, y: 1.25, w: 8.3, h: 5.35,
+          barDir: "col", barGrouping: "clustered", barGapWidthPct: 40,
+          chartColors: [hex(CORES.azul), hex(CORES.dourado)],
+          showLegend: true, legendPos: "t", legendFontSize: 10,
+          showValue: true, dataLabelFontSize: 7, dataLabelFormatCode: "#,##0",
+          catAxisLabelFontSize: 9, valAxisLabelFontSize: 9,
+          valAxisMaxVal: Math.ceil((Math.max(1, ...slide.meses.flatMap((m) => [m.v2025, m.v2026])) * 1.2) / 500) * 500,
+          valAxisMinVal: 0,
+          valGridLine: { color: "E7ECF4", size: 1 },
+          catAxisLineShow: false, valAxisLineShow: false,
+        },
+      );
+
+      const celula = (texto: string, opcoes: Record<string, unknown> = {}) => ({ text: texto, options: opcoes });
+      const linhas: { text: string; options?: Record<string, unknown> }[][] = [
+        ["MÊS", "DIAS 25/26", "Δ%"].map((t, i) =>
+          celula(t, { bold: true, color: "FFFFFF", fill: { color: hex(CORES.navy3) }, fontSize: 8, align: i === 0 ? "left" : "right" }),
+        ),
+        ...slide.meses.map((m) => {
+          const cor = m.crescimento == null ? hex(CORES.cinza) : m.crescimento >= 0 ? hex(CORES.verde) : hex(CORES.vermelho);
+          return [
+            celula(m.nome, { bold: true, color: hex(CORES.navy), fontSize: 8, fill: { color: "FFFFFF" } }),
+            celula(`${m.dias2025} / ${m.dias2026}`, { color: hex(CORES.cinza), fontSize: 8, align: "right", fill: { color: "FFFFFF" } }),
+            celula(m.crescimento == null ? "—" : `${m.crescimento > 0 ? "+" : ""}${num(m.crescimento)}%`, {
+              bold: true, color: cor, fontSize: 8, align: "right", fill: { color: "FFFFFF" },
+            }),
+          ];
+        }),
+        [
+          celula("Total", { bold: true, color: hex(CORES.navy), fontSize: 8, fill: { color: "F1F5FB" } }),
+          celula(`${num(Math.round(slide.total2025))} / ${num(Math.round(slide.total2026))}`, {
+            color: hex(CORES.cinza), fontSize: 8, align: "right", fill: { color: "F1F5FB" },
+          }),
+          celula(
+            slide.crescimentoTotal == null ? "—" : `${slide.crescimentoTotal > 0 ? "+" : ""}${num(slide.crescimentoTotal)}%`,
+            {
+              bold: true,
+              color: (slide.crescimentoTotal ?? 0) >= 0 ? hex(CORES.verde) : hex(CORES.vermelho),
+              fontSize: 8, align: "right", fill: { color: "F1F5FB" },
+            },
+          ),
+        ],
+      ];
+      s.addTable(linhas as never, {
+        x: 9.05, y: 1.35, w: 3.5,
+        colW: [1.0, 1.35, 1.15],
+        border: { type: "solid", color: "E2E8F0", pt: 0.5 },
+        rowH: 0.32,
+        valign: "middle",
+        margin: 0.03,
+      });
+      logotipo(s);
+      continue;
+    }
+
     if (slide.tipo === "forecast") {
       const s = novoSlide();
       cabecalho(s, "Forecast — 2026", "Realizado no período, média mensal e projeção do ano");

@@ -571,6 +571,124 @@ export function SlideView({ slide }: { slide: Slide }) {
     );
   }
 
+  if (slide.tipo === "comparativoAnual") {
+    const topo = Math.max(
+      1,
+      ...slide.meses.flatMap((m) => [m.v2025, m.v2026]),
+    );
+    const larguraGrafico = polegada(8.3);
+    return (
+      <div style={{ width: "100%", height: "100%", background: CORES.fundo, position: "relative" }}>
+        <Titulo texto="Comparativo de volume mensal 2025 x 2026" subtitulo={slide.subtitulo} />
+
+        {/* legenda */}
+        <Caixa style={{ left: polegada(0.7), top: polegada(1.22), display: "flex", gap: polegada(0.3) }}>
+          {[
+            { nome: "2026 (m³)", cor: CORES.azul },
+            { nome: "2025 (m³)", cor: CORES.dourado },
+          ].map((item) => (
+            <span key={item.nome} style={{ display: "flex", alignItems: "center", gap: polegada(0.06), fontSize: ptPx(9), fontWeight: 700, color: CORES.tinta }}>
+              <span style={{ width: polegada(0.12), height: polegada(0.12), borderRadius: "50%", background: item.cor, display: "inline-block" }} />
+              {item.nome}
+            </span>
+          ))}
+        </Caixa>
+
+        <Caixa style={{ left: polegada(0.7), top: polegada(1.6), width: larguraGrafico }}>
+          <div style={{ display: "flex", alignItems: "flex-end", gap: polegada(0.06), height: polegada(4.5), borderBottom: `1px solid ${CORES.linha}` }}>
+            {slide.meses.map((m) => (
+              <div key={m.mes} style={{ flex: 1, display: "flex", alignItems: "flex-end", gap: polegada(0.04), height: "100%" }}>
+                {[
+                  { valor: m.v2025, cor: CORES.dourado },
+                  { valor: m.v2026, cor: CORES.azul },
+                ].map((barra, i) => (
+                  <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "flex-end", alignItems: "center", height: "100%" }}>
+                    <span style={{ fontSize: ptPx(6.5), fontWeight: 700, color: CORES.tinta, marginBottom: 1 }}>
+                      {barra.valor > 0 ? formatM3(Math.round(barra.valor)) : ""}
+                    </span>
+                    <div
+                      style={{
+                        width: "100%",
+                        height: `${Math.max(1, (barra.valor / topo) * 84)}%`,
+                        background: barra.cor,
+                        borderRadius: "2px 2px 0 0",
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+          <div style={{ display: "flex", gap: polegada(0.06), marginTop: polegada(0.08) }}>
+            {slide.meses.map((m) => (
+              <div key={m.mes} style={{ flex: 1, textAlign: "center", fontSize: ptPx(9), fontWeight: 700, color: CORES.navy }}>
+                {m.nome}
+              </div>
+            ))}
+          </div>
+        </Caixa>
+
+        {/* dias úteis e crescimento */}
+        <Caixa style={{ left: polegada(9.15), top: polegada(1.35), width: polegada(3.45) }}>
+          <table style={{ width: "100%", tableLayout: "fixed", fontSize: ptPx(8) }}>
+            <thead>
+              <tr style={{ color: CORES.cinza, textTransform: "uppercase", letterSpacing: 0.4 }}>
+                <th style={{ width: "30%", textAlign: "left", paddingBottom: polegada(0.04) }}>Mês</th>
+                <th style={{ width: "36%", textAlign: "right", paddingBottom: polegada(0.04), fontWeight: 600 }}>
+                  Dias 25/26
+                </th>
+                <th style={{ width: "34%", textAlign: "right", paddingBottom: polegada(0.04) }}>Δ%</th>
+              </tr>
+            </thead>
+            <tbody>
+              {slide.meses.map((m) => (
+                <tr key={m.mes} style={{ borderTop: `1px solid ${CORES.linha}` }}>
+                  <td style={{ padding: `${polegada(0.035)} 0`, fontWeight: 700, color: CORES.navy }}>{m.nome}</td>
+                  <td style={{ textAlign: "right", color: CORES.cinza, whiteSpace: "nowrap" }}>
+                    {m.dias2025} / {m.dias2026}
+                  </td>
+                  <td
+                    style={{
+                      textAlign: "right",
+                      fontWeight: 700,
+                      color:
+                        m.crescimento == null
+                          ? CORES.cinza
+                          : m.crescimento >= 0
+                            ? CORES.verde
+                            : CORES.vermelho,
+                    }}
+                  >
+                    {m.crescimento == null ? "—" : `${m.crescimento > 0 ? "+" : ""}${num(m.crescimento)}%`}
+                  </td>
+                </tr>
+              ))}
+              <tr style={{ borderTop: `1px solid ${CORES.navy}` }}>
+                <td style={{ paddingTop: polegada(0.05), fontWeight: 700, color: CORES.navy }}>Total</td>
+                <td style={{ paddingTop: polegada(0.05), textAlign: "right", color: CORES.cinza }}>
+                  {formatM3(Math.round(slide.total2025))} / {formatM3(Math.round(slide.total2026))}
+                </td>
+                <td
+                  style={{
+                    paddingTop: polegada(0.05),
+                    textAlign: "right",
+                    fontWeight: 700,
+                    color: (slide.crescimentoTotal ?? 0) >= 0 ? CORES.verde : CORES.vermelho,
+                  }}
+                >
+                  {slide.crescimentoTotal == null
+                    ? "—"
+                    : `${slide.crescimentoTotal > 0 ? "+" : ""}${num(slide.crescimentoTotal)}%`}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </Caixa>
+        <Logotipo />
+      </div>
+    );
+  }
+
   if (slide.tipo === "forecast") {
     const total = slide.participacao.reduce((acc, p) => acc + p.valor, 0) || 1;
     return (

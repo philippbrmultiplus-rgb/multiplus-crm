@@ -50,6 +50,14 @@ export type Slide =
       nota: string;
     }
   | {
+      tipo: "comparativoAnual";
+      subtitulo: string;
+      meses: ApresentacaoMensal["comparativoAnual"]["meses"];
+      total2025: number;
+      total2026: number;
+      crescimentoTotal: number | null;
+    }
+  | {
       tipo: "forecast";
       cards: { rotulo: string; valor: string; detalhe: string }[];
       barra: { rotulo: string; valor: string }[];
@@ -172,6 +180,15 @@ export function montarSlides(dados: ApresentacaoMensal): Slide[] {
     nota: `Dias úteis (seg a sex, sem feriados nacionais): ${dados.comparativo
       .map((c) => `${c.nome.toLowerCase()} ${c.parcial ? `${c.diasUteis} de ${c.diasUteisMes}` : c.diasUteis}`)
       .join(" · ")}.`,
+  });
+
+  slides.push({
+    tipo: "comparativoAnual",
+    subtitulo: "Volume mensal (m³) · 2025 na coluna amarela e 2026 na azul · dias úteis de cada mês e crescimento",
+    meses: dados.comparativoAnual.meses,
+    total2025: dados.comparativoAnual.total2025,
+    total2026: dados.comparativoAnual.total2026,
+    crescimentoTotal: dados.comparativoAnual.crescimentoTotal,
   });
 
   slides.push({

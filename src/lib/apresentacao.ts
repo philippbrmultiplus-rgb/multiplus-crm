@@ -58,6 +58,20 @@ export interface TopCliente {
   participacao: number;
 }
 
+/** volume de 2025 por mês (coluna amarela do modelo antigo) */
+export const VOLUME_2025 = [2615, 3567, 4025, 3999, 4448, 3980, 4417, 4331, 4659, 5718, 4121, 3925];
+
+export interface MesComparativoAno {
+  nome: string;
+  mes: string;
+  v2025: number;
+  v2026: number;
+  dias2025: number;
+  dias2026: number;
+  /** crescimento de 2025 para 2026 no mesmo mês (%) */
+  crescimento: number | null;
+}
+
 export interface MesComparativo {
   mes: string;
   nome: string;
@@ -98,6 +112,13 @@ export interface ApresentacaoMensal {
   comparativo: MesComparativo[];
   /** meta mensal de cada segmento (meta do dia × dias úteis) */
   metasSegmentos: { nome: string; dia: number; meta: number }[];
+  /** comparativo de 2025 (modelo antigo) com 2026 (dados do app) */
+  comparativoAnual: {
+    meses: MesComparativoAno[];
+    total2025: number;
+    total2026: number;
+    crescimentoTotal: number | null;
+  };
   forecast: {
     realizado: number;
     mediaMensal: number;
@@ -311,6 +332,31 @@ export function construirApresentacao(state: AppState, mes: string): Apresentaca
 
   // forecast: soma todos os meses do ano até o mês da apresentação
   const mesesDoAno = todos.filter((m) => m >= `${ano}-01-01` && m <= alvo);
+  const comparativoAnual = {
+    meses: VOLUME_2025.map((v2025, i) => {
+      const mes = `${ano}-${String(i + 1).padStart(2, "0")}-01`;
+      const v2026 = totalDoMes(mes);
+      return {
+        nome: NOMES_MES[i].slice(0, 3),
+        mes,
+        v2025,
+        v2026,
+        dias2025: diasUteisNoMes(`2025-${String(i + 1).padStart(2, "0")}-01`, null, state.settings.workingDays),
+        dias2026: diasUteisNoMes(mes, null, state.settings.workingDays),
+        // sem movimento em um dos anos não há crescimento a comparar
+        crescimento: v2025 > 0 && v2026 > 0 ? ((v2026 - v2025) / v2025) * 100 : null,
+      };
+    }),
+    total2025: VOLUME_2025.reduce((acc, v) => acc + v, 0),
+    total2026: 0,
+    crescimentoTotal: null as number | null,
+  };
+  comparativoAnual.total2026 = comparativoAnual.meses.reduce((acc, m) => acc + m.v2026, 0);
+  comparativoAnual.crescimentoTotal =
+    comparativoAnual.total2025 > 0
+      ? ((comparativoAnual.total2026 - comparativoAnual.total2025) / comparativoAnual.total2025) * 100
+      : null;
+
   const realizado = mesesDoAno.reduce((acc, m) => acc + totalDoMes(m), 0);
   const mediaMensal = mesesDoAno.length ? realizado / mesesDoAno.length : 0;
   const projecao = mediaMensal * 12;
@@ -374,6 +420,7 @@ export function construirApresentacao(state: AppState, mes: string): Apresentaca
     top10,
     comparativo,
     metasSegmentos,
+    comparativoAnual,
     forecast: {
       realizado,
       mediaMensal,
