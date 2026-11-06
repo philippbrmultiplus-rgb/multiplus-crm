@@ -7,6 +7,12 @@
 -- Não faz: nenhum delete/update/insert de dados. Carteira de clientes,
 --       visitas, rotas, pagamentos e coletas da unidade ficam intactas.
 -- Pode ser rodado em um projeto que já tenha parte dessas tabelas.
+--
+-- COMO USAR EM OUTRA UNIDADE (ex.: Porto Alegre):
+--   1. abra o projeto da unidade e envie este arquivo;
+--   2. peça: "rode este script no banco deste projeto";
+--   3. depois de rodar, confira em Dados & backup se os clientes e as
+--      visitas da unidade continuam lá (nada aqui apaga dados).
 -- =====================================================================
 
 begin;
