@@ -9,7 +9,7 @@ import {
 } from "react";
 /* eslint-disable @typescript-eslint/no-explicit-any -- linhas (rows) do Supabase */
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { SUPABASE_URL, supabase } from "@/integrations/supabase/client";
 import { clientsPLN, seedPaymentsPLN } from "@/data/clientsPLN";
 import type {
   AppState,
@@ -39,7 +39,19 @@ import { generateWeekRoute, mergeWeekRoute } from "./route";
 import { carregarPlanilha, type LancamentoPlanilha } from "./planilha";
 import { formatDateBR, toLocalDateKey } from "./geo";
 
-const STORAGE_KEY = "mp-paulinia-app-state.v1";
+/**
+ * Memória local (cache do navegador) separada por unidade: o mesmo código roda em
+ * vários projetos e cada um tem a sua base — a chave leva o endereço da nuvem para
+ * que os dados de uma unidade nunca apareçam em outra.
+ */
+const CHAVE_UNIDADE = (() => {
+  try {
+    return new URL(SUPABASE_URL).host.replace(/[^a-z0-9]/gi, "").slice(0, 24);
+  } catch {
+    return "local";
+  }
+})();
+const STORAGE_KEY = `mp-app-state.v1.${CHAVE_UNIDADE}`;
 
 /** mensagem amigável quando o navegador não consegue falar com o servidor */
 const MENSAGEM_SEM_CONEXAO =
@@ -127,6 +139,7 @@ export const defaultSettings: Settings = {
   tierBThreshold: 20,
   visitRadiusM: 300,
   planilhaVersao: null,
+  unidadeNome: "Multiplus Paulínia",
   metaDiaRollon: 260,
   metaDiaPoli: 60,
   metaDiaTerceiro: 8.5,
@@ -607,6 +620,7 @@ function settingsFromRow(r: Record<string, any>): Settings {
     tierBThreshold: Number(r.tier_b_threshold ?? 20),
     visitRadiusM: Number(r.visit_radius_m ?? 300),
     planilhaVersao: r.planilha_versao ?? null,
+    unidadeNome: r.unidade_nome ?? "Multiplus Paulínia",
     metaDiaRollon: r.meta_dia_rollon != null ? Number(r.meta_dia_rollon) : 260,
     metaDiaPoli: r.meta_dia_poli != null ? Number(r.meta_dia_poli) : 60,
     metaDiaTerceiro: r.meta_dia_terceiro != null ? Number(r.meta_dia_terceiro) : 8.5,
@@ -643,6 +657,7 @@ function settingsToRow(s: Settings): Record<string, any> {
     tier_b_threshold: s.tierBThreshold,
     visit_radius_m: s.visitRadiusM,
     planilha_versao: s.planilhaVersao ?? null,
+    unidade_nome: s.unidadeNome ?? null,
     meta_dia_rollon: s.metaDiaRollon ?? null,
     meta_dia_poli: s.metaDiaPoli ?? null,
     meta_dia_terceiro: s.metaDiaTerceiro ?? null,

@@ -90,6 +90,8 @@ export interface Settings {
   visitRadiusM: number;
   /** versão da planilha de coletas já importada (para aplicar atualizações novas sozinho) */
   planilhaVersao?: string | null;
+  /** nome da unidade que aparece no app (ex.: Multiplus Porto Alegre) */
+  unidadeNome?: string | null;
   /** metas do acompanhamento diário (m³ por dia útil e meta do mês) */
   metaDiaRollon?: number | null;
   metaDiaPoli?: number | null;

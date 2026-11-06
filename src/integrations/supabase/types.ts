@@ -4120,6 +4120,7 @@ export type Database = {
           tier_a_threshold: number | null
           tier_b_threshold: number | null
           travel_speed_kmh: number | null
+          unidade_nome: string | null
           updated_at: string
           visit_radius_m: number | null
           visit_time_min: number | null
@@ -4154,6 +4155,7 @@ export type Database = {
           tier_a_threshold?: number | null
           tier_b_threshold?: number | null
           travel_speed_kmh?: number | null
+          unidade_nome?: string | null
           updated_at?: string
           visit_radius_m?: number | null
           visit_time_min?: number | null
@@ -4188,6 +4190,7 @@ export type Database = {
           tier_a_threshold?: number | null
           tier_b_threshold?: number | null
           travel_speed_kmh?: number | null
+          unidade_nome?: string | null
           updated_at?: string
           visit_radius_m?: number | null
           visit_time_min?: number | null
@@ -4422,39 +4425,6 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_11_02: {
-        Row: {
-          event: string | null
-          extension: string
-          id: string
-          inserted_at: string
-          payload: Json | null
-          private: boolean | null
-          topic: string
-          updated_at: string
-        }
-        Insert: {
-          event?: string | null
-          extension: string
-          id?: string
-          inserted_at?: string
-          payload?: Json | null
-          private?: boolean | null
-          topic: string
-          updated_at?: string
-        }
-        Update: {
-          event?: string | null
-          extension?: string
-          id?: string
-          inserted_at?: string
-          payload?: Json | null
-          private?: boolean | null
-          topic?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       messages_2026_11_03: {
         Row: {
           event: string | null
@@ -4621,6 +4591,39 @@ export type Database = {
         Relationships: []
       }
       messages_2026_11_08: {
+        Row: {
+          event: string | null
+          extension: string
+          id: string
+          inserted_at: string
+          payload: Json | null
+          private: boolean | null
+          topic: string
+          updated_at: string
+        }
+        Insert: {
+          event?: string | null
+          extension: string
+          id?: string
+          inserted_at?: string
+          payload?: Json | null
+          private?: boolean | null
+          topic: string
+          updated_at?: string
+        }
+        Update: {
+          event?: string | null
+          extension?: string
+          id?: string
+          inserted_at?: string
+          payload?: Json | null
+          private?: boolean | null
+          topic?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      messages_2026_11_09: {
         Row: {
           event: string | null
           extension: string

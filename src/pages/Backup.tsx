@@ -33,6 +33,7 @@ import type { Role, Settings } from "@/lib/types";
 
 /** campos da empresa/parâmetros que aparecem no contrato gerado */
 const CAMPOS_EMPRESA: Array<{ chave: keyof Settings; label: string; tipo?: string }> = [
+  { chave: "unidadeNome", label: "Nome da unidade (aparece no topo do app)" },
   { chave: "empresaRazao", label: "Razão social (contratada)" },
   { chave: "empresaCnpj", label: "CNPJ" },
   { chave: "empresaIe", label: "Inscrição estadual" },

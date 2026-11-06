@@ -101,16 +101,16 @@ const HOME_BY_ROLE: Record<string, string> = {
   vendedor: "/hoje",
 };
 
-function Brand() {
+function Brand({ nome }: { nome: string }) {
   return (
     <div className="flex items-center gap-2 px-2 py-1">
       <img
         src="/rota-logo.png"
-        alt="Multiplus Paulínia"
+        alt={nome}
         className="h-8 w-8 shrink-0 rounded-lg border bg-white object-contain p-0.5"
       />
       <div className="leading-tight">
-        <div className="text-sm font-semibold leading-tight text-sidebar-foreground">Multiplus Paulínia</div>
+        <div className="text-sm font-semibold leading-tight text-sidebar-foreground">{nome}</div>
         <div className="text-[11px] text-sidebar-foreground/60">Visitas comerciais</div>
       </div>
     </div>
@@ -118,7 +118,8 @@ function Brand() {
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const { user, role, authLoading, signOut, cloudReady, lastSyncAt, podeGerirRota } = useData();
+  const { user, role, authLoading, signOut, cloudReady, lastSyncAt, podeGerirRota, state } = useData();
+  const nomeUnidade = state.settings.unidadeNome?.trim() || "Multiplus";
   const location = useLocation();
   const isMobile = useIsMobile();
 
@@ -151,7 +152,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     <SidebarProvider>
       <Sidebar collapsible={isMobile ? "offcanvas" : "icon"}>
         <SidebarHeader>
-          <Brand />
+          <Brand nome={nomeUnidade} />
         </SidebarHeader>
         <SidebarContent>
           <SidebarGroup>
@@ -198,7 +199,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <SidebarTrigger />
           <Separator orientation="vertical" className="h-5" />
           <div className="flex items-center gap-2 text-sm font-medium">
-            {items.find((i) => i.to === location.pathname)?.label ?? "Multiplus Paulínia"}
+            {items.find((i) => i.to === location.pathname)?.label ?? nomeUnidade}
           </div>
           <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
             {lastSyncAt && (
