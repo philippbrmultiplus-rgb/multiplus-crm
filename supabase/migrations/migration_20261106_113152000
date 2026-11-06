@@ -1,0 +1,12 @@
+alter policy cac_write on apresentacao_cacambas with check (auth.uid() is not null);
+alter policy cac_update on apresentacao_cacambas using (auth.uid() is not null) with check (auth.uid() is not null);
+
+alter policy fila_write on apresentacao_fila with check (auth.uid() is not null);
+alter policy fila_update on apresentacao_fila using (auth.uid() is not null) with check (auth.uid() is not null);
+alter policy fila_delete on apresentacao_fila using (auth.uid() is not null);
+
+alter policy fat_write on apresentacao_faturamento with check (auth.uid() is not null);
+alter policy fat_update on apresentacao_faturamento using (auth.uid() is not null) with check (auth.uid() is not null);
+alter policy fat_delete on apresentacao_faturamento using (auth.uid() is not null);
+
+notify pgrst, 'reload schema';

@@ -119,7 +119,7 @@ function Brand({ nome }: { nome: string }) {
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { user, role, authLoading, signOut, cloudReady, lastSyncAt, podeGerirRota, state } = useData();
-  const nomeUnidade = state.settings.unidadeNome?.trim() || "Multiplus";
+  const nomeUnidade = state.settings.unidadeNome?.trim() || "Multiplus Paulínia";
   const location = useLocation();
   const isMobile = useIsMobile();
 

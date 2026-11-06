@@ -1,0 +1,1 @@
+update settings set unidade_nome = 'Multiplus Paulínia' where id = 1 and (unidade_nome is null or btrim(unidade_nome) = '');

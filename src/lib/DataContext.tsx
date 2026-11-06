@@ -620,7 +620,7 @@ function settingsFromRow(r: Record<string, any>): Settings {
     tierBThreshold: Number(r.tier_b_threshold ?? 20),
     visitRadiusM: Number(r.visit_radius_m ?? 300),
     planilhaVersao: r.planilha_versao ?? null,
-    unidadeNome: r.unidade_nome ?? "Multiplus Paulínia",
+    unidadeNome: (r.unidade_nome ?? "").trim() || "Multiplus Paulínia",
     metaDiaRollon: r.meta_dia_rollon != null ? Number(r.meta_dia_rollon) : 260,
     metaDiaPoli: r.meta_dia_poli != null ? Number(r.meta_dia_poli) : 60,
     metaDiaTerceiro: r.meta_dia_terceiro != null ? Number(r.meta_dia_terceiro) : 8.5,
@@ -2259,7 +2259,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           : [...prev.cacambas, salvo].sort((a, b) => (a.mes < b.mes ? -1 : 1)),
       }));
 
-      if (!checarEditarClientes()) return "Sem permissão para alterar as caçambas.";
+      if (!uidRef.current) return "Entre novamente para salvar as caçambas.";
 
       const { error } = await supabase.from("apresentacao_cacambas").upsert(
         {
@@ -2274,6 +2274,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
         console.error("salvar caçambas:", error.message);
         return error.message;
       }
+
+      // confere no banco o que ficou gravado (a tela nunca "volta" sozinha)
+      const { data } = await supabase.from("apresentacao_cacambas").select("*").eq("mes", mes).maybeSingle();
+      if (data) {
+        const gravado = cacambasFromRow(data as unknown as Record<string, any>);
+        setAppState((prev) => ({
+          ...prev,
+          cacambas: prev.cacambas.map((c) => (c.mes === mes ? gravado : c)),
+        }));
+      }
       return null;
     },
     [setAppState],
@@ -2286,7 +2296,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       linhas: { cliente: string; cidade: string; volume: number }[],
     ): Promise<string | null> => {
       const mes = `${mesBase.slice(0, 7)}-01`;
-      if (!checarEditarClientes()) return "Sem permissão para alterar a fila de espera.";
+      if (!uidRef.current) return "Entre novamente para salvar a fila de espera.";
 
       const { error: erroDelete } = await supabase
         .from("apresentacao_fila")
@@ -2334,7 +2344,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const salvarFaturamento = useCallback(
     async (mesBase: string, linhas: { cliente: string; valor: number }[]): Promise<string | null> => {
       const mes = `${mesBase.slice(0, 7)}-01`;
-      if (!checarEditarClientes()) return "Sem permissão para alterar o faturamento.";
+      if (!uidRef.current) return "Entre novamente para salvar o faturamento.";
 
       const { error: erroDelete } = await supabase.from("apresentacao_faturamento").delete().eq("mes", mes);
       if (erroDelete) return erroDelete.message;
