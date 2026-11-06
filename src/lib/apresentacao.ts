@@ -154,20 +154,86 @@ export interface ApresentacaoMensal {
 }
 
 /** distância rodoviária aproximada (km) da base até a cidade, usando as coordenadas dos clientes */
+function chaveTexto(valor: string): string {
+  return (valor || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function chaveCidade(valor: string): string {
+  return (valor || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9 ]/g, " ")
+    .replace(/\b(SP|ESTADO|BRASIL)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** distância da base até o cliente (pelo nome) ou, se não achar, até a cidade */
+export function distanciaDoCliente(
+  cliente: string,
+  cidade: string,
+  clients: Client[],
+  settings: { homeLat?: number | null; homeLng?: number | null },
+): number | null {
+  const baseLat = settings.homeLat ?? BASE_LAT;
+  const baseLng = settings.homeLng ?? BASE_LNG;
+  const nome = chaveTexto(cliente);
+  if (nome) {
+    const achado = clients.find(
+      (c) => c.lat != null && c.lng != null && chaveTexto(c.name) === nome,
+    );
+    if (achado && achado.lat != null && achado.lng != null) {
+      return roadKm(baseLat, baseLng, achado.lat, achado.lng);
+    }
+    const parcial = clients.filter(
+      (c) => c.lat != null && c.lng != null && nome.length >= 4 && chaveTexto(c.name).startsWith(nome),
+    );
+    if (parcial.length === 1 && parcial[0].lat != null && parcial[0].lng != null) {
+      return roadKm(baseLat, baseLng, parcial[0].lat, parcial[0].lng);
+    }
+  }
+  return distanciaDaCidade(cidade, clients, settings);
+}
+
 export function distanciaDaCidade(
   cidade: string,
   clients: Client[],
   settings: { homeLat?: number | null; homeLng?: number | null },
 ): number | null {
-  const alvo = (cidade || "").trim().toUpperCase();
+  const alvo = chaveCidade(cidade);
   if (!alvo) return null;
-  const cliente = clients.find(
-    (c) => c.lat != null && c.lng != null && (c.city || "").trim().toUpperCase() === alvo,
+
+  const comCoordenada = clients.filter(
+    (c) => c.lat != null && c.lng != null && chaveCidade(c.city || "") !== "",
   );
-  if (!cliente || cliente.lat == null || cliente.lng == null) return null;
+
+  // nome exato (ignorando acento, " - SP" e pontuação)
+  let achado = comCoordenada.find((c) => chaveCidade(c.city || "") === alvo);
+
+  // nome começando igual (ex.: "Campina" -> "Campinas"), desde que aponte para uma única cidade
+  if (!achado) {
+    const candidatos = comCoordenada.filter((c) => chaveCidade(c.city || "").startsWith(alvo));
+    const cidades = new Set(candidatos.map((c) => chaveCidade(c.city || "")));
+    if (cidades.size === 1) achado = candidatos[0];
+  }
+
+  // nome contido na cidade (digitou "Ribeirão" para "Ribeirão Preto")
+  if (!achado && alvo.length >= 4) {
+    const candidatos = comCoordenada.filter((c) => chaveCidade(c.city || "").includes(alvo));
+    const cidades = new Set(candidatos.map((c) => chaveCidade(c.city || "")));
+    if (cidades.size === 1) achado = candidatos[0];
+  }
+
+  if (!achado || achado.lat == null || achado.lng == null) return null;
   const baseLat = settings.homeLat ?? BASE_LAT;
   const baseLng = settings.homeLng ?? BASE_LNG;
-  return roadKm(baseLat, baseLng, cliente.lat, cliente.lng);
+  return roadKm(baseLat, baseLng, achado.lat, achado.lng);
 }
 
 /** meses com lançamento, do mais antigo para o mais novo (yyyy-mm-01) */
@@ -362,14 +428,6 @@ export function construirApresentacao(state: AppState, mes: string): Apresentaca
   const mesesDoAno = todos.filter((m) => m >= `${ano}-01-01` && m <= alvo);
   // caçambas e fila de espera: vêm do preenchimento manual do mês
   const registroCacambas = (state.cacambas ?? []).find((c) => c.mes === alvo) ?? null;
-  const baseLat = state.settings.homeLat ?? BASE_LAT;
-  const baseLng = state.settings.homeLng ?? BASE_LNG;
-  const coordDaCidade = new Map<string, { lat: number; lng: number }>();
-  for (const c of state.clients) {
-    if (c.lat == null || c.lng == null || !c.city) continue;
-    const chave = c.city.trim().toUpperCase();
-    if (!coordDaCidade.has(chave)) coordDaCidade.set(chave, { lat: c.lat, lng: c.lng });
-  }
   const faturamentoLinhas = (state.faturamento ?? [])
     .filter((f) => f.mes === alvo)
     .sort((a, b) => a.posicao - b.posicao)
@@ -383,15 +441,12 @@ export function construirApresentacao(state: AppState, mes: string): Apresentaca
     const linhas = (state.fila ?? [])
       .filter((f) => f.mes === alvo && f.tipo === tipo)
       .sort((a, b) => a.posicao - b.posicao)
-      .map((f) => {
-        const coord = coordDaCidade.get(f.cidade.trim().toUpperCase());
-        return {
-          cliente: f.cliente,
-          cidade: f.cidade,
-          volume: f.volume,
-          distanciaKm: coord ? roadKm(baseLat, baseLng, coord.lat, coord.lng) : null,
-        };
-      });
+      .map((f) => ({
+        cliente: f.cliente,
+        cidade: f.cidade,
+        volume: f.volume,
+        distanciaKm: distanciaDoCliente(f.cliente, f.cidade, state.clients, state.settings),
+      }));
     return {
       tipo,
       titulo: tipo === "rollon" ? "Fila de espera - caçamba de 26 m³" : "Fila de espera - caçamba de 5 m³",

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useData } from "@/lib/DataContext";
-import { distanciaDaCidade } from "@/lib/apresentacao";
+import { distanciaDoCliente } from "@/lib/apresentacao";
 import { formatM3 } from "@/lib/geo";
 
 interface Linha {
@@ -70,7 +70,7 @@ export function FilaEditor({
         </div>
 
         {linhas.map((linha, i) => {
-          const km = distanciaDaCidade(linha.cidade, state.clients, state.settings);
+          const km = distanciaDoCliente(linha.cliente, linha.cidade, state.clients, state.settings);
           return (
             <div key={i} className="grid grid-cols-[1.4fr_1fr_0.7fr_0.8fr_auto] items-center gap-2">
               <Input
@@ -89,8 +89,15 @@ export function FilaEditor({
                   setLinhas(linhas.map((l, j) => (j === i ? { ...l, cidade: e.target.value } : l)))
                 }
               />
-              <span className="text-right text-sm font-medium tabular-nums text-primary">
-                {km == null ? "—" : `${formatM3(Math.round(km))} km`}
+              <span
+                className={`text-right text-sm font-medium tabular-nums ${km == null ? "text-muted-foreground" : "text-primary"}`}
+                title={
+                  km == null && (linha.cidade || linha.cliente)
+                    ? "Sem coordenada cadastrada para esse cliente/cidade"
+                    : undefined
+                }
+              >
+                {km == null ? (linha.cidade || linha.cliente ? "sem coord." : "—") : `${formatM3(Math.round(km))} km`}
               </span>
               <Input
                 type="number"
