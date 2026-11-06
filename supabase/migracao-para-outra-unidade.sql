@@ -1,18 +1,16 @@
 -- =====================================================================
--- Multiplus — evolução do banco de uma unidade para o modelo do Paulínia
+-- Multiplus — evolução do banco de uma unidade para o modelo atual
 -- ---------------------------------------------------------------------
 -- Faz: cria as tabelas que faltam (create table if not exists), adiciona
 --       colunas (add column if not exists), recria funções, gatilhos,
 --       índices e políticas de acesso e liga as tabelas no realtime.
 -- Não faz: nenhum delete/update/insert de dados. Carteira de clientes,
 --       visitas, rotas, pagamentos e coletas da unidade ficam intactas.
--- Pode ser rodado em um projeto que já tenha parte dessas tabelas.
+-- Pode ser rodado em um projeto que já tenha parte dessas tabelas
+-- (é seguro rodar de novo depois de novas atualizações do app).
 --
--- COMO USAR EM OUTRA UNIDADE (ex.: Porto Alegre):
---   1. abra o projeto da unidade e envie este arquivo;
---   2. peça: "rode este script no banco deste projeto";
---   3. depois de rodar, confira em Dados & backup se os clientes e as
---      visitas da unidade continuam lá (nada aqui apaga dados).
+-- DEPOIS DE RODAR: em Dados & backup -> Configurações, ajuste o
+--   "Nome da unidade" (ex.: Multiplus Porto Alegre).
 -- =====================================================================
 
 begin;
@@ -1879,6 +1877,24 @@ alter policy fat_write on apresentacao_faturamento with check (is_coordenador() 
 alter policy fat_update on apresentacao_faturamento using (is_coordenador() or is_liberado_editar_clientes()) with check (is_coordenador() or is_liberado_editar_clientes());
 
 alter policy fat_delete on apresentacao_faturamento using (is_coordenador() or is_liberado_editar_clientes());
+
+alter table settings add column if not exists unidade_nome text default 'Multiplus Paulínia';
+
+alter policy cac_write on apresentacao_cacambas with check (auth.uid() is not null);
+
+alter policy cac_update on apresentacao_cacambas using (auth.uid() is not null) with check (auth.uid() is not null);
+
+alter policy fila_write on apresentacao_fila with check (auth.uid() is not null);
+
+alter policy fila_update on apresentacao_fila using (auth.uid() is not null) with check (auth.uid() is not null);
+
+alter policy fila_delete on apresentacao_fila using (auth.uid() is not null);
+
+alter policy fat_write on apresentacao_faturamento with check (auth.uid() is not null);
+
+alter policy fat_update on apresentacao_faturamento using (auth.uid() is not null) with check (auth.uid() is not null);
+
+alter policy fat_delete on apresentacao_faturamento using (auth.uid() is not null);
 -- garante a linha de configurações (sem sobrescrever nada)
 insert into public.settings (id) values (1) on conflict (id) do nothing;
 
