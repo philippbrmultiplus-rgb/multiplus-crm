@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Loader2, Plus, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -19,23 +19,35 @@ export function FaturamentoEditor({ mes, nomeMes }: { mes: string; nomeMes: stri
   const { state, salvarFaturamento } = useData();
   const [linhas, setLinhas] = useState<Linha[]>([]);
   const [salvando, setSalvando] = useState(false);
+  const [editando, setEditando] = useState(false);
+
+  const doBanco = useMemo(
+    () =>
+      state.faturamento
+        .filter((f) => f.mes.slice(0, 7) === mes.slice(0, 7))
+        .sort((a, b) => a.posicao - b.posicao)
+        .map((f) => ({ cliente: f.cliente, valor: f.valor })),
+    [state.faturamento, mes],
+  );
+  const assinatura = JSON.stringify(doBanco);
 
   useEffect(() => {
-    const doBanco = state.faturamento
-      .filter((f) => f.mes.slice(0, 7) === mes.slice(0, 7))
-      .sort((a, b) => a.posicao - b.posicao);
-    setLinhas(
-      doBanco.length > 0
-        ? doBanco.map((f) => ({ cliente: f.cliente, valor: f.valor }))
-        : [{ cliente: "", valor: 0 }],
-    );
-  }, [state.faturamento, mes]);
+    setEditando(false);
+  }, [mes]);
+
+  useEffect(() => {
+    if (editando) return;
+    setLinhas(doBanco.length > 0 ? doBanco : [{ cliente: "", valor: 0 }]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assinatura, editando]);
 
   const salvar = async () => {
     const validas = linhas.filter((l) => l.cliente.trim());
     setSalvando(true);
     const erro = await salvarFaturamento(mes, validas);
     setSalvando(false);
+    // em caso de erro, mantém o que foi digitado na tela
+    if (!erro) setEditando(false);
     if (erro) toast.error("Não foi possível salvar o faturamento", { description: erro });
     else toast.success(`Faturamento de ${nomeMes} salvo`);
   };
@@ -63,9 +75,10 @@ export function FaturamentoEditor({ mes, nomeMes }: { mes: string; nomeMes: stri
               className="h-8"
               placeholder="Nome do cliente"
               value={linha.cliente}
-              onChange={(e) =>
-                setLinhas(linhas.map((l, j) => (j === i ? { ...l, cliente: e.target.value } : l)))
-              }
+              onChange={(e) => {
+                setEditando(true);
+                setLinhas(linhas.map((l, j) => (j === i ? { ...l, cliente: e.target.value } : l)));
+              }}
             />
             <Input
               type="number"
@@ -73,15 +86,19 @@ export function FaturamentoEditor({ mes, nomeMes }: { mes: string; nomeMes: stri
               className="h-8 text-right"
               placeholder="0,00"
               value={linha.valor}
-              onChange={(e) =>
-                setLinhas(linhas.map((l, j) => (j === i ? { ...l, valor: Number(e.target.value) || 0 } : l)))
-              }
+              onChange={(e) => {
+                setEditando(true);
+                setLinhas(linhas.map((l, j) => (j === i ? { ...l, valor: Number(e.target.value) || 0 } : l)));
+              }}
             />
             <Button
               variant="ghost"
               size="icon"
               className="h-8 w-8 text-muted-foreground"
-              onClick={() => setLinhas(linhas.filter((_, j) => j !== i))}
+              onClick={() => {
+                setEditando(true);
+                setLinhas(linhas.filter((_, j) => j !== i));
+              }}
               title="Remover"
             >
               <Trash2 className="h-4 w-4" />
@@ -90,7 +107,14 @@ export function FaturamentoEditor({ mes, nomeMes }: { mes: string; nomeMes: stri
         ))}
 
         <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-          <Button variant="outline" size="sm" onClick={() => setLinhas([...linhas, { cliente: "", valor: 0 }])}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setEditando(true);
+              setLinhas([...linhas, { cliente: "", valor: 0 }]);
+            }}
+          >
             <Plus className="mr-1 h-3.5 w-3.5" /> Cliente
           </Button>
           <div className="flex items-center gap-3">

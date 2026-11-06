@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Loader2, Plus, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -28,23 +28,37 @@ export function FilaEditor({
   const { state, salvarFila } = useData();
   const [linhas, setLinhas] = useState<Linha[]>([]);
   const [salvando, setSalvando] = useState(false);
+  /** enquanto o usuário está digitando, nada do banco sobrescreve a lista */
+  const [editando, setEditando] = useState(false);
+
+  const doBanco = useMemo(
+    () =>
+      state.fila
+        .filter((f) => f.mes.slice(0, 7) === mes.slice(0, 7) && f.tipo === tipo)
+        .sort((a, b) => a.posicao - b.posicao)
+        .map((f) => ({ cliente: f.cliente, cidade: f.cidade, volume: f.volume })),
+    [state.fila, mes, tipo],
+  );
+  const assinatura = JSON.stringify(doBanco);
+
+  // troca de mês/tipo recomeça o preenchimento
+  useEffect(() => {
+    setEditando(false);
+  }, [mes, tipo]);
 
   useEffect(() => {
-    const doBanco = state.fila
-      .filter((f) => f.mes.slice(0, 7) === mes.slice(0, 7) && f.tipo === tipo)
-      .sort((a, b) => a.posicao - b.posicao);
-    setLinhas(
-      doBanco.length > 0
-        ? doBanco.map((f) => ({ cliente: f.cliente, cidade: f.cidade, volume: f.volume }))
-        : [{ cliente: "", cidade: "", volume: 0 }],
-    );
-  }, [state.fila, mes, tipo]);
+    if (editando) return;
+    setLinhas(doBanco.length > 0 ? doBanco : [{ cliente: "", cidade: "", volume: 0 }]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assinatura, editando]);
 
   const salvar = async () => {
     const validas = linhas.filter((l) => l.cliente.trim());
     setSalvando(true);
     const erro = await salvarFila(mes, tipo, validas);
     setSalvando(false);
+    // em caso de erro, mantém o que foi digitado na tela
+    if (!erro) setEditando(false);
     if (erro) toast.error("Não foi possível salvar a fila de espera", { description: erro });
     else toast.success(`Fila de espera (${rotulo}) de ${nomeMes} salva`);
   };
@@ -77,17 +91,19 @@ export function FilaEditor({
                 className="h-8"
                 placeholder="Nome do cliente"
                 value={linha.cliente}
-                onChange={(e) =>
-                  setLinhas(linhas.map((l, j) => (j === i ? { ...l, cliente: e.target.value } : l)))
-                }
+                onChange={(e) => {
+                  setEditando(true);
+                  setLinhas(linhas.map((l, j) => (j === i ? { ...l, cliente: e.target.value } : l)));
+                }}
               />
               <Input
                 className="h-8"
                 placeholder="Cidade"
                 value={linha.cidade}
-                onChange={(e) =>
-                  setLinhas(linhas.map((l, j) => (j === i ? { ...l, cidade: e.target.value } : l)))
-                }
+                onChange={(e) => {
+                  setEditando(true);
+                  setLinhas(linhas.map((l, j) => (j === i ? { ...l, cidade: e.target.value } : l)));
+                }}
               />
               <span
                 className={`text-right text-sm font-medium tabular-nums ${km == null ? "text-muted-foreground" : "text-primary"}`}
@@ -104,17 +120,21 @@ export function FilaEditor({
                 className="h-8 text-right"
                 placeholder="m³"
                 value={linha.volume}
-                onChange={(e) =>
+                onChange={(e) => {
+                  setEditando(true);
                   setLinhas(
                     linhas.map((l, j) => (j === i ? { ...l, volume: Number(e.target.value) || 0 } : l)),
-                  )
-                }
+                  );
+                }}
               />
               <Button
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8 text-muted-foreground"
-                onClick={() => setLinhas(linhas.filter((_, j) => j !== i))}
+                onClick={() => {
+                  setEditando(true);
+                  setLinhas(linhas.filter((_, j) => j !== i));
+                }}
                 title="Remover"
               >
                 <Trash2 className="h-4 w-4" />
@@ -124,7 +144,14 @@ export function FilaEditor({
         })}
 
         <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-          <Button variant="outline" size="sm" onClick={() => setLinhas([...linhas, { cliente: "", cidade: "", volume: 0 }])}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setEditando(true);
+              setLinhas([...linhas, { cliente: "", cidade: "", volume: 0 }]);
+            }}
+          >
             <Plus className="mr-1 h-3.5 w-3.5" /> Cliente
           </Button>
           <div className="flex items-center gap-3">

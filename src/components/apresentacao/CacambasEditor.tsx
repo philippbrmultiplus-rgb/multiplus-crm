@@ -31,22 +31,34 @@ export function CacambasEditor({ mes, nomeMes }: { mes: string; nomeMes: string 
   const [rollon, setRollon] = useState<CacambasTipo>(vazio);
   const [poli, setPoli] = useState<CacambasTipo>(vazio);
   const [salvando, setSalvando] = useState(false);
+  /** enquanto o usuário está digitando, nada do banco sobrescreve os campos */
+  const [editando, setEditando] = useState(false);
 
   const doBanco = useMemo(
     () => state.cacambas.find((c) => c.mes.slice(0, 7) === mes.slice(0, 7)),
     [state.cacambas, mes],
   );
 
+  const assinatura = JSON.stringify(doBanco ?? null);
+
   useEffect(() => {
+    setEditando(false);
+  }, [mes]);
+
+  useEffect(() => {
+    if (editando) return;
     setRollon(doBanco ? { ...doBanco.rollon } : vazio());
     setPoli(doBanco ? { ...doBanco.poli } : vazio());
-  }, [doBanco]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assinatura, editando]);
 
   const salvar = async () => {
     setSalvando(true);
     const registro: CacambasMes = { mes, rollon, poli };
     const erro = await salvarCacambas(registro);
     setSalvando(false);
+    // em caso de erro, mantém o que foi digitado na tela
+    if (!erro) setEditando(false);
     if (erro) toast.error("Não foi possível salvar as caçambas", { description: erro });
     else toast.success(`Caçambas de ${nomeMes} salvas`);
   };
@@ -66,7 +78,10 @@ export function CacambasEditor({ mes, nomeMes }: { mes: string; nomeMes: string 
               type="number"
               className="h-8"
               value={valor[c.chave]}
-              onChange={(e) => setValor({ ...valor, [c.chave]: Number(e.target.value) || 0 })}
+              onChange={(e) => {
+                setEditando(true);
+                setValor({ ...valor, [c.chave]: Number(e.target.value) || 0 });
+              }}
             />
           </div>
         ))}
@@ -81,6 +96,7 @@ export function CacambasEditor({ mes, nomeMes }: { mes: string; nomeMes: string 
               placeholder="Segmento"
               value={seg.nome}
               onChange={(e) => {
+                setEditando(true);
                 const segmentos = valor.segmentos.map((s, j) =>
                   j === i ? { ...s, nome: e.target.value } : s,
                 );
@@ -92,6 +108,7 @@ export function CacambasEditor({ mes, nomeMes }: { mes: string; nomeMes: string 
               className="h-8 w-20"
               value={seg.qtd}
               onChange={(e) => {
+                setEditando(true);
                 const segmentos = valor.segmentos.map((s, j) =>
                   j === i ? { ...s, qtd: Number(e.target.value) || 0 } : s,
                 );
@@ -102,7 +119,10 @@ export function CacambasEditor({ mes, nomeMes }: { mes: string; nomeMes: string 
               variant="ghost"
               size="icon"
               className="h-8 w-8 text-muted-foreground"
-              onClick={() => setValor({ ...valor, segmentos: valor.segmentos.filter((_, j) => j !== i) })}
+              onClick={() => {
+                setEditando(true);
+                setValor({ ...valor, segmentos: valor.segmentos.filter((_, j) => j !== i) });
+              }}
               title="Remover"
             >
               <Trash2 className="h-4 w-4" />
@@ -112,7 +132,10 @@ export function CacambasEditor({ mes, nomeMes }: { mes: string; nomeMes: string 
         <Button
           variant="outline"
           size="sm"
-          onClick={() => setValor({ ...valor, segmentos: [...valor.segmentos, { nome: "", qtd: 0 }] })}
+          onClick={() => {
+            setEditando(true);
+            setValor({ ...valor, segmentos: [...valor.segmentos, { nome: "", qtd: 0 }] });
+          }}
         >
           <Plus className="mr-1 h-3.5 w-3.5" /> Segmento
         </Button>

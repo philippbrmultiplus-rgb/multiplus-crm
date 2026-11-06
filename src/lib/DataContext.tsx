@@ -2298,15 +2298,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
       const mes = `${mesBase.slice(0, 7)}-01`;
       if (!uidRef.current) return "Entre novamente para salvar a fila de espera.";
 
-      const { error: erroDelete } = await supabase
+      // guarda os ids atuais: só apagamos depois que a nova lista entrar
+      const { data: atuais, error: erroLeitura } = await supabase
         .from("apresentacao_fila")
-        .delete()
+        .select("id")
         .eq("mes", mes)
         .eq("tipo", tipo);
-      if (erroDelete) {
-        console.error("limpar fila:", erroDelete.message);
-        return erroDelete.message;
+      if (erroLeitura) {
+        console.error("ler fila:", erroLeitura.message);
+        return erroLeitura.message;
       }
+      const idsAntigos = (atuais ?? []).map((r) => String((r as Record<string, unknown>).id));
 
       if (linhas.length > 0) {
         const { error } = await supabase.from("apresentacao_fila").insert(
@@ -2323,6 +2325,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
           console.error("salvar fila:", error.message);
           return error.message;
         }
+      }
+
+      // remove as linhas antigas (as novas já estão gravadas)
+      if (idsAntigos.length > 0) {
+        const { error: erroDelete } = await supabase
+          .from("apresentacao_fila")
+          .delete()
+          .in("id", idsAntigos);
+        if (erroDelete) console.warn("limpar fila antiga:", erroDelete.message);
       }
 
       const { data } = await supabase
@@ -2346,8 +2357,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
       const mes = `${mesBase.slice(0, 7)}-01`;
       if (!uidRef.current) return "Entre novamente para salvar o faturamento.";
 
-      const { error: erroDelete } = await supabase.from("apresentacao_faturamento").delete().eq("mes", mes);
-      if (erroDelete) return erroDelete.message;
+      const { data: atuais, error: erroLeitura } = await supabase
+        .from("apresentacao_faturamento")
+        .select("id")
+        .eq("mes", mes);
+      if (erroLeitura) return erroLeitura.message;
+      const idsAntigos = (atuais ?? []).map((r) => String((r as Record<string, unknown>).id));
 
       if (linhas.length > 0) {
         const { error } = await supabase.from("apresentacao_faturamento").insert(
@@ -2357,6 +2372,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
           console.error("salvar faturamento:", error.message);
           return error.message;
         }
+      }
+
+      if (idsAntigos.length > 0) {
+        const { error: erroDelete } = await supabase
+          .from("apresentacao_faturamento")
+          .delete()
+          .in("id", idsAntigos);
+        if (erroDelete) console.warn("limpar faturamento antigo:", erroDelete.message);
       }
 
       const { data } = await supabase
