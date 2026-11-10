@@ -54,6 +54,8 @@ export default function ComparativoMensal() {
   const [queda, setQueda] = useState("todas");
   // mês escolhido para listar do maior volume de entrada para o menor
   const [mesOrdem, setMesOrdem] = useState("todas");
+  // mostra somente o mês escolhido (pode ser combinado com os demais filtros)
+  const [mesFiltro, setMesFiltro] = useState("todas");
 
   // meses que existem na base, do mais antigo para o mais novo
   const meses = useMemo(() => [...new Set(volumes.map((v) => v.month))].sort(), [volumes]);
@@ -61,6 +63,13 @@ export default function ComparativoMensal() {
   // mês em andamento: os dias úteis contam só até hoje
   const hoje = toLocalDateKey(new Date().toISOString());
   const mesCorrente = hoje.slice(0, 7);
+
+  /** colunas de meses que aparecem: todos ou só o mês filtrado */
+  const mesesVisiveis = useMemo(
+    () => (mesFiltro === "todas" ? meses : [mesFiltro]),
+    [mesFiltro, meses],
+  );
+  const mostraMedia = mesesVisiveis.length > 1;
 
   // pares de meses seguidos para comparar a queda
   const pares = useMemo(() => meses.slice(1).map((m, i) => ({ de: meses[i], para: m })), [meses]);
@@ -150,10 +159,16 @@ export default function ComparativoMensal() {
   const totalFiltrado = useMemo(() => filtradas.reduce((acc, l) => acc + l.total, 0), [filtradas]);
   const mesFiltrado = (m: string) => filtradas.reduce((acc, l) => acc + (l.valores[m] ?? 0), 0);
 
-  // dias úteis somados de todos os meses lançados (no mês em andamento, só até hoje)
+  // total dos meses que estão visíveis
+  const totalVisivel = useMemo(
+    () => mesesVisiveis.reduce((acc, m) => acc + (totalPorMes.get(m) ?? 0), 0),
+    [mesesVisiveis, totalPorMes],
+  );
+
+  // dias úteis somados dos meses visíveis (no mês em andamento, só até hoje)
   const diasUteisPeriodo = useMemo(
     () =>
-      meses.reduce(
+      mesesVisiveis.reduce(
         (acc, m) =>
           acc +
           diasUteisNoMes(
@@ -163,7 +178,7 @@ export default function ComparativoMensal() {
           ),
         0,
       ),
-    [meses, mesCorrente, hoje, state.settings.workingDays],
+    [mesesVisiveis, mesCorrente, hoje, state.settings.workingDays],
   );
 
   const valorClasse = (valor: number | undefined) =>
@@ -187,11 +202,13 @@ export default function ComparativoMensal() {
         <Card className="card-soft">
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
-              <CardDescription className="font-medium">Total no período</CardDescription>
+              <CardDescription className="font-medium">
+              {mesesVisiveis.length === 1 ? `Total de ${mesLabel(mesesVisiveis[0])}` : "Total no período"}
+            </CardDescription>
               <BarChart3 className="h-4 w-4 text-primary" />
             </div>
             <CardTitle className="text-3xl">
-              {m3(totalGeral)}{" "}
+              {m3(totalVisivel)}{" "}
               <span className="text-base font-normal text-muted-foreground">m³</span>
             </CardTitle>
             <p className="pt-1 text-xs text-muted-foreground">
@@ -199,7 +216,7 @@ export default function ComparativoMensal() {
             </p>
           </CardHeader>
         </Card>
-        {meses.map((m) => {
+        {mesesVisiveis.map((m) => {
           const emAndamento = m.slice(0, 7) === mesCorrente;
           const diasUteis = diasUteisNoMes(m, emAndamento ? hoje : null, state.settings.workingDays);
           const feriados = feriadosNoMes(m);
@@ -237,6 +254,19 @@ export default function ComparativoMensal() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
+        <Select value={mesFiltro} onValueChange={setMesFiltro}>
+          <SelectTrigger className="w-48">
+            <SelectValue placeholder="Mês" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todas">Todos os meses</SelectItem>
+            {meses.map((m) => (
+              <SelectItem key={m} value={m}>
+                Somente {mesLabel(m)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Select value={segmento} onValueChange={setSegmento}>
           <SelectTrigger className="w-52">
             <SelectValue placeholder="Segmento" />
@@ -304,7 +334,7 @@ export default function ComparativoMensal() {
               </div>
               <p className="mt-0.5 text-xs text-muted-foreground">{l.segmento || "sem segmento"}</p>
               <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1.5 text-sm">
-                {meses.map((m) => (
+                {mesesVisiveis.map((m) => (
                   <div key={m} className="flex items-baseline justify-between gap-2">
                     <span className="text-[11px] text-muted-foreground">{mesLabel(m)}</span>
                     <span
@@ -348,9 +378,9 @@ export default function ComparativoMensal() {
           <Table className="[&_th]:px-1 [&_th]:py-1.5 [&_td]:px-1 [&_td]:py-1.5 [&_thead_tr]:bg-primary [&_thead_th]:whitespace-nowrap [&_thead_th]:font-semibold [&_thead_th]:text-primary-foreground">
             <TableHeader>
               <TableRow>
-                <TableHead>Cliente</TableHead>
+                <TableHead className="sticky left-0 z-20 border-r bg-primary">Cliente</TableHead>
                 <TableHead>Segmento</TableHead>
-                {meses.map((m) => (
+                {mesesVisiveis.map((m) => (
                   <TableHead key={m} className="text-center">
                     <span
                       title={comparandoMes && mesOrdem === m ? "Coluna usada para ordenar" : undefined}
@@ -365,16 +395,18 @@ export default function ComparativoMensal() {
                   </TableHead>
                 ))}
                 <TableHead className="text-center">Total (m³)</TableHead>
-                <TableHead className="text-center" title="Total do período dividido pelos meses lançados">
-                  Média (m³)
-                </TableHead>
+                {mostraMedia && (
+                  <TableHead className="text-center" title="Total do período dividido pelos meses lançados">
+                    Média (m³)
+                  </TableHead>
+                )}
                 {comparandoQueda && <TableHead className="text-center">Queda (m³)</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
               {filtradas.map((l) => (
                 <TableRow key={l.key}>
-                  <TableCell className="font-medium">
+                  <TableCell className="sticky left-0 z-10 border-r bg-card font-medium">
                     <div className="flex flex-wrap items-center gap-1.5">
                       <span className="truncate">{l.nome}</span>
                       {l.semCadastro && (
@@ -387,7 +419,7 @@ export default function ComparativoMensal() {
                   <TableCell className="text-sm text-muted-foreground">
                     {l.segmento || "—"}
                   </TableCell>
-                  {meses.map((m) => (
+                  {mesesVisiveis.map((m) => (
                     <TableCell key={m} className={valorClasse(l.valores[m])}>
                       {m3(l.valores[m] ?? 0)}
                     </TableCell>
@@ -395,7 +427,9 @@ export default function ComparativoMensal() {
                   <TableCell className="text-center font-semibold tabular-nums">
                     {m3(l.total)}
                   </TableCell>
-                  <TableCell className="text-center tabular-nums">{m3(l.media)}</TableCell>
+                  {mostraMedia && (
+                    <TableCell className="text-center tabular-nums">{m3(l.media)}</TableCell>
+                  )}
                   {comparandoQueda && (
                     <TableCell className="whitespace-nowrap text-center font-semibold tabular-nums text-destructive">
                       -{m3(l.queda)}{" "}
@@ -407,7 +441,7 @@ export default function ComparativoMensal() {
               {filtradas.length === 0 && (
                 <TableRow>
                   <TableCell
-                    colSpan={4 + meses.length + (comparandoQueda ? 1 : 0)}
+                    colSpan={2 + 1 + (mostraMedia ? 1 : 0) + mesesVisiveis.length + (comparandoQueda ? 1 : 0)}
                     className="py-8 text-center text-muted-foreground"
                   >
                     {comparandoQueda
@@ -425,7 +459,7 @@ export default function ComparativoMensal() {
                   <TableCell colSpan={2}>
                     Total · {filtradas.length} cliente(s)
                   </TableCell>
-                  {meses.map((m) => (
+                  {mesesVisiveis.map((m) => (
                     <TableCell key={m} className="text-center font-semibold tabular-nums">
                       {m3(mesFiltrado(m))}
                     </TableCell>
@@ -433,9 +467,11 @@ export default function ComparativoMensal() {
                   <TableCell className="text-center font-semibold tabular-nums">
                     {m3(totalFiltrado)}
                   </TableCell>
-                  <TableCell className="text-center font-semibold tabular-nums">
-                    {m3(meses.length ? totalFiltrado / meses.length : 0)}
-                  </TableCell>
+                  {mostraMedia && (
+                    <TableCell className="text-center font-semibold tabular-nums">
+                      {m3(meses.length ? totalFiltrado / meses.length : 0)}
+                    </TableCell>
+                  )}
                   {comparandoQueda && (
                     <TableCell className="whitespace-nowrap text-center font-semibold tabular-nums text-destructive">
                       -{m3(filtradas.reduce((acc, l) => acc + l.queda, 0))}
