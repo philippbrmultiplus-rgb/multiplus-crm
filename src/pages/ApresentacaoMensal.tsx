@@ -32,24 +32,22 @@ export default function ApresentacaoMensal() {
     meses[0] ??
     `${hoje.slice(0, 7)}-01`;
 
-  const [gerando, setGerando] = useState(false);
+  const [gerado, setGerado] = useState(false);
   const [baixando, setBaixando] = useState(false);
-  const [slides, setSlides] = useState<ReturnType<typeof montarSlides> | null>(null);
-  const [resumo, setResumo] = useState<ReturnType<typeof construirApresentacao> | null>(null);
+
+  /**
+   * A prévia é recalculada sempre que os dados do app mudam (metas, planilha,
+   * caçambas, faturamento, filas) — assim o slide nunca fica com números antigos.
+   */
+  const resumo = useMemo(
+    () => (gerado ? construirApresentacao(state, mes) : null),
+    [gerado, state, mes],
+  );
+  const slides = useMemo(() => (resumo ? montarSlides(resumo) : null), [resumo]);
 
   const gerar = () => {
-    setGerando(true);
-    try {
-      const dados = construirApresentacao(state, mes);
-      setResumo(dados);
-      setSlides(montarSlides(dados));
-      toast.success(`Apresentação de ${mesLabel(mes)} gerada para prévia.`);
-    } catch (erro) {
-      console.error(erro);
-      toast.error("Não foi possível montar a apresentação deste mês.");
-    } finally {
-      setGerando(false);
-    }
+    setGerado(true);
+    toast.success(`Apresentação de ${mesLabel(mes)} gerada para prévia.`);
   };
 
   const baixarPowerPoint = async () => {
@@ -97,11 +95,7 @@ export default function ApresentacaoMensal() {
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Mês</label>
             <Select
               value={mes}
-              onValueChange={(v) => {
-                setMesEscolhido(v);
-                setSlides(null);
-                setResumo(null);
-              }}
+              onValueChange={(v) => setMesEscolhido(v)}
             >
               <SelectTrigger className="w-56">
                 <SelectValue placeholder="Selecione o mês" />
@@ -116,9 +110,9 @@ export default function ApresentacaoMensal() {
               </SelectContent>
             </Select>
           </div>
-          <Button onClick={gerar} disabled={gerando}>
-            {gerando ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-            Gerar apresentação
+          <Button onClick={gerar}>
+            <Sparkles className="mr-2 h-4 w-4" />
+            {gerado ? "Atualizar apresentação" : "Gerar apresentação"}
           </Button>
           {slides && (
             <Button variant="outline" onClick={baixarPowerPoint} disabled={baixando}>
