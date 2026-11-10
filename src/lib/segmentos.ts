@@ -3,12 +3,9 @@ export const SEGMENTOS_LOGISTICOS = [
   "Rollon",
   "Rollon/Carregamento na hora",
   "Poli",
-  "Poli/Carregamento na hora",
-  "Poli/Esporádico",
   "Porta a Porta",
   "Porta a Porta/Carregamento na hora",
   "Terceiro",
-  "Terceiro/Carregamento na hora",
 ];
 
 /** segmento logístico usado na prospecção interna (lead ainda em análise) */

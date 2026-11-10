@@ -1,0 +1,2 @@
+update clients set segment = 'Poli' where segment like 'Poli%' and segment <> 'Poli';
+update clients set segment = 'Terceiro' where segment like 'Terceiro%' and segment <> 'Terceiro';
