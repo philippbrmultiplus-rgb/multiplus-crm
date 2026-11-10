@@ -256,10 +256,15 @@ function valorEmReais(texto: string | null | undefined): number {
   return inteiro + centavos / 100;
 }
 
-/** nomes de segmento que entram juntos nos slides (Terceiro + carregamento na hora) */
-function normalizarSegmento(segmento: string): string {
+/**
+ * Nomes de segmento que andam juntos nos relatórios:
+ * Rollon + Rollon/Carregamento na hora, todos os Poli, Terceiro + carregamento na hora.
+ */
+export function normalizarSegmento(segmento: string): string {
   const seg = (segmento || "").trim();
   if (seg.startsWith("Terceiro")) return "Terceiro";
+  if (seg.startsWith("Poli")) return "Poli";
+  if (seg.startsWith("Rollon")) return "Rollon";
   return seg || "Sem segmento";
 }
 

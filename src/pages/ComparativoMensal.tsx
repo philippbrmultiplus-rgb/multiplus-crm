@@ -20,6 +20,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useData } from "@/lib/DataContext";
+import { normalizarSegmento } from "@/lib/apresentacao";
 import { diasUteisNoMes, feriadosNoMes } from "@/lib/calendario";
 import { formatDateBR, formatM3, mesLabel, toLocalDateKey } from "@/lib/geo";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -91,7 +92,7 @@ export default function ComparativoMensal() {
         {
           key,
           nome: cliente?.name ?? v.label ?? "—",
-          segmento: cliente?.segment ?? "",
+          segmento: normalizarSegmento(cliente?.segment ?? ""),
           semCadastro: !v.clientId,
           valores: {} as Record<string, number>,
         };
