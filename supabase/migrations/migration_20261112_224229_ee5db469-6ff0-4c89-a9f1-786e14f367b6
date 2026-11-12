@@ -1,0 +1,13 @@
+delete from coletas where collect_date = '2026-11-09' and client_id in ('cli-142','cli-237','cli-12','cli-123','cli-218','cli-138','cli-14','cli-65','cli-91');
+
+update client_monthly_volumes v set volume_m3 = coalesce((
+  select sum(c.volume_m3) from coletas c
+  where c.client_id = v.client_id and c.collect_date >= '2026-11-01' and c.collect_date < '2026-12-01'
+), 0)
+where v.month = '2026-11-01'
+  and v.client_id in ('cli-142','cli-237','cli-12','cli-123','cli-218','cli-138','cli-14','cli-65','cli-91');
+
+update clients c set last_collect_at = (
+  select max(co.collect_date) from coletas co where co.client_id = c.id
+)
+where c.id in ('cli-142','cli-237','cli-12','cli-123','cli-218','cli-138','cli-14','cli-65','cli-91');
