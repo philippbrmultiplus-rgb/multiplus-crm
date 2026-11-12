@@ -86,10 +86,11 @@ export function AuthScreen({ embedded = false }: { embedded?: boolean }) {
       return;
     }
     setBusy(true);
+    const emailLimpo = email.trim().toLowerCase();
     const err =
       mode === "signup"
-        ? await signUp(email.trim(), pw, name.trim())
-        : await signIn(email.trim(), pw);
+        ? await signUp(emailLimpo, pw, name.trim())
+        : await signIn(emailLimpo, pw);
     if (err) setError(err);
     setBusy(false);
   };
@@ -152,6 +153,10 @@ export function AuthScreen({ embedded = false }: { embedded?: boolean }) {
                     id="email"
                     type="email"
                     autoComplete="email"
+                    inputMode="email"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
                     className="pl-8"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -167,6 +172,9 @@ export function AuthScreen({ embedded = false }: { embedded?: boolean }) {
                     id="pw"
                     type="password"
                     autoComplete={mode === "login" ? "current-password" : "new-password"}
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
                     className="pl-8"
                     value={pw}
                     onChange={(e) => setPw(e.target.value)}

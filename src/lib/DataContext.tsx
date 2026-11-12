@@ -1388,7 +1388,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       // a conexão pode oscilar: uma tentativa extra antes de avisar o usuário
       for (let tentativa = 1; tentativa <= 2; tentativa++) {
         try {
-          const { error } = await supabase.auth.signInWithPassword({ email, password: pw });
+          const { error } = await supabase.auth.signInWithPassword({
+            email: email.trim().toLowerCase(),
+            password: pw,
+          });
           if (!error) return null;
           if (!falhaDeRede(error.message) || tentativa === 2) {
             return falhaDeRede(error.message) ? MENSAGEM_SEM_CONEXAO : error.message;
