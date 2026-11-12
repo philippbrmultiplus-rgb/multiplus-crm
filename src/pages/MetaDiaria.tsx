@@ -288,6 +288,10 @@ export default function MetaDiaria() {
             <p className={`text-xs font-medium ${tom(totalMes, metaMes)}`}>
               {pct(totalMes, metaMes)}% da meta de {formatM3(metaMes)} m³
             </p>
+            <p className="text-xs text-muted-foreground">
+              {diasUteisMes} {diasUteisMes === 1 ? "dia útil realizado" : "dias úteis realizados"} de{" "}
+              {diasUteisTotais}
+            </p>
           </CardHeader>
         </Card>
         <Card className="card-soft">
