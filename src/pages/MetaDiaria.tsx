@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, Loader2, Target } from "lucide-react";
+import { AlertTriangle, ChevronLeft, ChevronRight, Loader2, Target } from "lucide-react";
+import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
@@ -17,7 +18,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useData } from "@/lib/DataContext";
-import { carregarPlanilha } from "@/lib/planilha";
 import { diasUteisNoPeriodo, feriadosNoMes } from "@/lib/calendario";
 import { metasDoMes } from "@/lib/metas";
 import { formatM3, mesLabel, toLocalDateKey } from "@/lib/geo";
@@ -28,9 +28,6 @@ const GRUPOS = [
   { chave: "poli", label: "Poli", prefixo: "Poli", meta: "metaDiaPoli" as const },
   { chave: "pap", label: "P. a Porta", prefixo: "Porta a Porta", meta: null },
   { chave: "terceiro", label: "Terceiro", prefixo: "Terceiro", meta: "metaDiaTerceiro" as const },
-  // lançamentos da planilha sem cliente vinculado: entram no total (como no comparativo),
-  // mas não têm meta porque não pertencem a um segmento logístico
-  { chave: "semCadastro", label: "Sem cadastro", prefixo: "", meta: null },
 ] as const;
 
 type ChaveGrupo = (typeof GRUPOS)[number]["chave"];
@@ -48,7 +45,7 @@ function grupoDoSegmento(segmento: string): ChaveGrupo | null {
   return null;
 }
 
-const vazio = (): ValoresDia => ({ rollon: 0, poli: 0, pap: 0, terceiro: 0, semCadastro: 0 });
+const vazio = (): ValoresDia => ({ rollon: 0, poli: 0, pap: 0, terceiro: 0 });
 
 /** cor da célula conforme o atingimento (verde ≥100%, âmbar ≥90%, vermelho abaixo) */
 function classeCelula(valor: number, meta: number): string {
@@ -101,7 +98,6 @@ export default function MetaDiaria() {
     poli: metas.poli,
     pap: metas.pap,
     terceiro: metas.terceiro,
-    semCadastro: 0,
   };
 
   const segmentoPorCliente = useMemo(() => {
@@ -112,14 +108,11 @@ export default function MetaDiaria() {
 
   const carregar = useCallback(async () => {
     setCarregando(true);
-    const [{ data, error }, planilha] = await Promise.all([
-      supabase
-        .from("coletas")
-        .select("client_id, collect_date, volume_m3")
-        .gte("collect_date", inicio)
-        .lte("collect_date", fim),
-      carregarPlanilha(clients),
-    ]);
+    const { data, error } = await supabase
+      .from("coletas")
+      .select("client_id, collect_date, volume_m3")
+      .gte("collect_date", inicio)
+      .lte("collect_date", fim);
     if (error) {
       console.error("acompanhamento diário:", error.message);
       setPorDia({});
@@ -138,27 +131,9 @@ export default function MetaDiaria() {
       acumulado[dia] = valores;
     }
 
-    // o comparativo mensal soma TODAS as linhas da planilha, inclusive as que não têm
-    // cliente vinculado ("sem cadastro"). Aqui elas entram num grupo próprio, sem meta,
-    // para o total do mês fechar com o comparativo.
-    const semCadastro = new Set(
-      volumes
-        .filter((v) => v.month === inicio && !v.clientId && v.label)
-        .map((v) => v.label as string),
-    );
-    if (planilha && semCadastro.size > 0) {
-      for (const item of planilha.porNome) {
-        if (!semCadastro.has(item.nome)) continue;
-        if (item.data < inicio || item.data > fim) continue;
-        const valores = acumulado[item.data] ?? vazio();
-        valores.semCadastro += item.volume;
-        acumulado[item.data] = valores;
-      }
-    }
-
     setPorDia(acumulado);
     setCarregando(false);
-  }, [inicio, fim, segmentoPorCliente, volumes, clients]);
+  }, [inicio, fim, segmentoPorCliente]);
 
   useEffect(() => {
     void carregar();
@@ -195,6 +170,29 @@ export default function MetaDiaria() {
     }
     return lista;
   }, [mes, ultimoDia, feriados, hoje]);
+
+  /** clientes com volume no mês que não entram em nenhum segmento (cadastro a corrigir) */
+  const semSegmento = useMemo(() => {
+    const doMes = volumes.filter((v) => v.month === inicio && v.volumeM3 > 0);
+    const porCliente = new Map<string, number>();
+    const foraDoCadastro = new Map<string, number>();
+    for (const v of doMes) {
+      if (!v.clientId) {
+        const nome = v.label ?? "sem cadastro";
+        foraDoCadastro.set(nome, (foraDoCadastro.get(nome) ?? 0) + v.volumeM3);
+      } else {
+        porCliente.set(v.clientId, (porCliente.get(v.clientId) ?? 0) + v.volumeM3);
+      }
+    }
+    const clientesSemGrupo = clients
+      .filter((c) => porCliente.has(c.id) && !grupoDoSegmento(c.segment ?? ""))
+      .map((c) => ({ nome: c.name, volume: porCliente.get(c.id) ?? 0 }));
+
+    return [
+      ...clientesSemGrupo,
+      ...[...foraDoCadastro.entries()].map(([nome, volume]) => ({ nome, volume })),
+    ].sort((a, b) => b.volume - a.volume);
+  }, [volumes, clients, inicio]);
 
   const totalDoDia = (valores: ValoresDia | undefined) =>
     valores ? GRUPOS.reduce((acc, g) => acc + valores[g.chave], 0) : 0;
@@ -438,11 +436,6 @@ export default function MetaDiaria() {
                   )} m³ no mês)`
                 : `Porta a Porta: sem meta neste mês (${formatM3(porSegmento.pap)} m³ realizado)`}
             </p>
-            {porSegmento.semCadastro > 0 && (
-              <p className="text-[11px] text-muted-foreground">
-                Sem cadastro: {formatM3(porSegmento.semCadastro)} m³ no mês (entra no total, não na meta)
-              </p>
-            )}
           </div>
         </div>
       </div>
@@ -615,7 +608,6 @@ export default function MetaDiaria() {
               <TableHead className="text-center">Poli</TableHead>
               <TableHead className="text-center">P. a Porta</TableHead>
               <TableHead className="text-center">Terceiro</TableHead>
-              <TableHead className="text-center">Sem cadastro</TableHead>
               <TableHead className="text-center">Total dia</TableHead>
               <TableHead className="text-center">% meta dia</TableHead>
             </TableRow>
