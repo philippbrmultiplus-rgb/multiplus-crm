@@ -43,13 +43,50 @@ function mostraErroFatal(mensagem: string) {
   el.append(box);
 }
 
-window.addEventListener("error", (e) => mostraErroFatal(e.message || "erro desconhecido"));
-window.addEventListener("unhandledrejection", (e) =>
-  mostraErroFatal(String((e as PromiseRejectionEvent).reason ?? "promessa rejeitada")),
-);
+/**
+ * Quando o app é atualizado com a aba aberta, o navegador pode tentar baixar um
+ * arquivo antigo que já não existe ("Failed to fetch dynamically imported module").
+ * Nesse caso recarregamos uma vez automaticamente, sem cair na tela de erro.
+ */
+const CHAVE_RECARGA = "mp-recarregou-por-versao";
+
+function recarregarPorVersaoAntiga(mensagem: string): boolean {
+  const trocouVersao =
+    /Failed to fetch dynamically imported module|error loading dynamically imported module|Importing a module script failed/i.test(
+      mensagem,
+    );
+  if (!trocouVersao) return false;
+  try {
+    if (sessionStorage.getItem(CHAVE_RECARGA) === "1") return false;
+    sessionStorage.setItem(CHAVE_RECARGA, "1");
+  } catch {
+    return false;
+  }
+  window.location.reload();
+  return true;
+}
+
+window.addEventListener("error", (e) => {
+  const mensagem = e.message || "erro desconhecido";
+  if (recarregarPorVersaoAntiga(mensagem)) return;
+  mostraErroFatal(mensagem);
+});
+window.addEventListener("unhandledrejection", (e) => {
+  const mensagem = String((e as PromiseRejectionEvent).reason ?? "promessa rejeitada");
+  if (recarregarPorVersaoAntiga(mensagem)) return;
+  mostraErroFatal(mensagem);
+});
 
 try {
   createRoot(container).render(<App />);
+  // depois que a página abriu bem, libera uma nova recarga automática no futuro
+  setTimeout(() => {
+    try {
+      sessionStorage.removeItem(CHAVE_RECARGA);
+    } catch {
+      /* ignora */
+    }
+  }, 5000);
 } catch (err) {
   mostraErroFatal(err instanceof Error ? err.message : String(err));
 }
