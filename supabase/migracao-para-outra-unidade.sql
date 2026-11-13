@@ -1,16 +1,10 @@
 -- =====================================================================
--- Multiplus — evolução do banco de uma unidade para o modelo atual
+-- Multiplus — estrutura completa do banco (modelo atual do Paulínia)
 -- ---------------------------------------------------------------------
--- Faz: cria as tabelas que faltam (create table if not exists), adiciona
---       colunas (add column if not exists), recria funções, gatilhos,
---       índices e políticas de acesso e liga as tabelas no realtime.
--- Não faz: nenhum delete/update/insert de dados. Carteira de clientes,
---       visitas, rotas, pagamentos e coletas da unidade ficam intactas.
--- Pode ser rodado em um projeto que já tenha parte dessas tabelas
--- (é seguro rodar de novo depois de novas atualizações do app).
---
--- DEPOIS DE RODAR: em Dados & backup -> Configurações, ajuste o
---   "Nome da unidade" (ex.: Multiplus Porto Alegre).
+-- Rode este arquivo no projeto da nova unidade, ANTES do primeiro login.
+-- Cria tabelas que faltam, colunas (inclui toneladas, bairro, email,
+-- telefone, representante, base de atendimento e nome da unidade),
+-- funções, gatilhos, índices e políticas. Não apaga nem altera dados.
 -- =====================================================================
 
 begin;
@@ -1895,7 +1889,20 @@ alter policy fat_write on apresentacao_faturamento with check (auth.uid() is not
 alter policy fat_update on apresentacao_faturamento using (auth.uid() is not null) with check (auth.uid() is not null);
 
 alter policy fat_delete on apresentacao_faturamento using (auth.uid() is not null);
--- garante a linha de configurações (sem sobrescrever nada)
+
+alter table clients add column if not exists bairro text;
+
+alter table clients add column if not exists email text;
+
+alter table clients add column if not exists telefone text;
+
+alter table clients add column if not exists representante text;
+
+alter table clients add column if not exists base_atendimento text;
+
+alter table coletas add column if not exists toneladas numeric;
+
+alter table client_monthly_volumes add column if not exists toneladas numeric;
 insert into public.settings (id) values (1) on conflict (id) do nothing;
 
 commit;
