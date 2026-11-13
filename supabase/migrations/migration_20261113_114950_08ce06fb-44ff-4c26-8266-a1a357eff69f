@@ -1,0 +1,1 @@
+update clients set segment = 'Poli/Carregamento na hora' where id in ('cli-171','cli-197','cli-221','cli-184','cli-217','cli-192');

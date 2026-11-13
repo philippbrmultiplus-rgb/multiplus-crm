@@ -3,6 +3,7 @@ export const SEGMENTOS_LOGISTICOS = [
   "Rollon",
   "Rollon/Carregamento na hora",
   "Poli",
+  "Poli/Carregamento na hora",
   "Porta a Porta",
   "Porta a Porta/Carregamento na hora",
   "Terceiro",
