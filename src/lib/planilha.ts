@@ -28,6 +28,8 @@ export interface LancamentoPlanilha {
   data: string;
   volume: number;
   trocas: number;
+  /** peso (toneladas) quando a planilha informa */
+  toneladas?: number;
 }
 
 export interface ColetaPlanilha {
@@ -35,6 +37,8 @@ export interface ColetaPlanilha {
   collectDate: string;
   volume: number;
   trocas: number;
+  /** peso (toneladas) quando a planilha informa */
+  toneladas: number;
 }
 
 export interface DadosPlanilha {
@@ -46,7 +50,7 @@ export interface DadosPlanilha {
   /** nomes da planilha que não têm cliente vinculado na carteira */
   semCadastro: string[];
   /** volume diário por nome da planilha (serve para separar o que não tem cadastro) */
-  porNome: { nome: string; data: string; volume: number }[];
+  porNome: { nome: string; data: string; volume: number; toneladas: number }[];
   versao: string | null;
   periodo: [string, string] | null;
   totalColetas: number;
@@ -70,7 +74,7 @@ function mediaDeDias(datas: string[]): number | null {
 interface Grupo {
   nome: string;
   cliente: string | null;
-  dias: Map<string, { volume: number; trocas: number }>;
+  dias: Map<string, { volume: number; trocas: number; toneladas: number }>;
 }
 
 /**
@@ -94,12 +98,12 @@ function slugDoNome(nome: string): string {
 function coletasPorNome(
   arquivo: ArquivoPlanilha,
   lancamentos: LancamentoPlanilha[],
-): Map<string, Map<string, { volume: number; trocas: number }>> {
-  const porNome = new Map<string, Map<string, { volume: number; trocas: number }>>();
+): Map<string, Map<string, { volume: number; trocas: number; toneladas: number }>> {
+  const porNome = new Map<string, Map<string, { volume: number; trocas: number; toneladas: number }>>();
   const diasDe = (nome: string) => {
     const atual = porNome.get(nome);
     if (atual) return atual;
-    const novo = new Map<string, { volume: number; trocas: number }>();
+    const novo = new Map<string, { volume: number; trocas: number; toneladas: number }>();
     porNome.set(nome, novo);
     return novo;
   };
@@ -107,14 +111,19 @@ function coletasPorNome(
   for (const linha of arquivo.clientes) {
     if (!linha || !Array.isArray(linha.coletas)) continue;
     const dias = diasDe(linha.nome);
-    for (const [data, volume, trocas] of linha.coletas) {
+    for (const [data, volume, trocas, toneladas] of linha.coletas) {
       const dia = String(data).slice(0, 10);
       const atual = dias.get(dia);
       if (atual) {
         atual.volume += Number(volume) || 0;
         atual.trocas += Number(trocas) || 1;
+        atual.toneladas += Number(toneladas) || 0;
       } else {
-        dias.set(dia, { volume: Number(volume) || 0, trocas: Number(trocas) || 1 });
+        dias.set(dia, {
+          volume: Number(volume) || 0,
+          trocas: Number(trocas) || 1,
+          toneladas: Number(toneladas) || 0,
+        });
       }
     }
   }
@@ -125,6 +134,7 @@ function coletasPorNome(
     diasDe(l.nome).set(dia, {
       volume: Number(l.volume) || 0,
       trocas: Math.max(1, Number(l.trocas) || 1),
+      toneladas: Number(l.toneladas) || 0,
     });
   }
 
@@ -142,7 +152,7 @@ export function calcularDados(
   const coletas: ColetaPlanilha[] = [];
   const ultimaColeta: Record<string, string> = {};
   const semCadastro: string[] = [];
-  const porNome: { nome: string; data: string; volume: number }[] = [];
+  const porNome: { nome: string; data: string; volume: number; toneladas: number }[] = [];
   let totalColetas = 0;
 
   // nome da planilha -> cliente do cadastro (a planilha base já vem resolvida; nomes
@@ -164,6 +174,7 @@ export function calcularDados(
       if (atual) {
         atual.volume += valor.volume;
         atual.trocas += valor.trocas;
+        atual.toneladas += valor.toneladas;
       } else {
         grupo.dias.set(dia, { ...valor });
       }
@@ -176,15 +187,21 @@ export function calcularDados(
     const prefixo = grupo.cliente ? `vol-${grupo.cliente}` : `vol-sem-${slugDoNome(grupo.nome)}`;
 
     const porMes = new Map<string, number>();
+    const toneladasPorMes = new Map<string, number>();
     for (const data of datas) {
       const mes = `${data.slice(0, 7)}-01`;
       porMes.set(mes, (porMes.get(mes) ?? 0) + grupo.dias.get(data)!.volume);
+      toneladasPorMes.set(
+        mes,
+        (toneladasPorMes.get(mes) ?? 0) + (grupo.dias.get(data)!.toneladas ?? 0),
+      );
       if (grupo.cliente) {
         coletas.push({
           clientId: grupo.cliente,
           collectDate: data,
           volume: Math.round(grupo.dias.get(data)!.volume * 100) / 100,
           trocas: grupo.dias.get(data)!.trocas,
+          toneladas: Math.round((grupo.dias.get(data)!.toneladas ?? 0) * 100) / 100,
         });
       }
     }
@@ -195,6 +212,7 @@ export function calcularDados(
         label: grupo.cliente ? null : grupo.nome,
         month: mes,
         volumeM3: Math.round(volume * 100) / 100,
+        toneladas: Math.round((toneladasPorMes.get(mes) ?? 0) * 100) / 100,
       });
     }
 
@@ -203,6 +221,7 @@ export function calcularDados(
         nome: grupo.nome,
         data: dia,
         volume: Math.round(valor.volume * 100) / 100,
+        toneladas: Math.round((valor.toneladas ?? 0) * 100) / 100,
       });
     }
 

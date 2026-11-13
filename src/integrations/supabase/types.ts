@@ -3525,6 +3525,7 @@ export type Database = {
           id: string
           label: string | null
           month: string
+          toneladas: number | null
           volume_m3: number
         }
         Insert: {
@@ -3533,6 +3534,7 @@ export type Database = {
           id?: string
           label?: string | null
           month: string
+          toneladas?: number | null
           volume_m3?: number
         }
         Update: {
@@ -3541,6 +3543,7 @@ export type Database = {
           id?: string
           label?: string | null
           month?: string
+          toneladas?: number | null
           volume_m3?: number
         }
         Relationships: [
@@ -3833,6 +3836,7 @@ export type Database = {
           created_by: string | null
           id: string
           note: string | null
+          toneladas: number | null
           trocas: number
           volume_m3: number | null
         }
@@ -3843,6 +3847,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           note?: string | null
+          toneladas?: number | null
           trocas?: number
           volume_m3?: number | null
         }
@@ -3853,6 +3858,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           note?: string | null
+          toneladas?: number | null
           trocas?: number
           volume_m3?: number | null
         }

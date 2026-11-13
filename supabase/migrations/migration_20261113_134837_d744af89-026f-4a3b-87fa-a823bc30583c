@@ -1,0 +1,2 @@
+alter table coletas add column if not exists toneladas numeric;
+alter table client_monthly_volumes add column if not exists toneladas numeric;

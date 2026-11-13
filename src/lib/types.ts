@@ -248,6 +248,8 @@ export interface MonthlyVolume {
   /** primeiro dia do mês da coleta (yyyy-mm-dd) */
   month: string;
   volumeM3: number;
+  /** peso em toneladas, quando a planilha informa */
+  toneladas?: number | null;
 }
 
 /** condições de pagamento acertadas com o cliente (planilha de pagamentos) */

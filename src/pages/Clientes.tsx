@@ -1767,7 +1767,14 @@ function ClientHistoryDialog({ client, onClose }: { client: Client | null; onClo
               {volumes.map((v) => (
                 <div key={v.month} className="flex items-baseline justify-between gap-2">
                   <span className="text-muted-foreground">{mesLabel(v.month)}</span>
-                  <span className="tabular-nums">{formatM3(v.volumeM3)} m³</span>
+                  <span className="tabular-nums">
+                    {formatM3(v.volumeM3)} m³
+                    {v.toneladas ? (
+                      <span className="ml-1.5 text-xs text-muted-foreground">
+                        {formatM3(Math.round(v.toneladas * 10) / 10)} t
+                      </span>
+                    ) : null}
+                  </span>
                 </div>
               ))}
             </div>

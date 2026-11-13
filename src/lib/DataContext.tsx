@@ -984,6 +984,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           label: v.label,
           month: v.month,
           volume_m3: v.volumeM3,
+          toneladas: v.toneladas ?? null,
         })),
         (parte) => supabase.from("client_monthly_volumes").upsert(parte, { onConflict: "id" }),
       );
@@ -1010,6 +1011,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 client_id: c.clientId,
                 collect_date: c.collectDate,
                 volume_m3: c.volume,
+                toneladas: c.toneladas ?? null,
                 trocas: c.trocas,
               })),
               (parte) =>
