@@ -1,0 +1,14 @@
+update coletas set volume_m3 = 26, trocas = 1 where client_id = 'cli-242' and collect_date = '2026-10-21';
+
+insert into coletas (client_id, collect_date, volume_m3, trocas)
+values ('cli-104','2026-10-21',26,1)
+on conflict (client_id, collect_date) do update set volume_m3 = excluded.volume_m3, trocas = excluded.trocas;
+
+update client_monthly_volumes set volume_m3 = 101.4 where id = 'vol-cli-242-2026-10-01';
+
+insert into client_monthly_volumes (id, client_id, label, month, volume_m3)
+values ('vol-cli-104-2026-10-01','cli-104',null,'2026-10-01',26)
+on conflict (id) do update set volume_m3 = excluded.volume_m3;
+
+update clients set last_collect_at = '2026-10-21'
+where id = 'cli-104' and (last_collect_at is null or last_collect_at < '2026-10-21'::date);
