@@ -141,6 +141,10 @@ export default function ComparativoMensal() {
       .filter((l) => (comparandoQueda ? l.queda > 0 : true))
       // com um mês escolhido entram só os clientes que tiveram volume naquele mês
       .filter((l) => (comparandoMes ? (l.valores[mesOrdem] ?? 0) > 0 : true))
+      // segmento + mês escolhidos: esconde quem ficou zerado naquele mês
+      .filter((l) =>
+        segmento !== "all" && mesFiltro !== "todas" ? (l.valores[mesFiltro] ?? 0) > 0 : true,
+      )
       .sort((a, b) => {
         // da maior queda para a menor queda
         if (comparandoQueda) return b.queda - a.queda || a.nome.localeCompare(b.nome, "pt-BR");
@@ -154,7 +158,7 @@ export default function ComparativoMensal() {
           ? a.nome.localeCompare(b.nome, "pt-BR")
           : b.total - a.total || a.nome.localeCompare(b.nome, "pt-BR");
       });
-  }, [linhas, search, segmento, ordem, comparandoQueda, comparandoMes, mesOrdem]);
+  }, [linhas, search, segmento, ordem, comparandoQueda, comparandoMes, mesOrdem, mesFiltro]);
 
   const totalFiltrado = useMemo(() => filtradas.reduce((acc, l) => acc + l.total, 0), [filtradas]);
   const mesFiltrado = (m: string) => filtradas.reduce((acc, l) => acc + (l.valores[m] ?? 0), 0);
