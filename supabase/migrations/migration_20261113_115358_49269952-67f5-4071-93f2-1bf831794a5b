@@ -1,0 +1,1 @@
+update clients set segment = 'Poli/Esporádico' where id in ('cli-265','cli-194','cli-273','cli-270','cli-219','cli-202','cli-218','cli-117','cli-268','cli-222','cli-266','cli-146','cli-126','cli-199');
