@@ -36,7 +36,9 @@ interface Linha {
   segmento: string;
   semCadastro: boolean;
   valores: Record<string, number>;
+  toneladas: Record<string, number>;
   total: number;
+  totalToneladas: number;
   /** média por mês considerando os meses lançados */
   media: number;
   /** quanto caiu do mês comparado para o seguinte (positivo = queda) */
@@ -94,15 +96,19 @@ export default function ComparativoMensal() {
           segmento: normalizarSegmento(cliente?.segment ?? ""),
           semCadastro: !v.clientId,
           valores: {} as Record<string, number>,
+          toneladas: {} as Record<string, number>,
         };
       linha.valores[v.month] = (linha.valores[v.month] ?? 0) + v.volumeM3;
+      linha.toneladas[v.month] = (linha.toneladas[v.month] ?? 0) + (v.toneladas ?? 0);
       mapa.set(key, linha);
     }
     return [...mapa.values()].map((l) => {
       const total = meses.reduce((acc, m) => acc + (l.valores[m] ?? 0), 0);
+      const totalToneladas = meses.reduce((acc, m) => acc + (l.toneladas[m] ?? 0), 0);
       return {
         ...l,
         total,
+        totalToneladas,
         // média do volume por mês, considerando os meses lançados no comparativo
         media: meses.length ? total / meses.length : 0,
         queda: mesDe && mesPara ? (l.valores[mesDe] ?? 0) - (l.valores[mesPara] ?? 0) : 0,
@@ -118,6 +124,22 @@ export default function ComparativoMensal() {
     }
     return mapa;
   }, [linhas, meses]);
+
+  const toneladasPorMes = useMemo(() => {
+    const mapa = new Map<string, number>();
+    for (const l of linhas) {
+      for (const m of meses) mapa.set(m, (mapa.get(m) ?? 0) + (l.toneladas[m] ?? 0));
+    }
+    return mapa;
+  }, [linhas, meses]);
+  const toneladasTotal = useMemo(
+    () => linhas.reduce((acc, l) => acc + l.totalToneladas, 0),
+    [linhas],
+  );
+  const toneladasVisivel = useMemo(
+    () => mesesVisiveis.reduce((acc, m) => acc + (toneladasPorMes.get(m) ?? 0), 0),
+    [mesesVisiveis, toneladasPorMes],
+  );
   const semCadastro = useMemo(() => linhas.filter((l) => l.semCadastro).length, [linhas]);
 
   const segmentos = useMemo(() => {
@@ -217,6 +239,11 @@ export default function ComparativoMensal() {
             </CardTitle>
             <p className="pt-1 text-xs text-muted-foreground">
               {diasUteisPeriodo} {diasUteisPeriodo === 1 ? "dia útil" : "dias úteis"} no período
+              {toneladasVisivel > 0 && (
+                <span className="block">
+                  {m3(Math.round(toneladasVisivel * 10) / 10)} t de material
+                </span>
+              )}
             </p>
           </CardHeader>
         </Card>
@@ -437,11 +464,21 @@ export default function ComparativoMensal() {
                   </TableCell>
                   {mesesVisiveis.map((m) => (
                     <TableCell key={m} className={valorClasse(l.valores[m])}>
-                      {m3(l.valores[m] ?? 0)}
+                      <span className="block tabular-nums">{m3(l.valores[m] ?? 0)}</span>
+                      {(l.toneladas[m] ?? 0) > 0 && (
+                        <span className="block text-[9px] font-normal text-muted-foreground">
+                          {m3(l.toneladas[m])} t
+                        </span>
+                      )}
                     </TableCell>
                   ))}
                   <TableCell className="text-center font-semibold tabular-nums">
-                    {m3(l.total)}
+                    <span className="block">{m3(l.total)}</span>
+                    {l.totalToneladas > 0 && (
+                      <span className="block text-[9px] font-normal text-muted-foreground">
+                        {m3(Math.round(l.totalToneladas * 10) / 10)} t
+                      </span>
+                    )}
                   </TableCell>
                   <TableCell className="text-center tabular-nums">{m3(l.media)}</TableCell>
                   {comparandoQueda && (
@@ -475,11 +512,21 @@ export default function ComparativoMensal() {
                   </TableCell>
                   {mesesVisiveis.map((m) => (
                     <TableCell key={m} className="text-center font-semibold tabular-nums">
-                      {m3(mesFiltrado(m))}
+                      <span className="block">{m3(mesFiltrado(m))}</span>
+                      {(toneladasPorMes.get(m) ?? 0) > 0 && (
+                        <span className="block text-[9px] font-normal text-muted-foreground">
+                          {m3(Math.round((toneladasPorMes.get(m) ?? 0) * 10) / 10)} t
+                        </span>
+                      )}
                     </TableCell>
                   ))}
                   <TableCell className="text-center font-semibold tabular-nums">
-                    {m3(totalFiltrado)}
+                    <span className="block">{m3(totalFiltrado)}</span>
+                    {toneladasTotal > 0 && (
+                      <span className="block text-[9px] font-normal text-muted-foreground">
+                        {m3(Math.round(filtradas.reduce((a, l) => a + l.totalToneladas, 0) * 10) / 10)} t
+                      </span>
+                    )}
                   </TableCell>
                   <TableCell className="text-center font-semibold tabular-nums">
                     {m3(mesesVisiveis.length ? totalFiltrado / mesesVisiveis.length : 0)}

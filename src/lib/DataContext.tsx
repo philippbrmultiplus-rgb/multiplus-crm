@@ -241,6 +241,7 @@ function volumeFromRow(r: Record<string, any>): MonthlyVolume {
     label: r.label ?? null,
     month: (r.month ?? "").slice(0, 10),
     volumeM3: Number(r.volume_m3 ?? 0),
+    toneladas: r.toneladas != null ? Number(r.toneladas) : null,
   };
 }
 

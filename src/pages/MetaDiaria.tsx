@@ -65,6 +65,8 @@ export default function MetaDiaria() {
   const [porDia, setPorDia] = useState<Record<string, ValoresDia>>({});
   const [carregando, setCarregando] = useState(false);
   const [salvoEm, setSalvoEm] = useState<string | null>(null);
+  /** toneladas por dia do mês (vem da planilha, quando informada) */
+  const [toneladasDia, setToneladasDia] = useState<Record<string, number>>({});
   const podeEditar = role === "coordenador";
 
   const inicio = `${mes}-01`;
@@ -110,7 +112,7 @@ export default function MetaDiaria() {
     setCarregando(true);
     const { data, error } = await supabase
       .from("coletas")
-      .select("client_id, collect_date, volume_m3")
+      .select("client_id, collect_date, volume_m3, toneladas")
       .gte("collect_date", inicio)
       .lte("collect_date", fim);
     if (error) {
@@ -120,10 +122,12 @@ export default function MetaDiaria() {
       return;
     }
     const acumulado: Record<string, ValoresDia> = {};
+    const toneladas: Record<string, number> = {};
     for (const linha of data ?? []) {
       const row = linha as Record<string, unknown>;
       const dia = String(row.collect_date ?? "").slice(0, 10);
       if (!dia) continue;
+      toneladas[dia] = (toneladas[dia] ?? 0) + (Number(row.toneladas) || 0);
       const grupo = grupoDoSegmento(segmentoPorCliente.get(String(row.client_id)) ?? "");
       if (!grupo) continue;
       const valores = acumulado[dia] ?? vazio();
@@ -132,6 +136,7 @@ export default function MetaDiaria() {
     }
 
     setPorDia(acumulado);
+    setToneladasDia(toneladas);
     setCarregando(false);
   }, [inicio, fim, segmentoPorCliente]);
 
@@ -193,6 +198,8 @@ export default function MetaDiaria() {
       ...[...foraDoCadastro.entries()].map(([nome, volume]) => ({ nome, volume })),
     ].sort((a, b) => b.volume - a.volume);
   }, [volumes, clients, inicio]);
+
+  const toneladasMes = Object.values(toneladasDia).reduce((acc, v) => acc + v, 0);
 
   const totalDoDia = (valores: ValoresDia | undefined) =>
     valores ? GRUPOS.reduce((acc, g) => acc + valores[g.chave], 0) : 0;
@@ -291,6 +298,9 @@ export default function MetaDiaria() {
             <p className="text-xs text-muted-foreground">
               {diasUteisMes} {diasUteisMes === 1 ? "dia útil realizado" : "dias úteis realizados"} de{" "}
               {diasUteisTotais}
+              {toneladasMes > 0 && (
+                <span className="block">{formatM3(Math.round(toneladasMes * 10) / 10)} t de material</span>
+              )}
             </p>
           </CardHeader>
         </Card>
