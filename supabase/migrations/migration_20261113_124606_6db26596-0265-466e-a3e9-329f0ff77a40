@@ -1,0 +1,1 @@
+update clients set segment = 'Rollon' where id = 'cli-242';
