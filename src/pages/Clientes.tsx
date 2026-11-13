@@ -1774,6 +1774,33 @@ function ClientHistoryDialog({ client, onClose }: { client: Client | null; onClo
           </div>
         )}
 
+        {/* dados do cadastro (inclui os campos que vieram da planilha de Arujá) */}
+        {(client.cnpj || client.bairro || client.email || client.telefone || client.representante || client.baseAtendimento) && (
+          <div className="space-y-2 rounded-lg border p-3">
+            <span className="text-xs font-medium text-muted-foreground">Dados do cadastro</span>
+            <div className="grid gap-x-4 gap-y-1 text-sm sm:grid-cols-2">
+              {[
+                { rotulo: "CNPJ/CPF", valor: client.cnpj },
+                { rotulo: "Bairro", valor: client.bairro },
+                { rotulo: "E-mail", valor: client.email },
+                { rotulo: "Telefone", valor: client.telefone },
+                { rotulo: "Responsável", valor: client.responsavel },
+                { rotulo: "Representante", valor: client.representante },
+                { rotulo: "Base de atendimento", valor: client.baseAtendimento },
+              ]
+                .filter((item) => item.valor)
+                .map((item) => (
+                  <div key={item.rotulo} className="flex items-baseline justify-between gap-2">
+                    <span className="text-muted-foreground">{item.rotulo}</span>
+                    <span className="max-w-[60%] truncate text-right" title={String(item.valor)}>
+                      {item.valor}
+                    </span>
+                  </div>
+                ))}
+            </div>
+          </div>
+        )}
+
         {/* observações: ficam aqui, no histórico do cliente, com data e autor */}
         <div className="space-y-3 rounded-lg border p-3">
           <div className="flex flex-wrap items-center justify-between gap-2">

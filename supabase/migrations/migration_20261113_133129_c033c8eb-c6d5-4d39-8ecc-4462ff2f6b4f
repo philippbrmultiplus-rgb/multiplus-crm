@@ -1,0 +1,5 @@
+alter table clients add column if not exists bairro text;
+alter table clients add column if not exists email text;
+alter table clients add column if not exists telefone text;
+alter table clients add column if not exists representante text;
+alter table clients add column if not exists base_atendimento text;

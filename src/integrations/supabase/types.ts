@@ -3692,12 +3692,15 @@ export type Database = {
           active: boolean | null
           address: string | null
           avg_monthly: number | null
+          bairro: string | null
+          base_atendimento: string | null
           city: string | null
           cnpj: string | null
           contato: string | null
           contrato_numero: string | null
           created_at: string
           dia_pagamento: number | null
+          email: string | null
           equipamento: string | null
           equipamentos_qtd: number | null
           forma_pagamento: string | null
@@ -3716,10 +3719,12 @@ export type Database = {
           obs: string | null
           prospeccao_justificativa: string | null
           prospeccao_status: string | null
+          representante: string | null
           responsavel: string | null
           segment: string | null
           segmento_comercial: string | null
           state: string | null
+          telefone: string | null
           tier: string | null
           total_2025: number | null
           total_2026: number | null
@@ -3732,12 +3737,15 @@ export type Database = {
           active?: boolean | null
           address?: string | null
           avg_monthly?: number | null
+          bairro?: string | null
+          base_atendimento?: string | null
           city?: string | null
           cnpj?: string | null
           contato?: string | null
           contrato_numero?: string | null
           created_at?: string
           dia_pagamento?: number | null
+          email?: string | null
           equipamento?: string | null
           equipamentos_qtd?: number | null
           forma_pagamento?: string | null
@@ -3756,10 +3764,12 @@ export type Database = {
           obs?: string | null
           prospeccao_justificativa?: string | null
           prospeccao_status?: string | null
+          representante?: string | null
           responsavel?: string | null
           segment?: string | null
           segmento_comercial?: string | null
           state?: string | null
+          telefone?: string | null
           tier?: string | null
           total_2025?: number | null
           total_2026?: number | null
@@ -3772,12 +3782,15 @@ export type Database = {
           active?: boolean | null
           address?: string | null
           avg_monthly?: number | null
+          bairro?: string | null
+          base_atendimento?: string | null
           city?: string | null
           cnpj?: string | null
           contato?: string | null
           contrato_numero?: string | null
           created_at?: string
           dia_pagamento?: number | null
+          email?: string | null
           equipamento?: string | null
           equipamentos_qtd?: number | null
           forma_pagamento?: string | null
@@ -3796,10 +3809,12 @@ export type Database = {
           obs?: string | null
           prospeccao_justificativa?: string | null
           prospeccao_status?: string | null
+          representante?: string | null
           responsavel?: string | null
           segment?: string | null
           segmento_comercial?: string | null
           state?: string | null
+          telefone?: string | null
           tier?: string | null
           total_2025?: number | null
           total_2026?: number | null

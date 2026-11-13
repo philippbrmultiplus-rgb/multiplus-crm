@@ -63,6 +63,12 @@ export interface Client {
   obs?: string;
   /** dados usados no contrato de prestação de serviços */
   cnpj?: string | null;
+  /** dados de contato e atendimento (usados na carteira de algumas unidades) */
+  bairro?: string | null;
+  email?: string | null;
+  telefone?: string | null;
+  representante?: string | null;
+  baseAtendimento?: string | null;
   inscricaoEstadual?: string | null;
   contratoNumero?: string | null;
   /** "Caçamba Roll On - 26m³", "Caçamba Poli - 5m³"… */
