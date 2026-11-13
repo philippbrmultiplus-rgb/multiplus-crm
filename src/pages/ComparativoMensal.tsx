@@ -377,12 +377,13 @@ export default function ComparativoMensal() {
         <div className="card-soft overflow-hidden">
           <Table className="w-full table-fixed text-[11px] [&_th]:px-0.5 [&_th]:py-1 [&_td]:px-0.5 [&_td]:py-1 [&_thead_tr]:bg-primary [&_thead_th]:text-[10px] [&_thead_th]:font-semibold [&_thead_th]:text-primary-foreground">
             <colgroup>
-              <col style={{ width: mesesVisiveis.length === 1 ? "38%" : "25%" }} />
-              <col style={{ width: mesesVisiveis.length === 1 ? "16%" : "10%" }} />
+              <col style={{ width: mesesVisiveis.length === 1 ? "34%" : "22%" }} />
+              <col style={{ width: mesesVisiveis.length === 1 ? "14%" : "9%" }} />
               {mesesVisiveis.map((m) => (
                 <col key={m} />
               ))}
-              <col style={{ width: mesesVisiveis.length === 1 ? "16%" : "9%" }} />
+              <col style={{ width: mesesVisiveis.length === 1 ? "14%" : "8%" }} />
+              <col style={{ width: mesesVisiveis.length === 1 ? "14%" : "8%" }} />
               {comparandoQueda && <col style={{ width: "10%" }} />}
             </colgroup>
             <TableHeader>
@@ -406,6 +407,9 @@ export default function ComparativoMensal() {
                   </TableHead>
                 ))}
                 <TableHead className="text-center">Total</TableHead>
+                <TableHead className="text-center" title="Total do período dividido pelos meses lançados">
+                  Média
+                </TableHead>
                 {comparandoQueda && <TableHead className="text-center">Queda (m³)</TableHead>}
               </TableRow>
             </TableHeader>
@@ -435,6 +439,7 @@ export default function ComparativoMensal() {
                   <TableCell className="text-center font-semibold tabular-nums">
                     {m3(l.total)}
                   </TableCell>
+                  <TableCell className="text-center tabular-nums">{m3(l.media)}</TableCell>
                   {comparandoQueda && (
                     <TableCell className="whitespace-nowrap text-center font-semibold tabular-nums text-destructive">
                       -{m3(l.queda)}{" "}
@@ -446,7 +451,7 @@ export default function ComparativoMensal() {
               {filtradas.length === 0 && (
                 <TableRow>
                   <TableCell
-                    colSpan={3 + mesesVisiveis.length + (comparandoQueda ? 1 : 0)}
+                    colSpan={4 + mesesVisiveis.length + (comparandoQueda ? 1 : 0)}
                     className="py-8 text-center text-muted-foreground"
                   >
                     {comparandoQueda
@@ -471,6 +476,9 @@ export default function ComparativoMensal() {
                   ))}
                   <TableCell className="text-center font-semibold tabular-nums">
                     {m3(totalFiltrado)}
+                  </TableCell>
+                  <TableCell className="text-center font-semibold tabular-nums">
+                    {m3(mesesVisiveis.length ? totalFiltrado / mesesVisiveis.length : 0)}
                   </TableCell>
                   {comparandoQueda && (
                     <TableCell className="whitespace-nowrap text-center font-semibold tabular-nums text-destructive">
