@@ -1,0 +1,17 @@
+insert into clients (id, name, segment, segmento_comercial, city, state, active, geocode_status, last_collect_at)
+values
+  ('cli-295','CERÂMICA TREVISAN','Poli','Indústria','','SP',true,'pendente','2026-11-11'::date),
+  ('cli-296','PAULO TERRAPLENAGEM','Porta a Porta','Caçambeiro','','SP',true,'pendente','2026-11-10'::date)
+on conflict (id) do nothing;
+
+insert into coletas (client_id, collect_date, volume_m3, trocas) values
+  ('cli-295','2026-11-11',5,1),
+  ('cli-296','2026-11-10',20.8,1)
+on conflict (client_id, collect_date) do update set volume_m3 = excluded.volume_m3, trocas = excluded.trocas;
+
+insert into client_monthly_volumes (id, client_id, label, month, volume_m3) values
+  ('vol-cli-295-2026-11-01','cli-295',null,'2026-11-01',5),
+  ('vol-cli-296-2026-11-01','cli-296',null,'2026-11-01',20.8)
+on conflict (id) do update set volume_m3 = excluded.volume_m3, client_id = excluded.client_id, label = null;
+
+delete from client_monthly_volumes where client_id is null and label in ('CERÂMICA TREVISAN - PLN','PAULO TERRAPLENAGEM -');
